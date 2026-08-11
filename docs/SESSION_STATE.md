@@ -6,19 +6,37 @@
 
 ---
 
-## Estado atual — 10/ago/2026
+## Estado atual — 11/ago/2026
 
-**Nada foi construído.** O projeto tem apenas a documentação de partida:
+**Nada foi construído** (ainda sem código, sem banco, sem nome). O projeto tem a
+documentação de partida **mais a análise do ContLife**, feita lendo o código de verdade:
 
 | Arquivo | O que é |
 |---|---|
 | `CLAUDE.md` | disciplina de trabalho herdada do ContLife (lido automaticamente) |
 | `docs/00_NORTE.md` | o que é o projeto, mapa de reaproveitamento do ContLife, perguntas em aberto |
+| `docs/01_ANALISE_REAPROVEITAMENTO.md` | **novo (11/ago)** — confere o mapa do NORTE contra o código real do ContLife |
 | `docs/SESSION_STATE.md` | este arquivo |
 | `README.md` | porta de entrada |
 | `.gitignore` | já preparado para segredos |
 
-Git iniciado, **sem remoto**. Sem código, sem banco, sem nome definitivo.
+Git iniciado, **sem remoto**.
+
+### O que a análise de 11/ago acrescentou
+
+- **Confirmado como ouro:** `contlife-sinc.mjs`, `aplicar_lote.sql`, `TelaAutenticacao`,
+  a disciplina de teste contra o SQL real, o pipeline de build.
+- **Corrigido para menos:** as primitivas de UI valem ~1 dia (são pequenas; o valor está na
+  convenção de tema e na acessibilidade já calibrada), e o motor contábil transfere só
+  metade — as métricas de vida pessoal (`computeStats`, score, idade financeira) não servem.
+- **Três decisões caras de desfazer depois**, detalhadas na §4 da análise:
+  1. **partida binária vs. lançamento com N linhas** — venda com baixa de estoque tem 4
+     pernas num fato só; o `entries` do ContLife só aceita 2;
+  2. **`owner_id` no dossiê vs. tabela de membros** — o modelo atual cobre "o Luan cuida de
+     vários clientes", mas não "o dono da loja também entra";
+  3. **o teto do "carrega tudo na memória"** — manter o motor de diferença, mas deixar
+     lançamentos e movimento de estoque fora dele, carregados por período.
+- **Não herdar** o arquivo único de 10.361 linhas: começar modular custa zero agora.
 
 ---
 
@@ -36,21 +54,25 @@ O ContLife é **fonte de reaproveitamento**, não base.
 
 ## ⚠️ O que aguarda decisão do Luan
 
-**As 8 perguntas da seção 6 do `00_NORTE.md`** — nenhuma foi respondida. Elas definem o
-escopo e precisam ser feitas **antes de escrever código**. As duas mais estruturais:
+**As 8 perguntas da seção 6 do `00_NORTE.md`** — foram feitas a ele em 11/ago/2026, **ainda
+sem resposta**. Elas definem o escopo e travam o código. As três mais caras de errar, agora
+com o motivo técnico medido (§4 da análise):
 
-- **Um negócio ou vários?** (muda a modelagem inteira)
-- **Estoque entra na primeira versão?** (é a parte mais cara de fazer certo, e o ContLife
-  não tem nada parecido para reaproveitar)
+- **Q4 — quem digita?** decide `owner_id` vs. tabela de membros; retrofit toca **todas** as
+  políticas de RLS de uma vez
+- **Q2 — estoque na primeira versão?** decide partida binária vs. lançamento com N linhas
+- **Q8 — web com login ou só no computador dele?** decide se existe backend
 
 ---
 
 ## Próxima tarefa recomendada
 
-1. Ler `docs/00_NORTE.md`
-2. Analisar o ContLife (caminhos e ordem de leitura estão no NORTE, seção 2)
-3. Apresentar ao dono o que dá para reaproveitar de verdade e o que é melhor refazer
-4. **Fazer as 8 perguntas** e só então propor um desenho
+1. **Receber as 8 respostas** (perguntas feitas, aguardando)
+2. Propor o modelo de dados: partida com N linhas, plano de contas de negócio, membros
+3. Só então: projeto Supabase novo, schema, RLS, `aplicar_lote` adaptado + testes contra o
+   SQL real
 
-**Sugestão de modelo:** esta etapa é desenho e julgamento — **Opus**. Avise o dono, ele troca
-com `/model`.
+A ordem de trabalho proposta está na §5 de `docs/01_ANALISE_REAPROVEITAMENTO.md`.
+
+**Sugestão de modelo:** desenho do modelo de dados ainda é julgamento — **Opus**. A partir
+da etapa 3 (copiar e adaptar arquivos com alvo claro), **Sonnet** resolve.
