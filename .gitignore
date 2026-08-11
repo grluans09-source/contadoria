@@ -1,0 +1,26 @@
+# Dependências
+node_modules/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Segredos — regra herdada do ContLife: segredo vive em ARQUIVO gitignored,
+# nunca colado no chat, nunca em nome de arquivo, nunca impresso em log.
+.env
+.env.*
+*.access-token
+.access-token
+.db-password
+token.txt
+supabase/.temp/
+.supabase/
+
+# Netlify (se houver deploy)
+.netlify
