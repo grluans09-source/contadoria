@@ -161,6 +161,40 @@ Não presuma nenhuma — o escopo ainda não está fechado:
 
 ---
 
+## 6.1 Prompt para abrir a sessão nova
+
+Abra a sessão **nesta pasta** e cole isto (guardado aqui para não depender do histórico do
+chat):
+
+```
+Vou começar um sistema novo, do zero, para pequenos negócios (ex.: loja de roupa).
+É para meu uso: quero cuidar da parte contábil e gerencial de clientes pequenos.
+Sou estudante, não tenho CRC — trate isso como restrição de desenho do produto,
+não como detalhe.
+
+Antes de escrever qualquer código:
+
+1. Leia `docs/00_NORTE.md` deste projeto — é o mapa que deixei pronto.
+2. Depois analise o ContLife, meu outro sistema (finanças pessoais, já no ar em
+   beta), em: C:\Users\LUAN S\OneDrive\Documentos\sistema financeio
+   Comece por PROJECT_DOCS/30_ONDE_TUDO_ESTA.md e PROJECT_DOCS/29_ARQUITETURA_BACKEND.md.
+3. Me diga o que dá pra reaproveitar de verdade e o que é melhor refazer.
+4. Me faça as 8 perguntas da seção 6 do NORTE — quero decidir o escopo com você
+   antes de começarmos.
+
+Regras:
+- NÃO altere nada na pasta do ContLife. Ele está em produção, com pessoas usando.
+- O que for reaproveitado é COPIADO para cá, não importado de lá: este sistema não
+  pode quebrar se o ContLife mudar.
+- Modular e incremental: nunca um bloco grande de mudança. Provar rodando, não por
+  leitura. Testar o caso positivo e o negativo.
+```
+
+Se a sessão disser que não consegue ler a pasta do ContLife, é só autorizar o acesso a esse
+diretório — ela vai pedir.
+
+---
+
 ## 7. Regras de trabalho herdadas (valem aqui também)
 
 Vieram do ContLife e foram caras de aprender:
