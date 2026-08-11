@@ -16,6 +16,7 @@ documentação de partida **mais a análise do ContLife**, feita lendo o código
 | `CLAUDE.md` | disciplina de trabalho herdada do ContLife (lido automaticamente) |
 | `docs/00_NORTE.md` | o que é o projeto, mapa de reaproveitamento do ContLife, perguntas em aberto |
 | `docs/01_ANALISE_REAPROVEITAMENTO.md` | **novo (11/ago)** — confere o mapa do NORTE contra o código real do ContLife |
+| `docs/02_ESCOPO.md` | **novo (11/ago)** — o que o sistema é, decidido com o dono. **Manda mais que o NORTE** onde divergir |
 | `docs/SESSION_STATE.md` | este arquivo |
 | `README.md` | porta de entrada |
 | `.gitignore` | já preparado para segredos |
@@ -52,27 +53,47 @@ O ContLife é **fonte de reaproveitamento**, não base.
 
 ---
 
-## ⚠️ O que aguarda decisão do Luan
+## Escopo fechado em 11/ago — o essencial em 6 linhas
 
-**As 8 perguntas da seção 6 do `00_NORTE.md`** — foram feitas a ele em 11/ago/2026, **ainda
-sem resposta**. Elas definem o escopo e travam o código. As três mais caras de errar, agora
-com o motivo técnico medido (§4 da análise):
+Detalhe completo em [`02_ESCOPO.md`](02_ESCOPO.md); resumo para não precisar abrir:
 
-- **Q4 — quem digita?** decide `owner_id` vs. tabela de membros; retrofit toca **todas** as
-  políticas de RLS de uma vez
-- **Q2 — estoque na primeira versão?** decide partida binária vs. lançamento com N linhas
-- **Q8 — web com login ou só no computador dele?** decide se existe backend
+- **Ele vende o serviço, não o sistema.** O sistema é ferramenta interna dele. Sem planos,
+  trial, Stripe, Porta ou mascotes.
+- **Clientes: MEIs e trabalhadores informais.** MEI **não é obrigado a ter contador** — é
+  por isso que o mercado está aberto para ele, e é por isso que ele vende **clareza**, não
+  conformidade.
+- **Só o Luan digita** na v1. Cliente manda pelo WhatsApp. Portal do cliente (só leitura)
+  fica para a v2 — mas a **tabela de membros nasce na v1** para não trocar fechadura depois.
+- **Três gavetas de entrega:** obrigação (Relatório de Receitas, DAS, limite de faturamento),
+  gerencial (DRE, caixa, empresa × pessoa, margem, ponto de equilíbrio) e revisão
+  (conciliação, invariantes, achados, trilha, fechamento com selo, carta de recomendações).
+- **Visual do ContLife entra** (preto/ouro/marfim); mascotes e Caduceu **não**.
+- **Web, com login, Supabase novo.** Sem estoque na v1, mas com lançamento de N linhas.
+
+---
+
+## ⚠️ O que ainda aguarda o Luan
+
+1. **Nome do sistema.** Sugestões dadas em 11/ago, nenhuma escolhida. **Marca é território
+   do Fable** — vale ele trocar de modelo para essa conversa.
+2. **De onde vêm os dados na prática** — WhatsApp é o canal, mas falta saber se haverá
+   extrato bancário e em que formato.
+3. **Quantos clientes ele espera no primeiro ano** — muda o quanto vale investir na Caixa
+   de Entrada.
 
 ---
 
 ## Próxima tarefa recomendada
 
-1. **Receber as 8 respostas** (perguntas feitas, aguardando)
-2. Propor o modelo de dados: partida com N linhas, plano de contas de negócio, membros
-3. Só então: projeto Supabase novo, schema, RLS, `aplicar_lote` adaptado + testes contra o
-   SQL real
+1. **Desenhar o modelo de dados** (documento `03`): lançamento com N linhas, plano de contas
+   de MEI/serviço, tabela de membros, tabela de parâmetros fiscais com vigência
+2. Projeto Supabase novo + schema + RLS + `aplicar_lote` adaptado + testes contra o SQL real
+3. Copiar `contlife-sinc.mjs` com `COLECOES` novo + `TelaAutenticacao`
+4. **Caixa de Entrada** — é o gargalo real do serviço, vem antes dos relatórios bonitos
 
-A ordem de trabalho proposta está na §5 de `docs/01_ANALISE_REAPROVEITAMENTO.md`.
+⚠️ Antes do primeiro uso real: **conferir o limite anual do MEI e o valor do DAS na
+legislação vigente.** Ver `02_ESCOPO.md` §2 — os valores vivem em tabela com vigência, nunca
+no código.
 
-**Sugestão de modelo:** desenho do modelo de dados ainda é julgamento — **Opus**. A partir
-da etapa 3 (copiar e adaptar arquivos com alvo claro), **Sonnet** resolve.
+**Sugestão de modelo:** o modelo de dados (passo 1) ainda é julgamento — **Opus**. Do passo 2
+em diante, alvo claro — **Sonnet**. Nome e marca — **Fable**.
