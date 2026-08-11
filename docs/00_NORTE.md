@@ -163,35 +163,27 @@ Não presuma nenhuma — o escopo ainda não está fechado:
 
 ## 6.1 Prompt para abrir a sessão nova
 
-Abra a sessão **nesta pasta** e cole isto (guardado aqui para não depender do histórico do
-chat):
+Abra a sessão **nesta pasta**. O `CLAUDE.md` da raiz é lido automaticamente e já carrega
+toda a disciplina de trabalho (arquiteto e não executor, escolha de modelo, documentação
+obrigatória, salvar sem pedir, validar rodando, não tocar no ContLife). Por isso o prompt
+pode ser curto:
 
 ```
-Vou começar um sistema novo, do zero, para pequenos negócios (ex.: loja de roupa).
-É para meu uso: quero cuidar da parte contábil e gerencial de clientes pequenos.
-Sou estudante, não tenho CRC — trate isso como restrição de desenho do produto,
-não como detalhe.
+Vou começar este sistema do zero. Leia docs/SESSION_STATE.md e docs/00_NORTE.md.
 
-Antes de escrever qualquer código:
+Depois analise o ContLife em:
+C:\Users\LUAN S\OneDrive\Documentos\sistema financeio
+(comece por PROJECT_DOCS/30_ONDE_TUDO_ESTA.md e PROJECT_DOCS/29_ARQUITETURA_BACKEND.md)
 
-1. Leia `docs/00_NORTE.md` deste projeto — é o mapa que deixei pronto.
-2. Depois analise o ContLife, meu outro sistema (finanças pessoais, já no ar em
-   beta), em: C:\Users\LUAN S\OneDrive\Documentos\sistema financeio
-   Comece por PROJECT_DOCS/30_ONDE_TUDO_ESTA.md e PROJECT_DOCS/29_ARQUITETURA_BACKEND.md.
-3. Me diga o que dá pra reaproveitar de verdade e o que é melhor refazer.
-4. Me faça as 8 perguntas da seção 6 do NORTE — quero decidir o escopo com você
-   antes de começarmos.
-
-Regras:
-- NÃO altere nada na pasta do ContLife. Ele está em produção, com pessoas usando.
-- O que for reaproveitado é COPIADO para cá, não importado de lá: este sistema não
-  pode quebrar se o ContLife mudar.
-- Modular e incremental: nunca um bloco grande de mudança. Provar rodando, não por
-  leitura. Testar o caso positivo e o negativo.
+Me diga o que dá pra reaproveitar de verdade e o que é melhor refazer — e me faça
+as 8 perguntas da seção 6 do NORTE antes de escrever qualquer código.
 ```
 
 Se a sessão disser que não consegue ler a pasta do ContLife, é só autorizar o acesso a esse
 diretório — ela vai pedir.
+
+**Comece em Opus:** esta primeira etapa é desenho e julgamento (o que reaproveitar, como
+modelar, qual escopo). Troque com `/model claude-opus-5` antes de colar.
 
 ---
 
