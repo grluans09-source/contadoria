@@ -8,15 +8,17 @@
 
 ## Estado atual — 11/ago/2026
 
-**Nada foi construído** (ainda sem código, sem banco, sem nome). O projeto tem a
-documentação de partida **mais a análise do ContLife**, feita lendo o código de verdade:
+**Nada foi construído** (sem código, sem banco). Mas o **escopo está fechado** e o sistema
+tem nome: **Contadoria**.
 
 | Arquivo | O que é |
 |---|---|
 | `CLAUDE.md` | disciplina de trabalho herdada do ContLife (lido automaticamente) |
-| `docs/00_NORTE.md` | o que é o projeto, mapa de reaproveitamento do ContLife, perguntas em aberto |
+| `docs/00_NORTE.md` | documento de partida. **Histórico** — onde divergir do `02`, o `02` vence |
 | `docs/01_ANALISE_REAPROVEITAMENTO.md` | **novo (11/ago)** — confere o mapa do NORTE contra o código real do ContLife |
-| `docs/02_ESCOPO.md` | **novo (11/ago)** — o que o sistema é, decidido com o dono. **Manda mais que o NORTE** onde divergir |
+| `docs/02_ESCOPO.md` | **novo (11/ago)** — o que o sistema é, decidido com o dono |
+| `docs/03_CENARIOS_E_CAPACIDADE.md` | **novo (11/ago)** — cenários de dado, quantos clientes cabem, ordem dos gargalos |
+| `docs/04_MAPA_DO_APP.md` | **novo (11/ago)** — o sistema por dentro, em linguagem natural. **É o contrato do desenho** |
 | `docs/SESSION_STATE.md` | este arquivo |
 | `README.md` | porta de entrada |
 | `.gitignore` | já preparado para segredos |
@@ -74,26 +76,30 @@ Detalhe completo em [`02_ESCOPO.md`](02_ESCOPO.md); resumo para não precisar ab
 
 ## ⚠️ O que ainda aguarda o Luan
 
-1. **Nome do sistema.** Sugestões dadas em 11/ago, nenhuma escolhida. **Marca é território
-   do Fable** — vale ele trocar de modelo para essa conversa.
-2. **De onde vêm os dados na prática** — WhatsApp é o canal, mas falta saber se haverá
-   extrato bancário e em que formato.
-3. **Quantos clientes ele espera no primeiro ano** — muda o quanto vale investir na Caixa
-   de Entrada.
+**Nada bloqueia o próximo passo.** As perguntas abertas viraram cenários que o desenho já
+cobre (`03` §2): o sistema atende cliente com extrato, com conta misturada e cliente que só
+manda áudio — e o **pior cenário é o alvo padrão**.
+
+Fica em aberto, para ser respondido pela realidade e não por suposição:
+
+- **Captação, precificação, quantos clientes de verdade.** O dono quer discutir isso à
+  parte. Estimativa da IA em `03` §4: teto de 15-20 atendidos com o sistema (6-8 na
+  planilha), mas 4-10 conquistados no ano 1 — **a venda é o gargalo, não a capacidade.**
+  Conferir depois dos 3 primeiros clientes e corrigir o `03`.
 
 ---
 
 ## Próxima tarefa recomendada
 
-1. **Desenhar o modelo de dados** (documento `03`): lançamento com N linhas, plano de contas
+1. **Desenhar o modelo de dados** (documento `05`): lançamento com N linhas, plano de contas
    de MEI/serviço, tabela de membros, tabela de parâmetros fiscais com vigência
 2. Projeto Supabase novo + schema + RLS + `aplicar_lote` adaptado + testes contra o SQL real
 3. Copiar `contlife-sinc.mjs` com `COLECOES` novo + `TelaAutenticacao`
-4. **Caixa de Entrada** — é o gargalo real do serviço, vem antes dos relatórios bonitos
+4. Seguir a ordem de construção do `04_MAPA_DO_APP.md` §12
 
 ⚠️ Antes do primeiro uso real: **conferir o limite anual do MEI e o valor do DAS na
 legislação vigente.** Ver `02_ESCOPO.md` §2 — os valores vivem em tabela com vigência, nunca
 no código.
 
 **Sugestão de modelo:** o modelo de dados (passo 1) ainda é julgamento — **Opus**. Do passo 2
-em diante, alvo claro — **Sonnet**. Nome e marca — **Fable**.
+em diante, alvo claro — **Sonnet**.
