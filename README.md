@@ -16,8 +16,9 @@ conversa.
 | 2 | [docs/02_ESCOPO.md](docs/02_ESCOPO.md) | o que o sistema é, decidido com o dono. Manda mais que o NORTE |
 | 3 | [docs/04_MAPA_DO_APP.md](docs/04_MAPA_DO_APP.md) | o sistema por dentro, em linguagem natural |
 | 4 | [docs/03_CENARIOS_E_CAPACIDADE.md](docs/03_CENARIOS_E_CAPACIDADE.md) | cenários de dado, quantos clientes cabem, ordem dos gargalos |
-| 5 | [docs/01_ANALISE_REAPROVEITAMENTO.md](docs/01_ANALISE_REAPROVEITAMENTO.md) | o que vem do ContLife, conferido no código |
-| 6 | [docs/00_NORTE.md](docs/00_NORTE.md) | o documento de partida, histórico |
+| 5 | [docs/05_ROTEIRO_DO_SERVICO.md](docs/05_ROTEIRO_DO_SERVICO.md) | quais dados pedir e por quê, a conversa inicial, o ritmo do mês |
+| 6 | [docs/01_ANALISE_REAPROVEITAMENTO.md](docs/01_ANALISE_REAPROVEITAMENTO.md) | o que vem do ContLife, conferido no código |
+| 7 | [docs/00_NORTE.md](docs/00_NORTE.md) | o documento de partida, histórico |
 
 ## Relação com o ContLife
 

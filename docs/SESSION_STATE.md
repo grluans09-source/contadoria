@@ -19,6 +19,7 @@ tem nome: **Contadoria**.
 | `docs/02_ESCOPO.md` | **novo (11/ago)** — o que o sistema é, decidido com o dono |
 | `docs/03_CENARIOS_E_CAPACIDADE.md` | **novo (11/ago)** — cenários de dado, quantos clientes cabem, ordem dos gargalos |
 | `docs/04_MAPA_DO_APP.md` | **novo (11/ago)** — o sistema por dentro, em linguagem natural. **É o contrato do desenho** |
+| `docs/05_ROTEIRO_DO_SERVICO.md` | **novo (11/ago)** — quais dados pedir e por quê, a conversa inicial, o ritmo do mês, o roteiro da entrega. **Também é requisito**: define os campos do cadastro e da abertura |
 | `docs/SESSION_STATE.md` | este arquivo |
 | `README.md` | porta de entrada |
 | `.gitignore` | já preparado para segredos |
@@ -113,12 +114,14 @@ Nenhum estava no desenho. **Os três precisam ser resolvidos DENTRO do documento
 
 ## Próxima tarefa recomendada
 
-1. **Desenhar o modelo de dados** (documento `05`): lançamento com N linhas, plano de contas
-   de MEI/serviço, tabela de membros, tabela de parâmetros fiscais com vigência, **e os três
-   buracos acima**
+1. **Desenhar o modelo de dados** (documento `06`): lançamento com N linhas, plano de contas
+   de MEI/serviço, tabela de membros, tabela de parâmetros fiscais com vigência, **os três
+   buracos acima**, e os campos que o `05` §4 exige do cadastro e da abertura
 2. Projeto Supabase novo + schema + RLS + `aplicar_lote` adaptado + testes contra o SQL real
 3. Copiar `contlife-sinc.mjs` com `COLECOES` novo + `TelaAutenticacao`
-4. Seguir a ordem de construção do `04_MAPA_DO_APP.md` §12
+4. Seguir a ordem de construção do `04_MAPA_DO_APP.md` §12, **com uma correção do `05` §7**:
+   a tela guiada de cadastro + balanço de abertura sobe de prioridade — é a primeira coisa
+   que acontece com todo cliente, e sem ela o livro nasce torto
 
 ⚠️ Antes do primeiro uso real: **conferir o limite anual do MEI e o valor do DAS na
 legislação vigente.** Ver `02_ESCOPO.md` §2 — os valores vivem em tabela com vigência, nunca
