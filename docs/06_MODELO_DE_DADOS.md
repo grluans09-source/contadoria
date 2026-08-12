@@ -26,6 +26,19 @@ lancamento_linhas    (as pernas do fato)
 `soma dos débitos = soma dos créditos` em todo lançamento. Adiado é essencial — durante a
 gravação o lançamento passa por estados desequilibrados; só o **resultado** precisa fechar.
 
+> ⚠️ **Três armadilhas desta trava, para não descobrir com dor** (achadas na revisão de
+> 11/ago, antes de escrever a primeira linha):
+>
+> 1. **Lançamento apagado.** Ao excluir, o cabeçalho e as linhas somem no mesmo lote. O
+>    gatilho precisa **ignorar lançamento que não existe mais** — senão a exclusão falha
+>    acusando desequilíbrio de algo que já não está lá.
+> 2. **Ele dispara dos dois lados.** Mexer só no cabeçalho não desequilibra nada, mas mexer
+>    numa linha sim. O gatilho vive em `lancamento_linhas`, e precisa cobrir inserção,
+>    alteração **e** exclusão — inclusive o caso de sobrar zero linha.
+> 3. **`on delete cascade` de `lancamentos` para `lancamento_linhas`** é obrigatório: sem
+>    ele, apagar um cabeçalho deixaria linhas órfãs, que é exatamente o tipo de furo que
+>    esta trava existe para impedir.
+
 Isso transforma em regra do banco o que hoje é só um teste do app. **Não existe lançamento
 torto no Contadoria** — não porque a tela impede, mas porque o banco recusa.
 

@@ -18,9 +18,10 @@ conversa.
 | 4 | [docs/03_CENARIOS_E_CAPACIDADE.md](docs/03_CENARIOS_E_CAPACIDADE.md) | cenários de dado, quantos clientes cabem, ordem dos gargalos |
 | 5 | [docs/05_ROTEIRO_DO_SERVICO.md](docs/05_ROTEIRO_DO_SERVICO.md) | quais dados pedir e por quê, a conversa inicial, o ritmo do mês |
 | 6 | [docs/06_MODELO_DE_DADOS.md](docs/06_MODELO_DE_DADOS.md) | como o sistema guarda as coisas. Último doc antes do código |
-| 7 | [docs/07_MEI_O_QUE_SABER.md](docs/07_MEI_O_QUE_SABER.md) | o que saber sobre MEI antes de falar com cliente |
-| 8 | [docs/01_ANALISE_REAPROVEITAMENTO.md](docs/01_ANALISE_REAPROVEITAMENTO.md) | o que vem do ContLife, conferido no código |
-| 9 | [docs/00_NORTE.md](docs/00_NORTE.md) | o documento de partida, histórico |
+| 7 | [docs/08_DIFERENCIAL.md](docs/08_DIFERENCIAL.md) | o que faz o sistema ser único, e as regras do código |
+| 8 | [docs/07_MEI_O_QUE_SABER.md](docs/07_MEI_O_QUE_SABER.md) | o que saber sobre MEI antes de falar com cliente |
+| 9 | [docs/01_ANALISE_REAPROVEITAMENTO.md](docs/01_ANALISE_REAPROVEITAMENTO.md) | o que vem do ContLife, conferido no código |
+| 10 | [docs/00_NORTE.md](docs/00_NORTE.md) | o documento de partida, histórico |
 
 ## Relação com o ContLife
 

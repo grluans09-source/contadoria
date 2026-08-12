@@ -22,6 +22,7 @@ tem nome: **Contadoria**.
 | `docs/06_MODELO_DE_DADOS.md` | **novo (11/ago)** — como o sistema guarda as coisas. **Último documento antes do código** |
 | `docs/05_ROTEIRO_DO_SERVICO.md` | **novo (11/ago)** — quais dados pedir e por quê, a conversa inicial, o ritmo do mês, o roteiro da entrega. **Também é requisito**: define os campos do cadastro e da abertura |
 | `docs/07_MEI_O_QUE_SABER.md` | **novo (11/ago)** — base de conhecimento sobre MEI para conversar com cliente. **Envelhece por lei** — números marcados 🔢 conferir antes de usar |
+| `docs/08_DIFERENCIAL.md` | **novo (11/ago)** — o que faz o sistema ser único. Crítica antes de proposta |
 | `docs/SESSION_STATE.md` | este arquivo |
 | `README.md` | porta de entrada |
 | `.gitignore` | já preparado para segredos |
@@ -106,6 +107,45 @@ Fica em aberto, para ser respondido pela realidade e não por suposição:
 
 ---
 
+## 🔍 Revisão antes do código (11/ago) — três lacunas achadas
+
+A revisão pedida pelo dono antes de liberar a implementação achou o seguinte. **Nenhuma
+bloqueia o passo 1**, mas as três precisam ser resolvidas antes do **primeiro cliente real**.
+
+### 1. 🔴 Não existe backup — e agora o dado é de terceiros
+
+No ContLife, perder o banco era problema **dele**. Aqui é dado financeiro **de clientes**, e
+a responsabilidade muda de natureza. O plano gratuito do Supabase **não tem backup
+automático para fora dele mesmo**.
+
+**Resolver com:** exportação semanal do banco para arquivo local (JSON), rodada por script.
+Barato, e a mesma peça serve para o **"cliente saiu, leva os dados dele"** — que é
+profissionalismo básico e ninguém pequeno faz.
+
+**Entra como passo do `06` §13, antes do primeiro cliente.**
+
+### 2. 🟡 O git não tem remoto — e a documentação já é o ativo
+
+São 8 documentos que valem semanas de raciocínio. Se o disco morrer hoje, some tudo. Criar
+repositório remoto é **publicação**, então **exige autorização do dono** (`CLAUDE.md`).
+Perguntado em 11/ago; aguardando resposta. Recomendação: **privado**, como o do ContLife.
+
+### 3. 🟡 Contadoria e ContLife vão ficar visualmente idênticos
+
+Herdar a linguagem visual foi decidido (`02` §5), mas herdar **igual** tem dois custos: ele
+não distingue num relance qual sistema está aberto, e se um dia mostrar o Contadoria a
+alguém, parece o mesmo produto. **Resolver com uma variação deliberada** — mesma família
+(preto/marfim), outro acento. Decidir na hora de montar o tema, não antes.
+
+### ✅ Supabase: uma conta basta
+
+O plano gratuito permite **2 projetos ativos por organização**. O ContLife ocupa 1, o
+Contadoria ocupa o outro. **Não é preciso criar segunda conta** — e não seria bom criar
+(duas contas para gerenciar, dois lugares para esquecer senha). Confirmar o número no painel
+antes do passo 1; é o tipo de limite que muda sem aviso.
+
+---
+
 ## Próxima tarefa recomendada — **começa o código**
 
 O desenho está completo. Seguir `06_MODELO_DE_DADOS.md` §13:
@@ -117,7 +157,8 @@ O desenho está completo. Seguir `06_MODELO_DE_DADOS.md` §13:
    deliberada para provar que o teste sabe falhar)
 4. Login + cadastro de negócio
 5. Roteiro do Cliente Novo + balanço de abertura
-6. …e daí em diante, a lista do `06` §13
+6. …e daí em diante, a lista do `06` §13 — com o que o `08` §7 acrescenta
+7. **Antes do primeiro cliente:** o script de exportação semanal (ver lacuna 1 acima)
 
 ### Duas conferências obrigatórias
 
