@@ -17,6 +17,10 @@ desequilibrado voltou HTTP 400 e nada ficou gravado; lançamento certo foi aceit
 lançamento inteiro não acusa falso desequilíbrio. Os passos 1 e 2 do `06` §13 estão
 **concluídos e provados**, não só escritos.
 
+**O passo 4 também está concluído e verificado no navegador de verdade** (não só compilado):
+login, cadastro de negócio via `criar_negocio()`, e a prateleira — rodando contra o banco
+real, na porta isolada 8788 (nunca uma porta de uso real). Ver a seção própria mais abaixo.
+
 | Arquivo | O que é |
 |---|---|
 | `CLAUDE.md` | disciplina de trabalho herdada do ContLife (lido automaticamente) |
@@ -219,29 +223,64 @@ banco para reaproveitar em futuras rodadas de `testar-equilibrio.mjs`.
 
 ---
 
-## ➡️ Próxima tarefa — passo 4 do `06` §13: login + cadastro de negócio
+## ✅ Passo 4 do `06` §13 — CONCLUÍDO E VERIFICADO NO NAVEGADOR (12/ago)
 
-Com o banco provado, o resto vira código de tela, sem depender de mais nenhuma ação fora do
-editor:
+O dono pediu, no meio da construção deste passo: visual "interativo, intuitivo e nada
+cansativo", um sistema "vivo" como o ContLife — **sem mascote** (docs/02 §5 continua valendo:
+aqui o usuário é ele mesmo). A resposta foi microinteração, não personagem — registrado no
+topo de `src/ui/primitivas.jsx`.
 
-1. `src/app/main.jsx` + `scripts/bump.mjs` + `serve.mjs` (copiados/adaptados do ContLife —
-   `08` §6 já define a estrutura de pastas) — só então `npm run dev` funciona
-2. Cliente Supabase + `TelaAutenticacao` (copiada do ContLife, `01` grade A)
-3. Tela de cadastro de negócio, chamando `criar_negocio()`
-4. **Passo 5:** Roteiro do Cliente Novo (`05` §4) + balanço de abertura (`06` §4) — a
-   primeira tela que usa `aplicar_lote` de verdade, com o lançamento de N linhas
+| Arquivo | O que é |
+|---|---|
+| `src/ui/tema.mjs` | `THEMES` com a variação deliberada da lacuna 3: **cobre**, não ouro — mesma família preto+marfim do ContLife, acento diferente para dar pra distinguir os dois sistemas num relance |
+| `src/ui/EstiloGlobal.jsx` | injeta as variáveis CSS do tema + as regras de acessibilidade herdadas (alvo de toque 40px, `prefers-reduced-motion`) |
+| `src/ui/primitivas.jsx` | `Card` (com variante `elevavel`), `Button` (hover levanta, clique aperta), `Input`, `Select`, `Label`, `useContagem` (número que conta em vez de aparecer pronto — pronto para as telas de indicador do passo 5+), `Confirmacao` (pulsa e some) |
+| `src/dados/supabase.mjs` | cliente + `traduzErroAuth` — copiado quase ao pé da letra do ContLife (`01` grade A) |
+| `src/telas/Autenticacao.jsx` | `TelaCarregandoAuth` + `TelaAutenticacao` (4 modos), copiada e adaptada — sem `LogoMarca` (Contadoria não tem marca própria ainda), wordmark com traço animado no primeiro instante |
+| `src/telas/Negocios.jsx` | a prateleira (`04` §2), versão inicial: lista + cadastro chamando `criar_negocio()`. Colunas ricas (movimento, limite, DAS) ficam para quando existir lançamento de verdade — mostrar "—" seria mentir que há dado |
+| `src/app/App.jsx` | portão de autenticação (mesmo contrato do ContLife: `undefined`/`null`/objeto) + roteamento entre Autenticação → Negócios → (placeholder) Dentro do Negócio |
+| `src/app/main.jsx` | só reexporta `App` — quem monta o React é o `dist/index.html`, que trata erro de boot (mesmo padrão do ContLife) |
+| `dist/index.html`, `scripts/bump.mjs`, `serve.mjs` | pipeline copiado do ContLife, porta **8788** (diferente da 8787 do ContLife, os dois rodam ao mesmo tempo sem colidir) |
+| `.claude/launch.json` (na raiz do Desktop) | entrada `contadoria` adicionada, ao lado das dos outros projetos |
+
+### Verificado rodando de verdade, não só compilado
+
+`npm run build` (25,9kb) → servido na porta 8788 → no navegador:
+1. Tela de login renderizou com a cor cobre, traço animado, tudo certo
+2. Alternância Entrar/Criar conta funciona
+3. **Login real** com o usuário de teste → sessão detectada → caiu na prateleira vazia
+4. **Cadastro real de negócio** ("Salgados da Léia") via `criar_negocio()` → apareceu na
+   prateleira com animação de entrada, confirmação pulsando
+5. Clique no card → placeholder "dentro do negócio" → Voltar → prateleira de novo
+6. Recarregar a página → sessão persistiu (Supabase cuida disso sozinho)
+7. Console e rede sem erro (o único 404 foi de uma navegação errada minha, corrigida)
+
+O negócio de teste foi apagado do banco depois — não é dado real, era só prova de fluxo.
+
+---
+
+## ➡️ Próxima tarefa — passo 5 do `06` §13: Roteiro do Cliente Novo + balanço de abertura
+
+A primeira tela que usa `aplicar_lote()` de verdade, com o lançamento de N linhas:
+
+1. Substituir o placeholder `DentroDoNegocio` (em `src/app/App.jsx`) pela tela real
+2. O Roteiro em 6 blocos (`05` §4), cada resposta virando registro — **não** um formulário
+   solto no fim
+3. O Bloco 3 (a foto de hoje) gera o lançamento de abertura com o Capital do titular
+   **calculado**, não perguntado (`06` §4)
+4. Ao terminar, o negócio tem plano de contas de fábrica (`06` §7) + saldo inicial — e a Mesa
+   de Revisão (ainda não construída) deveria fechar limpa nele
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
 semanal (lacuna 1, acima).
 
 ### Duas conferências obrigatórias
 
-⚠️ **Antes do passo 1:** conferir o limite do plano gratuito do Supabase — o ContLife já
-ocupa 1 dos 2 projetos.
+⚠️ **O token de gerenciamento (`sbp_...`) segue ativo** — pedido ao Luan revogar. Não é mais
+necessário para nada do passo 5 em diante.
 
 ⚠️ **Antes do primeiro cliente real:** conferir na legislação vigente o limite anual do MEI
 (e a regra de proporcionalidade no 1º ano), o valor e a composição do DAS, e os prazos. Os
 valores vivem em `parametros_fiscais`, com fonte e data — **nunca no código** (`06` §6).
 
-**Modelo:** o desenho acabou. Do passo 1 em diante o alvo está claro — **Sonnet**. Voltar ao
-Opus só se o desenho precisar mudar.
+**Modelo:** alvo claro, segue em **Sonnet**.

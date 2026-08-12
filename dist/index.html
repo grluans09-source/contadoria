@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Contadoria</title>
+<meta name="description" content="Contadoria — escrituração, revisão e consultoria para MEIs e informais.">
+<meta name="theme-color" content="#0B0A07">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html,body,#root{height:100%}
+  body{margin:0;background:#0B0A07}
+  #boot{position:fixed;inset:0;display:grid;place-items:center;background:#0B0A07;color:#C97A3D;font-family:'Playfair Display',serif;letter-spacing:.14em;font-size:22px}
+  #boot .r{height:0;border-top:1px solid #C97A3D;border-bottom:1px solid #C97A3D;opacity:.5;width:150px;margin:10px auto 0}
+  #boot .s{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#9A9078;margin-top:8px}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.408.0?deps=react@18.3.1",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}
+</script>
+</head>
+<body>
+<div id="boot"><div style="text-align:center">CONTADORIA<div class="r"></div><div class="s">abrindo o livro…</div></div></div>
+<div id="root"></div>
+<script type="module">
+  import React from "react";
+  import { createRoot } from "react-dom/client";
+  import App from "./contadoria.js?v=1";
+  const boot = document.getElementById("boot");
+  try {
+    createRoot(document.getElementById("root")).render(React.createElement(App));
+    /* some quando o React realmente pintou a primeira tela */
+    const fim = () => { boot.style.transition = "opacity .35s"; boot.style.opacity = "0"; setTimeout(() => boot.remove(), 400); };
+    requestAnimationFrame(() => requestAnimationFrame(fim));
+  } catch (e) {
+    boot.innerHTML = '<div style="color:#C56068;font-family:monospace;font-size:12px;padding:24px;text-align:center">Falha ao abrir: ' + e.message + '</div>';
+    throw e;
+  }
+</script>
+</body>
+</html>

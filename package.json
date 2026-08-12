@@ -5,11 +5,12 @@
   "description": "Contadoria — escrituração, revisão e consultoria para MEIs e informais. Ferramenta interna de serviço, não produto vendido.",
   "type": "module",
   "scripts": {
-    "build": "npx --yes esbuild src/app/main.jsx --loader:.jsx=jsx --bundle --format=esm --external:react --external:react-dom --external:recharts --external:lucide-react --external:@supabase/supabase-js --outfile=dist/contadoria.js",
+    "build": "npx --yes esbuild src/app/main.jsx --loader:.jsx=jsx --bundle --format=esm --external:react --external:react-dom --external:lucide-react --external:@supabase/supabase-js --outfile=dist/contadoria.js",
     "bump": "node scripts/bump.mjs",
     "test": "node --test \"tests/*.test.mjs\"",
     "dev": "npm run build && npm run bump && npm run serve",
     "serve": "node serve.mjs",
+    "celular": "node serve.mjs --lan",
     "migrar": "node supabase/aplicar-migracoes.mjs",
     "conferir": "node supabase/conferir.mjs"
   },
