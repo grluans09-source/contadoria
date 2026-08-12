@@ -6,6 +6,10 @@
 >
 > Este documento também é **requisito**: a lista de dados da §4 define os campos do cadastro
 > e da tela de abertura. Por isso ele vem **antes** do modelo de dados (doc `06`).
+>
+> 📚 **Leitura de base, antes deste:** [`07_MEI_O_QUE_SABER.md`](07_MEI_O_QUE_SABER.md) — o
+> que saber sobre MEI antes de sentar com um cliente. Ficou separado de propósito: aquele
+> documento **envelhece por lei** e se atualiza sozinho; este, não.
 
 ---
 
