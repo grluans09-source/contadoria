@@ -12,11 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 
-const REF = "";
-if (!REF) {
-  console.error("REF vazio: preencha a referência do projeto Supabase do Contadoria neste arquivo antes de rodar.");
-  process.exit(1);
-}
+const REF = "gmiiuklkhwjpcowvjbwz";
 
 const token = fs.readFileSync(path.join(AQUI, ".access-token"), "utf8").trim();
 

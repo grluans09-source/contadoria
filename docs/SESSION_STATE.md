@@ -8,9 +8,14 @@
 
 ## Estado atual — 12/ago/2026
 
-**O código começou.** Schema, RLS, a trava de equilíbrio e o motor de sincronização estão
-escritos e testados localmente (13/13 testes). **Falta um projeto Supabase de verdade para
-continuar** — ver a seção "Onde o trabalho parou", mais abaixo, é a primeira coisa a ler.
+**O projeto Supabase do Contadoria existe e está provado.** Referência `gmiiuklkhwjpcowvjbwz`,
+mesma organização do ContLife, região São Paulo. As 4 migrações foram aplicadas no banco
+real, conferidas (`conferir.mjs`: 14/14 tabelas, RLS + política + grant em todas), e **a
+trava de equilíbrio foi provada com o teste NEGATIVO primeiro** (`testar-equilibrio.mjs`,
+rodando contra o banco de verdade, como usuário autenticado — não como admin): lançamento
+desequilibrado voltou HTTP 400 e nada ficou gravado; lançamento certo foi aceito; apagar um
+lançamento inteiro não acusa falso desequilíbrio. Os passos 1 e 2 do `06` §13 estão
+**concluídos e provados**, não só escritos.
 
 | Arquivo | O que é |
 |---|---|
@@ -165,43 +170,66 @@ Na criação do projeto o painel pergunta três coisas. Decidido:
 
 ---
 
-## ✅ Código começou em 12/ago — o que já está escrito (ainda não roda contra banco real)
+## ✅ Passos 1 e 2 do `06` §13 — CONCLUÍDOS E PROVADOS (12/ago)
 
-Seguindo `06_MODELO_DE_DADOS.md` §13, passos 1 a 3 estão **escritos e testados no que dá para
-testar sem um projeto Supabase de verdade**:
+| Arquivo | O que é | Estado |
+|---|---|---|
+| `supabase/migrations/0001_schema_inicial.sql` | schema completo: `negocios`, `membros` (com `meu_papel()` e `criar_negocio()` resolvendo o ovo-e-a-galinha), `contas`, `lancamentos`, `lancamento_linhas`, `periodos_fechados`, `entrada_itens`, `regras_classificacao`, `roteiro_perguntas/respostas`, `trilha`, `lixeira`, `conciliacoes`, `parametros_fiscais` — RLS completa | ✅ aplicado no banco real, conferido |
+| `supabase/migrations/0002_trava_equilibrio.sql` | gatilho **adiado** em `lancamento_linhas` exigindo débitos = créditos. As três armadilhas do `06` §1 | ✅ aplicado — **e provado com o teste negativo, ver abaixo** |
+| `supabase/migrations/0003_aplicar_lote.sql` | adaptado do ContLife — `dossier_id` → `negocio_id`, lista branca trocada | ✅ aplicado no banco real |
+| `supabase/migrations/0004_grants.sql` | concede a `authenticated` o que "Automatically expose new tables" desligado deixaria faltando | ✅ aplicado — `conferir.mjs` confirma grant em todas as 14 tabelas e nas 3 funções RPC |
+| `supabase/aplicar-migracoes.mjs`, `conferir.mjs`, `testar-equilibrio.mjs` | scripts de gerenciamento, `REF` preenchido (`gmiiuklkhwjpcowvjbwz`) | ✅ rodados contra o banco real |
+| `src/dados/sinc.mjs` + `tests/sinc.test.mjs` | motor de sincronização, `COLECOES` do Contadoria, generalização do `chaveCampo` (ver comentário no topo do arquivo) | ✅ 13/13 testes, sabotados de propósito e confirmados capazes de falhar |
+| `package.json` | scripts de build/teste/migração | `build`/`bump`/`serve` ainda apontam para arquivos que **não existem** — nascem no passo 4 |
 
-| Arquivo | O que é |
-|---|---|
-| `supabase/migrations/0001_schema_inicial.sql` | schema completo: `negocios`, `membros` (com `meu_papel()` e `criar_negocio()` resolvendo o ovo-e-a-galinha), `contas`, `lancamentos`, `lancamento_linhas`, `periodos_fechados`, `entrada_itens`, `regras_classificacao`, `roteiro_perguntas/respostas`, `trilha`, `lixeira`, `conciliacoes`, `parametros_fiscais` — e a RLS inteira (leitura para qualquer membro, escrita só para `contador`, preparada para o portal do cliente da v2 sem precisar tocar depois) |
-| `supabase/migrations/0002_trava_equilibrio.sql` | a trava dura: gatilho **adiado** em `lancamento_linhas` exigindo débitos = créditos por lançamento. As três armadilhas do `06` §1 resolvidas e comentadas junto do código, não só na doc |
-| `supabase/migrations/0003_aplicar_lote.sql` | adaptado do ContLife (nota A da análise) — `dossier_id` → `negocio_id`, lista branca trocada |
-| `supabase/migrations/0004_grants.sql` | **novo (12/ago)** — concede a `authenticated` o que "Automatically expose new tables" desligado deixaria faltando. Ver lacuna 4 abaixo |
-| `supabase/aplicar-migracoes.mjs`, `conferir.mjs` | copiados do ContLife (padrão 100% genérico), `conferir.mjs` **também prova o grant** (`has_table_privilege`/`has_function_privilege`) — **`REF` vazio de propósito**, preencher quando o projeto existir |
-| `supabase/testar-equilibrio.mjs` | o teste NEGATIVO do passo 2 — tenta gravar lançamento torto e exige que o banco recuse, **antes** de testar o caminho feliz. Pronto para rodar assim que o projeto existir |
-| `src/dados/sinc.mjs` | motor de sincronização com `COLECOES` do Contadoria. Generalizou uma peça do original que estava hardcoded em `.id` (ver comentário no topo do arquivo) |
-| `tests/sinc.test.mjs` | **13 testes, todos passando.** Inclui os dois que conferem contra o SQL real (toda coluna tem quem preencha; nenhuma `not null` recebe null) — **sabotado de propósito e confirmado que falha** antes de ser aceito (regra do `08` §6) |
-| `package.json` | scripts de build/teste/migração. `build`/`bump`/`serve` ainda apontam para arquivos que **não existem** (`src/app/main.jsx`, `scripts/bump.mjs`, `serve.mjs`) — nascem no passo 4, quando houver frontend de verdade |
+### O projeto Supabase do Contadoria
 
-### 🛑 Onde o trabalho parou — precisa de ação FORA do código
+```
+Projeto  : contadoria
+Ref      : gmiiuklkhwjpcowvjbwz
+Região   : sa-east-1 (São Paulo)
+URL      : https://gmiiuklkhwjpcowvjbwz.supabase.co
+```
 
-**Não existe projeto Supabase do Contadoria ainda.** Todo o resto do `06` §13 (passo 1
-completo, passo 2 rodar de verdade, passos 4 em diante) depende disso. Criar o projeto exige
-o painel do Supabase (login), que não é algo a fazer sozinho sem o dono.
+Data API configurada em 12/ago: Enable Data API ligado, **Automatically expose new tables
+desligado** (compensado por `0004_grants.sql`), Enable automatic RLS ligado. Ver detalhe na
+lacuna 4, acima.
 
-**Precisa de uma decisão do Luan:** como provisionar o projeto —
-1. Ele cria o projeto no painel (nome sugerido: `contadoria`, mesma organização do ContLife,
-   região `sa-east-1`) e me passa a **referência do projeto** e um **token de acesso
-   temporário** (`sbp_...`, gerado em Settings → Access Tokens, revogado por mim depois de
-   usar — mesmo protocolo do ContLife, doc 29 §8.6); ou
-2. Eu abro o painel pelo navegador, já autenticado na sessão dele, e crio por lá.
+A chave `anon` está hardcoded em `supabase/testar-equilibrio.mjs` — pública por design
+(protegida por RLS, não por sigilo), mesmo raciocínio do `contlife.jsx`. Vai para o app de
+verdade no passo 4.
 
-Assim que o projeto existir: preencher `REF` nos três scripts de `supabase/`, rodar
-`npm run migrar`, depois `npm run conferir` para provar no banco real (não só "deu OK"), e
-só então `node supabase/testar-equilibrio.mjs` — o teste negativo antes de qualquer código
-de tela.
+⚠️ **O token de gerenciamento (`sbp_...`) usado para aplicar as migrações continua ativo no
+Supabase — pedido ao Luan para revogar em Account Settings → Access Tokens.** Ele não é mais
+necessário: os próximos passos usam só a chave `anon` + login de usuário, nunca a API de
+gerenciamento. Confirmar quando revogado e marcar aqui.
 
-**Depois disso retoma:** passo 4 (login + cadastro de negócio) → passo 5 (Roteiro do Cliente
-Novo + balanço de abertura) → o resto do `06` §13.
+### Prova da trava de equilíbrio (`testar-equilibrio.mjs`, contra o banco real, como usuário
+autenticado — não como admin, porque `aplicar_lote` é `security invoker`)
+
+1. **Negativo primeiro:** lançamento com débito 100 / crédito 90 → **HTTP 400, recusado**
+2. Confirmado que nada do lote ficou gravado (tudo ou nada, mesmo com a recusa no meio)
+3. Só depois, o positivo: lançamento equilibrado → aceito
+4. Armadilha 1 (`06` §1): apagar cabeçalho + linhas juntos → sem erro, sem falso positivo de
+   desequilíbrio do que já sumiu
+
+**Usuário de teste criado no banco** (confirmado, via Admin API — chave `service_role` usada
+uma vez, em memória, nunca gravada em disco): `contadoria-teste@mailinator.com`. Fica no
+banco para reaproveitar em futuras rodadas de `testar-equilibrio.mjs`.
+
+---
+
+## ➡️ Próxima tarefa — passo 4 do `06` §13: login + cadastro de negócio
+
+Com o banco provado, o resto vira código de tela, sem depender de mais nenhuma ação fora do
+editor:
+
+1. `src/app/main.jsx` + `scripts/bump.mjs` + `serve.mjs` (copiados/adaptados do ContLife —
+   `08` §6 já define a estrutura de pastas) — só então `npm run dev` funciona
+2. Cliente Supabase + `TelaAutenticacao` (copiada do ContLife, `01` grade A)
+3. Tela de cadastro de negócio, chamando `criar_negocio()`
+4. **Passo 5:** Roteiro do Cliente Novo (`05` §4) + balanço de abertura (`06` §4) — a
+   primeira tela que usa `aplicar_lote` de verdade, com o lançamento de N linhas
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
 semanal (lacuna 1, acima).

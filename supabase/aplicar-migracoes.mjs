@@ -19,10 +19,8 @@ import { fileURLToPath } from "node:url";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 
-/* Preenchido quando o projeto Supabase do Contadoria existir — ver
-   docs/SESSION_STATE.md. Até lá, este script não roda (falha cedo e claro,
-   em vez de apontar sem querer para o banco do ContLife). */
-const REF = "";
+/* Projeto Supabase do Contadoria — criado em 12/ago/2026, ver docs/SESSION_STATE.md. */
+const REF = "gmiiuklkhwjpcowvjbwz";
 const SECO = process.argv.includes("--dry");
 
 if (!REF) {

@@ -20,12 +20,10 @@ import { fileURLToPath } from "node:url";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 
-const REF = "";
-const ANON = "";
-if (!REF || !ANON) {
-  console.error("REF/ANON vazios: preencha com os dados do projeto Supabase do Contadoria.");
-  process.exit(1);
-}
+const REF = "gmiiuklkhwjpcowvjbwz";
+/* Pública por design (protegida por RLS, não por sigilo) — mesmo raciocínio
+   do ContLife, que a deixa direto no código-fonte (contlife.jsx). */
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtaWl1a2xraHdqcGNvd3ZqYnd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NjU5NTMsImV4cCI6MjEwMjE0MTk1M30.CJ6KsMBPD4J8LkxJeGVIBqI-F9WXX5arOPtLEqIj4Wk";
 const BASE = `https://${REF}.supabase.co`;
 
 const EMAIL = "contadoria-teste@mailinator.com";
