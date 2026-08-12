@@ -89,10 +89,33 @@ Fica em aberto, para ser respondido pela realidade e não por suposição:
 
 ---
 
+## 🔎 Três buracos achados em 11/ago (a pergunta do balanço patrimonial os revelou)
+
+Nenhum estava no desenho. **Os três precisam ser resolvidos DENTRO do documento `05`
+(modelo de dados)** — não são detalhe de tela, mudam a estrutura.
+
+1. **Regime: caixa ou competência?** O relatório do MEI é preenchido pelo que **entrou** no
+   mês (caixa), mas "quanto o negócio ganhou" costuma ser competência. Se os dois números
+   forem apresentados sem distinção, o cliente vê contradição. E **contas a receber só
+   existem sob competência** — ou seja, isto decide se aquela parte do balanço existe.
+   *Encaminhamento provável: escriturar por competência e derivar a visão de caixa, que é o
+   que o ContLife já faz com `compDate`.*
+2. **Saldos iniciais.** Todo cliente chega **no meio da vida** — já opera há 2 anos. Precisa
+   de um **balanço de abertura**: o que ele tem, o que deve, e o resto é dele. Sem isso o
+   livro começa desequilibrado e a Mesa de Revisão acusa erro para sempre. É a primeira
+   coisa que acontece com todo cliente e não estava desenhada.
+3. **Virada de ano.** O limite de faturamento do MEI zera em 1º de janeiro e a DASN cobre o
+   ano fechado. Precisa de um encerramento de exercício que jogue o resultado para o
+   patrimônio líquido e reinicie a contagem. O ContLife tem fechamento de **mês**; **ano**
+   é peça nova.
+
+---
+
 ## Próxima tarefa recomendada
 
 1. **Desenhar o modelo de dados** (documento `05`): lançamento com N linhas, plano de contas
-   de MEI/serviço, tabela de membros, tabela de parâmetros fiscais com vigência
+   de MEI/serviço, tabela de membros, tabela de parâmetros fiscais com vigência, **e os três
+   buracos acima**
 2. Projeto Supabase novo + schema + RLS + `aplicar_lote` adaptado + testes contra o SQL real
 3. Copiar `contlife-sinc.mjs` com `COLECOES` novo + `TelaAutenticacao`
 4. Seguir a ordem de construção do `04_MAPA_DO_APP.md` §12

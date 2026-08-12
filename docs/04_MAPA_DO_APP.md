@@ -171,6 +171,38 @@ gerencial**, não peça contábil oficial assinada (`02_ESCOPO.md` §4.3).
 - **Revisão de Consistência do período** — o resultado da Mesa, em linguagem de gente
 - **Carta de recomendações** — o que você viu e o que ele deveria fazer
 
+### 9.1 Balanço patrimonial — sim, mas com dois rostos
+
+Decidido em 11/ago, a pedido do dono. **Custo de ter: quase zero** — com partida dobrada
+feita direito, o balanço não é trabalho extra, é subproduto. A Mesa de Revisão já verifica
+a equação patrimonial; isso *é* o balanço.
+
+**Mas ele não é entregue como "Balanço Patrimonial" ao cliente.** Dois rostos:
+
+| Rosto | Para quem | Forma |
+|---|---|---|
+| **Instrumento** | o Luan | balanço completo, com Ativo/Passivo/PL. É a prova de que o livro está certo, e a fonte do "empresa × pessoa" |
+| **Entrega** | o cliente | página simples: *"o que o negócio tem · o que deve · o que sobra é seu"*. Sem "circulante/não circulante" |
+
+**O argumento forte, e é o que o vende:** sozinho, o resultado do mês mente por omissão. Se
+a DRE diz que sobrou R$ 2.000 e o caixa não cresceu R$ 2.000, **para onde foi?** Só o
+balanço responde — virou estoque, virou dívida paga, ficou a receber, ou o dono tirou.
+Essa pergunta é a melhor conversa de consultoria que existe com dono de negócio pequeno.
+
+⚠️ **Duas ressalvas honestas, para não vender ilusão:**
+
+1. **MEI é empresário individual — o patrimônio não é separado do pessoal.** Legalmente,
+   as dívidas do negócio alcançam os bens da pessoa. O balanço "do negócio" é uma
+   separação **gerencial**, útil para decidir, não uma blindagem jurídica. O documento não
+   pode dar a entender o contrário.
+2. **O balanço de um MEI costuma ter cinco linhas.** Caixa, algum equipamento, o que tem a
+   receber, o que deve, e o resto é dele. Não tem por que apresentar isso com a pompa de
+   demonstração de S.A. — a simplicidade é honestidade, não preguiça.
+
+**A conta que faz tudo funcionar:** as **retiradas do dono** viram uma conta de patrimônio
+líquido. É ela que responde "quanto você já tirou este ano" e sustenta o "empresa ×
+pessoa" (§9). Sem balanço, essa pergunta não tem onde morar.
+
 **Como você usa:** gera o pacote, bate o olho, e usa a Carta como roteiro da conversa com o
 cliente. O sistema entrega os números; **quem destrincha é você** — foi você mesmo quem
 disse, e é isso que ele está comprando.
