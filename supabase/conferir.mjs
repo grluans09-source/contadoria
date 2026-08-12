@@ -39,30 +39,37 @@ const ESPERADAS = [
 
 const tabelas = await q(`
   select c.relname as tabela, c.relrowsecurity as rls,
-         (select count(*) from pg_policies p where p.tablename = c.relname) as politicas
+         (select count(*) from pg_policies p where p.tablename = c.relname) as politicas,
+         has_table_privilege('authenticated', c.oid, 'SELECT') as pode_ler,
+         has_table_privilege('authenticated', c.oid, 'INSERT') as pode_gravar
     from pg_class c join pg_namespace n on n.oid = c.relnamespace
    where n.nspname = 'public' and c.relkind = 'r'
    order by c.relname;`);
 
+/* 0004_grants.sql existe porque "Automatically expose new tables" fica
+   DESLIGADO no projeto (decisão de 12/ago) — sem o GRANT explícito, RLS
+   correta não basta: o papel nem chega a tentar a operação. */
 console.log(`TABELAS (${tabelas.length} de ${ESPERADAS.length} esperadas)`);
-let semRls = 0, semPol = 0;
+let semRls = 0, semPol = 0, semGrant = 0;
 const achadas = new Set(tabelas.map(t => t.tabela));
 for (const t of tabelas) {
   if (!t.rls) semRls++;
   if (Number(t.politicas) === 0) semPol++;
-  console.log(`  ${t.rls ? "🔒" : "⚠️ "} ${t.tabela.padEnd(24)} políticas: ${t.politicas}`);
+  if (!t.pode_ler || !t.pode_gravar) semGrant++;
+  console.log(`  ${t.rls ? "🔒" : "⚠️ "} ${t.tabela.padEnd(24)} políticas: ${t.politicas}  grant: ${t.pode_ler && t.pode_gravar ? "✓" : "❌ FALTA (ver 0004_grants.sql)"}`);
 }
 for (const esperada of ESPERADAS) {
   if (!achadas.has(esperada)) console.log(`  ❌ ${esperada.padEnd(24)} NÃO EXISTE no banco`);
 }
 
 const funcs = await q(`
-  select p.proname, p.prosecdef as security_definer
+  select p.proname, p.prosecdef as security_definer,
+         has_function_privilege('authenticated', p.oid, 'EXECUTE') as pode_chamar
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public'
    order by p.proname;`);
 console.log(`\nFUNÇÕES (${funcs.length})`);
-for (const f of funcs) console.log(`  ${f.security_definer ? "🔑 definer" : "   invoker"}  ${f.proname}`);
+for (const f of funcs) console.log(`  ${f.security_definer ? "🔑 definer" : "   invoker"}  ${f.proname.padEnd(28)} grant: ${f.pode_chamar ? "✓" : "❌ FALTA"}`);
 
 const gatilhos = await q(`
   select tgname, tgrelid::regclass::text as tabela, tgdeferrable, tginitdeferred
@@ -74,4 +81,4 @@ for (const g of gatilhos) {
   console.log(`  ${g.tgname} em ${g.tabela}${g.tgdeferrable ? " (deferrable" + (g.tginitdeferred ? ", initially deferred)" : ")") : ""}`);
 }
 
-console.log(`\n${semRls === 0 ? "✓" : "⚠️ " + semRls} tabela(s) sem RLS · ${semPol === 0 ? "✓" : "⚠️ " + semPol} tabela(s) sem política`);
+console.log(`\n${semRls === 0 ? "✓" : "⚠️ " + semRls} tabela(s) sem RLS · ${semPol === 0 ? "✓" : "⚠️ " + semPol} tabela(s) sem política · ${semGrant === 0 ? "✓" : "⚠️ " + semGrant} tabela(s) sem grant`);

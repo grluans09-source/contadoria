@@ -146,6 +146,23 @@ Contadoria ocupa o outro. **Não é preciso criar segunda conta** — e não ser
 (duas contas para gerenciar, dois lugares para esquecer senha). Confirmar o número no painel
 antes do passo 1; é o tipo de limite que muda sem aviso.
 
+### ✅ 4. Configuração da Data API do projeto — decidida em 12/ago
+
+Na criação do projeto o painel pergunta três coisas. Decidido:
+
+- **Enable Data API** — ligado (obrigatório; é o que expõe REST/RPC).
+- **Automatically expose new tables** — **desligado**. Consistente com o resto do desenho:
+  nada acontece por padrão mágico (a lista branca do `aplicar_lote`, a RLS explícita por
+  tabela). Custo: sem GRANT explícito, mesmo com RLS certa o papel `authenticated` não
+  consegue nem tentar a operação — **resolvido em
+  `supabase/migrations/0004_grants.sql`**, que só concede a `authenticated` (nunca `anon` —
+  nada deste sistema roda antes do login).
+- **Enable automatic RLS** — ligado. Rede de segurança para tabela futura; já ligo RLS
+  manualmente em toda tabela, isso é reforço, não substituição.
+
+`supabase/conferir.mjs` foi atualizado para provar o grant no banco real (`has_table_privilege`,
+`has_function_privilege`), não só a RLS — mesma disciplina de "provar rodando".
+
 ---
 
 ## ✅ Código começou em 12/ago — o que já está escrito (ainda não roda contra banco real)
@@ -158,7 +175,8 @@ testar sem um projeto Supabase de verdade**:
 | `supabase/migrations/0001_schema_inicial.sql` | schema completo: `negocios`, `membros` (com `meu_papel()` e `criar_negocio()` resolvendo o ovo-e-a-galinha), `contas`, `lancamentos`, `lancamento_linhas`, `periodos_fechados`, `entrada_itens`, `regras_classificacao`, `roteiro_perguntas/respostas`, `trilha`, `lixeira`, `conciliacoes`, `parametros_fiscais` — e a RLS inteira (leitura para qualquer membro, escrita só para `contador`, preparada para o portal do cliente da v2 sem precisar tocar depois) |
 | `supabase/migrations/0002_trava_equilibrio.sql` | a trava dura: gatilho **adiado** em `lancamento_linhas` exigindo débitos = créditos por lançamento. As três armadilhas do `06` §1 resolvidas e comentadas junto do código, não só na doc |
 | `supabase/migrations/0003_aplicar_lote.sql` | adaptado do ContLife (nota A da análise) — `dossier_id` → `negocio_id`, lista branca trocada |
-| `supabase/aplicar-migracoes.mjs`, `conferir.mjs` | copiados do ContLife (padrão 100% genérico) — **`REF` vazio de propósito**, preencher quando o projeto existir |
+| `supabase/migrations/0004_grants.sql` | **novo (12/ago)** — concede a `authenticated` o que "Automatically expose new tables" desligado deixaria faltando. Ver lacuna 4 abaixo |
+| `supabase/aplicar-migracoes.mjs`, `conferir.mjs` | copiados do ContLife (padrão 100% genérico), `conferir.mjs` **também prova o grant** (`has_table_privilege`/`has_function_privilege`) — **`REF` vazio de propósito**, preencher quando o projeto existir |
 | `supabase/testar-equilibrio.mjs` | o teste NEGATIVO do passo 2 — tenta gravar lançamento torto e exige que o banco recuse, **antes** de testar o caminho feliz. Pronto para rodar assim que o projeto existir |
 | `src/dados/sinc.mjs` | motor de sincronização com `COLECOES` do Contadoria. Generalizou uma peça do original que estava hardcoded em `.id` (ver comentário no topo do arquivo) |
 | `tests/sinc.test.mjs` | **13 testes, todos passando.** Inclui os dois que conferem contra o SQL real (toda coluna tem quem preencha; nenhuma `not null` recebe null) — **sabotado de propósito e confirmado que falha** antes de ser aceito (regra do `08` §6) |
