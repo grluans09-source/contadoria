@@ -4,12 +4,13 @@ import { supabase } from "../dados/supabase.mjs";
 import { EstiloGlobal } from "../ui/EstiloGlobal.jsx";
 import { TelaCarregandoAuth, TelaAutenticacao } from "../telas/Autenticacao.jsx";
 import { Negocios } from "../telas/Negocios.jsx";
+import { ClienteNovo } from "../telas/ClienteNovo.jsx";
 import { Button } from "../ui/primitivas.jsx";
 
-/* Placeholder de propósito: a tela de dentro do negócio (Caixa de
-   Entrada, Livro, Revisão…) é o passo 5 em diante do docs/06 §13. Sem
-   isto o clique no card ficaria morto — pior experiência que não ter o
-   clique. Substituído assim que o passo 5 começar. */
+/* Placeholder de propósito: o Livro (Caixa de Entrada, Diário, Razão…) é
+   o passo 6 em diante do docs/06 §13. Sem isto o clique no card ficaria
+   morto — pior experiência que não ter o clique. Substituído assim que
+   o passo 6 começar. */
 function DentroDoNegocio({ negocio, onVoltar }) {
   return (
     <div className="min-h-screen" style={{ background: "var(--paper)" }}>
@@ -21,7 +22,8 @@ function DentroDoNegocio({ negocio, onVoltar }) {
           {negocio.apelido || negocio.nome}
         </div>
         <div className="text-sm" style={{ color: "var(--muted)" }}>
-          A Caixa de Entrada e o Livro chegam no próximo passo (docs/06_MODELO_DE_DADOS.md §13, passo 5).
+          O balanço de abertura já está lançado. A Caixa de Entrada e o resto do Livro chegam
+          no próximo passo (docs/06_MODELO_DE_DADOS.md §13, passo 6).
         </div>
       </div>
     </div>
@@ -42,6 +44,8 @@ export default function App() {
     return () => { vivo = false; assinatura.subscription.unsubscribe(); };
   }, []);
 
+  const fecharNegocio = () => setNegocioAberto(null);
+
   return (
     <>
       <EstiloGlobal dark={dark} />
@@ -49,8 +53,10 @@ export default function App() {
         <TelaCarregandoAuth />
       ) : authSession === null ? (
         <TelaAutenticacao redirectTo={window.location.origin} />
+      ) : negocioAberto && !negocioAberto.configuracao?.onboarded ? (
+        <ClienteNovo negocio={negocioAberto} onConcluido={fecharNegocio} onVoltarSemSalvar={fecharNegocio} />
       ) : negocioAberto ? (
-        <DentroDoNegocio negocio={negocioAberto} onVoltar={() => setNegocioAberto(null)} />
+        <DentroDoNegocio negocio={negocioAberto} onVoltar={fecharNegocio} />
       ) : (
         <Negocios onAbrirNegocio={setNegocioAberto} />
       )}

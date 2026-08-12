@@ -11,11 +11,17 @@
    ============================================================ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   calcularDiferenca, montarEstado, fotografar, mesmoConteudo,
   COLECOES, LIMITE_PERIGO,
 } from "../src/dados/sinc.mjs";
+
+const MIGRACOES_DIR = new URL("../supabase/migrations/", import.meta.url);
+/* schema evolui por ALTER, nunca editando migração já aplicada (docs/06
+   §1) — ler TODOS os .sql, na ordem, é o que mantém este teste honesto
+   contra o schema de verdade, e não só contra o 0001 original. */
+const arquivosMigracao = () => readdirSync(MIGRACOES_DIR).filter((f) => f.endsWith(".sql")).sort();
 
 const vazio = {
   contas: [], lancamentos: [], lancamentoLinhas: [], entradaItens: [],
@@ -29,7 +35,8 @@ function estadoCheio() {
                subtipo: "circulante", ordem: 1, ativa: true }],
     lancamentos: [{ id: "l1", data: "2026-08-01", dataCompetencia: "2026-08-01",
                     descricao: "Venda", origem: "manual", documento: "NF 42" }],
-    lancamentoLinhas: [{ id: "ll1", lancamentoId: "l1", contaId: "c1", tipo: "D", valor: 150.5 }],
+    lancamentoLinhas: [{ id: "ll1", lancamentoId: "l1", contaId: "c1", tipo: "D", valor: 150.5,
+                         descricao: "Saldo inicial do caixa", vencimento: null }],
     entradaItens: [{ id: "e1", origem: "extrato", data: "2026-08-01",
                      descricaoBruta: "PIX RECEBIDO", valor: 150.5, situacao: "classificado",
                      lancamentoId: "l1" }],
@@ -43,22 +50,36 @@ function estadoCheio() {
 
 /* ── Lê as colunas reais do SQL que está no banco (mesmo parser do
       ContLife — testado à mão contra este schema antes de escrever este
-      arquivo, ver histórico da sessão). ── */
+      arquivo, ver histórico da sessão), agora somado ao que `ALTER TABLE
+      ... ADD COLUMN` acrescentou em migrações posteriores à 0001. ── */
 function colunasDoSql() {
-  const sql = readFileSync(new URL("../supabase/migrations/0001_schema_inicial.sql", import.meta.url), "utf8");
   const tabelas = {};
-  const re = /create table if not exists (\w+) \(([\s\S]*?)\n\);/g;
-  let m;
-  while ((m = re.exec(sql))) {
-    const colunas = [];
-    for (const bruta of m[2].split("\n")) {
-      const linha = bruta.trim();
-      if (!linha || linha.startsWith("--")) continue;
-      if (/^(primary key|constraint|unique|check|foreign key)\b/i.test(linha)) continue;
-      const nome = linha.match(/^(\w+)\s+/);
-      if (nome) colunas.push(nome[1]);
+  for (const arquivo of arquivosMigracao()) {
+    const sql = readFileSync(new URL(arquivo, MIGRACOES_DIR), "utf8");
+
+    const reCriar = /create table if not exists (\w+) \(([\s\S]*?)\n\);/g;
+    let m;
+    while ((m = reCriar.exec(sql))) {
+      const colunas = [];
+      for (const bruta of m[2].split("\n")) {
+        const linha = bruta.trim();
+        if (!linha || linha.startsWith("--")) continue;
+        if (/^(primary key|constraint|unique|check|foreign key)\b/i.test(linha)) continue;
+        const nome = linha.match(/^(\w+)\s+/);
+        if (nome) colunas.push(nome[1]);
+      }
+      tabelas[m[1]] = colunas;
     }
-    tabelas[m[1]] = colunas;
+
+    const reAlter = /alter table (\w+)([\s\S]*?);/g;
+    let a;
+    while ((a = reAlter.exec(sql))) {
+      const tabela = a[1];
+      tabelas[tabela] = tabelas[tabela] || [];
+      const reColuna = /add column if not exists (\w+)/gi;
+      let c;
+      while ((c = reColuna.exec(a[2]))) tabelas[tabela].push(c[1]);
+    }
   }
   return tabelas;
 }
@@ -113,19 +134,20 @@ test("toda coluna do SQL tem quem a preencha (e nenhuma inventada)", () => {
    coluna `not null` com padrão no SQL receba null.
    ============================================================ */
 test("nenhuma coluna `not null` com padrão recebe null quando o campo falta", () => {
-  const sql = readFileSync(new URL("../supabase/migrations/0001_schema_inicial.sql", import.meta.url), "utf8");
-
   const comPadrao = {};
-  const re = /create table if not exists (\w+) \(([\s\S]*?)\n\);/g;
-  let m;
-  while ((m = re.exec(sql))) {
-    comPadrao[m[1]] = new Set();
-    for (const bruta of m[2].split("\n")) {
-      const linha = bruta.trim();
-      if (!linha || linha.startsWith("--")) continue;
-      if (/^(primary key|constraint|unique|check|foreign key)\b/i.test(linha)) continue;
-      const nome = linha.match(/^(\w+)\s+/);
-      if (nome && /\bnot null\b/i.test(linha) && /\bdefault\b/i.test(linha)) comPadrao[m[1]].add(nome[1]);
+  for (const arquivo of arquivosMigracao()) {
+    const sql = readFileSync(new URL(arquivo, MIGRACOES_DIR), "utf8");
+    const re = /create table if not exists (\w+) \(([\s\S]*?)\n\);/g;
+    let m;
+    while ((m = re.exec(sql))) {
+      comPadrao[m[1]] = comPadrao[m[1]] || new Set();
+      for (const bruta of m[2].split("\n")) {
+        const linha = bruta.trim();
+        if (!linha || linha.startsWith("--")) continue;
+        if (/^(primary key|constraint|unique|check|foreign key)\b/i.test(linha)) continue;
+        const nome = linha.match(/^(\w+)\s+/);
+        if (nome && /\bnot null\b/i.test(linha) && /\bdefault\b/i.test(linha)) comPadrao[m[1]].add(nome[1]);
+      }
     }
   }
 

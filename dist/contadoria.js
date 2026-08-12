@@ -1,6 +1,6 @@
 // src/app/App.jsx
-import React5, { useState as useState4, useEffect as useEffect4 } from "react";
-import { ArrowLeft } from "lucide-react";
+import React6, { useState as useState5, useEffect as useEffect5 } from "react";
+import { ArrowLeft as ArrowLeft2 } from "lucide-react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -296,7 +296,7 @@ function CardNegocio({ negocio, recemCriado, onAbrir }) {
       },
       TIPO_LABEL[negocio.tipo] || negocio.tipo
     )),
-    /* @__PURE__ */ React4.createElement("div", { className: "mt-3 text-xs", style: { color: "var(--muted)" } }, negocio.situacao === "ativo" ? "Nenhum lan\xE7amento ainda" : "Encerrado")
+    /* @__PURE__ */ React4.createElement("div", { className: "mt-3 text-xs", style: { color: "var(--muted)" } }, negocio.situacao !== "ativo" ? "Encerrado" : negocio.configuracao?.onboarded ? "Nenhum lan\xE7amento novo ainda" : "Roteiro do Cliente Novo pendente")
   );
 }
 function FormularioNovoNegocio({ onCriado, onFechar }) {
@@ -339,7 +339,7 @@ function Negocios({ onAbrirNegocio }) {
   const [erro, setErro] = useState3("");
   const [confirmacao, setConfirmacao] = useState3(false);
   const carregar = useCallback(async () => {
-    const { data, error } = await supabase.from("negocios").select("id, nome, apelido, tipo, situacao, created_at").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("negocios").select("id, nome, apelido, tipo, situacao, created_at, configuracao").order("created_at", { ascending: false });
     if (error) {
       setErro(error.message);
       return;
@@ -360,15 +360,317 @@ function Negocios({ onAbrirNegocio }) {
   return /* @__PURE__ */ React4.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React4.createElement("div", { className: "max-w-3xl mx-auto px-5 py-8" }, /* @__PURE__ */ React4.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Seus neg\xF3cios"), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "a prateleira")), !mostrarForm && /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Novo neg\xF3cio")), /* @__PURE__ */ React4.createElement("div", { className: "mb-4" }, /* @__PURE__ */ React4.createElement(Confirmacao, { texto: "Neg\xF3cio criado.", ativa: confirmacao })), mostrarForm && /* @__PURE__ */ React4.createElement(FormularioNovoNegocio, { onCriado: aoCriar, onFechar: () => setMostrarForm(false) }), erro && /* @__PURE__ */ React4.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), negocios === null && /* @__PURE__ */ React4.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026"), negocios !== null && negocios.length === 0 && !mostrarForm && /* @__PURE__ */ React4.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React4.createElement(Building2, { size: 28, className: "mx-auto mb-3", style: { color: "var(--muted)" } }), /* @__PURE__ */ React4.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum neg\xF3cio cadastrado ainda."), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1 mb-4", style: { color: "var(--muted)" } }, "O primeiro passo \xE9 criar o neg\xF3cio do seu primeiro cliente."), /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Criar o primeiro")), negocios !== null && negocios.length > 0 && /* @__PURE__ */ React4.createElement("div", { className: "grid gap-3 sm:grid-cols-2" }, negocios.map((n) => /* @__PURE__ */ React4.createElement(CardNegocio, { key: n.id, negocio: n, recemCriado: n.id === recemCriadoId, onAbrir: onAbrirNegocio })))));
 }
 
+// src/telas/ClienteNovo.jsx
+import React5, { useState as useState4, useEffect as useEffect4 } from "react";
+import { Plus as Plus2, Trash2, ArrowLeft, ArrowRight, HelpCircle } from "lucide-react";
+
+// src/dominio/planoContas.mjs
+function planoDeFabrica() {
+  return [
+    // ── 1. Ativo ──────────────────────────────────────────────
+    { id: "caixa", codigo: "1101", nome: "Caixa", tipo: "ativo", subtipo: "circulante", ordem: 1 },
+    { id: "banco", codigo: "1102", nome: "Banco", tipo: "ativo", subtipo: "circulante", ordem: 2 },
+    { id: "maquininha_receber", codigo: "1103", nome: "A receber de maquininha", tipo: "ativo", subtipo: "circulante", ordem: 3 },
+    { id: "clientes", codigo: "1104", nome: "Clientes", tipo: "ativo", subtipo: "circulante", ordem: 4 },
+    { id: "estoque", codigo: "1105", nome: "Estoque", tipo: "ativo", subtipo: "circulante", ordem: 5 },
+    { id: "equipamentos", codigo: "1106", nome: "Equipamentos", tipo: "ativo", subtipo: "nao_circulante", ordem: 6 },
+    { id: "veiculos", codigo: "1107", nome: "Ve\xEDculos", tipo: "ativo", subtipo: "nao_circulante", ordem: 7 },
+    { id: "deprec_acum", codigo: "1108", nome: "Deprecia\xE7\xE3o acumulada", tipo: "ativo", subtipo: "contra", ordem: 8 },
+    // ── 2. Passivo ────────────────────────────────────────────
+    { id: "fornecedores", codigo: "2101", nome: "Fornecedores", tipo: "passivo", subtipo: "circulante", ordem: 1 },
+    { id: "das_a_pagar", codigo: "2102", nome: "DAS a pagar", tipo: "passivo", subtipo: "circulante", ordem: 2 },
+    { id: "emprestimos", codigo: "2103", nome: "Empr\xE9stimos", tipo: "passivo", subtipo: "circulante", ordem: 3 },
+    { id: "salarios_a_pagar", codigo: "2104", nome: "Sal\xE1rios a pagar", tipo: "passivo", subtipo: "circulante", ordem: 4 },
+    // ── 3. Patrimônio líquido ─────────────────────────────────
+    { id: "capital_titular", codigo: "3101", nome: "Capital do titular", tipo: "pl", ordem: 1 },
+    { id: "retiradas_titular", codigo: "3102", nome: "Retiradas do titular", tipo: "pl", ordem: 2 },
+    { id: "lucros_acumulados", codigo: "3103", nome: "Lucros acumulados", tipo: "pl", ordem: 3 },
+    // ── 4. Receitas ───────────────────────────────────────────
+    { id: "venda_mercadorias", codigo: "4101", nome: "Venda de mercadorias", tipo: "receita", ordem: 1 },
+    { id: "prestacao_servicos", codigo: "4102", nome: "Presta\xE7\xE3o de servi\xE7os", tipo: "receita", ordem: 2 },
+    { id: "outras_receitas", codigo: "4103", nome: "Outras receitas", tipo: "receita", ordem: 3 },
+    // ── 5. Despesas ───────────────────────────────────────────
+    { id: "cmv", codigo: "5101", nome: "CMV", tipo: "despesa", ordem: 1 },
+    { id: "aluguel", codigo: "5102", nome: "Aluguel", tipo: "despesa", ordem: 2 },
+    { id: "energia", codigo: "5103", nome: "Energia", tipo: "despesa", ordem: 3 },
+    { id: "agua", codigo: "5104", nome: "\xC1gua", tipo: "despesa", ordem: 4 },
+    { id: "internet_telefone", codigo: "5105", nome: "Internet e telefone", tipo: "despesa", ordem: 5 },
+    { id: "taxa_maquininha", codigo: "5106", nome: "Taxa de maquininha", tipo: "despesa", ordem: 6 },
+    { id: "combustivel", codigo: "5107", nome: "Combust\xEDvel", tipo: "despesa", ordem: 7 },
+    { id: "material_consumo", codigo: "5108", nome: "Material de consumo", tipo: "despesa", ordem: 8 },
+    { id: "marketing", codigo: "5109", nome: "Marketing", tipo: "despesa", ordem: 9 },
+    { id: "das_despesa", codigo: "5110", nome: "DAS", tipo: "despesa", ordem: 10 },
+    { id: "depreciacao", codigo: "5111", nome: "Deprecia\xE7\xE3o", tipo: "despesa", ordem: 11 },
+    { id: "tarifas_bancarias", codigo: "5112", nome: "Tarifas banc\xE1rias", tipo: "despesa", ordem: 12 },
+    { id: "outras_despesas", codigo: "5113", nome: "Outras despesas", tipo: "despesa", ordem: 13 }
+  ];
+}
+
+// src/dominio/aberturaBalanco.mjs
+var uidPadrao = () => Math.random().toString(36).slice(2, 10);
+function diaAnterior(isoDate) {
+  const d = /* @__PURE__ */ new Date(isoDate + "T12:00:00");
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+function montarLancamentoAbertura({ inicioDoServico, itens, gerarId = uidPadrao }) {
+  if (!inicioDoServico) throw new Error("inicioDoServico \xE9 obrigat\xF3rio \u2014 sem ele n\xE3o d\xE1 para datar a abertura");
+  if (!itens || itens.length === 0) throw new Error("balan\xE7o de abertura sem nenhum item \u2014 o cliente tem PELO MENOS caixa ou banco");
+  for (const item of itens) {
+    if (!["D", "C"].includes(item.tipo)) throw new Error(`item com tipo inv\xE1lido: ${JSON.stringify(item)}`);
+    if (!(item.valor > 0)) throw new Error(`item com valor inv\xE1lido (precisa ser > 0): ${JSON.stringify(item)}`);
+  }
+  const somaDebitos = itens.filter((i) => i.tipo === "D").reduce((s, i) => s + i.valor, 0);
+  const somaCreditos = itens.filter((i) => i.tipo === "C").reduce((s, i) => s + i.valor, 0);
+  const capitalCalculado = somaDebitos - somaCreditos;
+  const idLancamento = gerarId();
+  const data = diaAnterior(inicioDoServico);
+  const linhas = itens.map((item) => ({
+    id: gerarId(),
+    lancamentoId: idLancamento,
+    contaId: item.contaId,
+    tipo: item.tipo,
+    valor: item.valor,
+    descricao: item.descricao ?? null,
+    vencimento: item.vencimento ?? null
+  }));
+  const valorCapital = Math.round(Math.abs(capitalCalculado) * 100) / 100;
+  if (valorCapital > 0) {
+    linhas.push({
+      id: gerarId(),
+      lancamentoId: idLancamento,
+      contaId: "capital_titular",
+      /* patrimônio positivo (tem mais do que deve) = crédito, fechando os débitos;
+         patrimônio negativo (deve mais do que tem) = débito, fechando os créditos */
+      tipo: capitalCalculado >= 0 ? "C" : "D",
+      valor: valorCapital,
+      descricao: "Capital de abertura \u2014 calculado, n\xE3o informado pelo cliente",
+      vencimento: null
+    });
+  }
+  const lancamento = {
+    id: idLancamento,
+    data,
+    dataCompetencia: data,
+    descricao: "Balan\xE7o de abertura",
+    origem: "abertura",
+    documento: null
+  };
+  return { lancamento, linhas, capitalCalculado };
+}
+
+// src/telas/ClienteNovo.jsx
+var NOMES_BLOCO = {
+  1: "Quem \xE9",
+  2: "Como o dinheiro anda",
+  3: "A foto de hoje",
+  4: "O ritmo do neg\xF3cio",
+  5: "O que ele quer",
+  6: "O combinado"
+};
+var hojeISO = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+function PorQueImporta({ texto }) {
+  const [aberto, setAberto] = useState4(false);
+  if (!texto) return null;
+  return /* @__PURE__ */ React5.createElement("div", { className: "mt-1.5" }, /* @__PURE__ */ React5.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => setAberto((a) => !a),
+      className: "text-[10px] inline-flex items-center gap-1 transition-opacity hover:opacity-70",
+      style: { color: "var(--muted)" }
+    },
+    /* @__PURE__ */ React5.createElement(HelpCircle, { size: 11 }),
+    " por que isso importa?"
+  ), aberto && /* @__PURE__ */ React5.createElement("div", { className: "text-xs mt-1.5 rounded-md px-3 py-2 animate-[surgir_.2s_ease-out]", style: { background: "var(--accent-soft)", color: "var(--ink)" } }, texto));
+}
+function CampoRoteiro({ pergunta, valor, onChange }) {
+  return /* @__PURE__ */ React5.createElement("div", { className: "mb-5" }, /* @__PURE__ */ React5.createElement(Label, null, pergunta.pergunta), pergunta.tipo_resposta === "sim_nao" ? /* @__PURE__ */ React5.createElement(Select, { value: valor ?? "", onChange, placeholder: "Escolha", options: [{ value: "sim", label: "Sim" }, { value: "nao", label: "N\xE3o" }] }) : pergunta.tipo_resposta === "data" ? /* @__PURE__ */ React5.createElement(Input, { type: "date", value: valor ?? "", onChange: (e) => onChange(e.target.value) }) : pergunta.tipo_resposta === "moeda" ? /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: valor ?? "", onChange: (e) => onChange(e.target.value) }) : pergunta.tipo_resposta === "texto_longo" ? /* @__PURE__ */ React5.createElement(
+    "textarea",
+    {
+      rows: 3,
+      value: valor ?? "",
+      onChange: (e) => onChange(e.target.value),
+      className: "w-full rounded-md border px-3 py-2 text-sm transition-colors duration-150",
+      style: { borderColor: "var(--rule-faint)", background: "var(--paper)", color: "var(--ink)" }
+    }
+  ) : /* @__PURE__ */ React5.createElement(Input, { value: valor ?? "", onChange: (e) => onChange(e.target.value) }), /* @__PURE__ */ React5.createElement(PorQueImporta, { texto: pergunta.porque_importa }));
+}
+function ListaItens({ titulo, porque, itens, onChange, comVencimento }) {
+  const add = () => onChange([...itens, { descricao: "", valor: "", vencimento: "" }]);
+  const remover = (i) => onChange(itens.filter((_, idx) => idx !== i));
+  const editar = (i, campo, v) => onChange(itens.map((it, idx) => idx === i ? { ...it, [campo]: v } : it));
+  return /* @__PURE__ */ React5.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React5.createElement(Label, null, titulo), itens.map((item, i) => /* @__PURE__ */ React5.createElement("div", { key: i, className: "flex gap-2 mb-2 items-center animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React5.createElement(Input, { placeholder: "descri\xE7\xE3o", value: item.descricao, onChange: (e) => editar(i, "descricao", e.target.value), className: "flex-[2]" }), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "valor", value: item.valor, onChange: (e) => editar(i, "valor", e.target.value), className: "flex-1" }), comVencimento && /* @__PURE__ */ React5.createElement(Input, { type: "date", value: item.vencimento, onChange: (e) => editar(i, "vencimento", e.target.value), className: "flex-1" }), /* @__PURE__ */ React5.createElement("button", { type: "button", onClick: () => remover(i), className: "transition-opacity hover:opacity-70 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React5.createElement(Trash2, { size: 15 })))), /* @__PURE__ */ React5.createElement("button", { type: "button", onClick: add, className: "text-xs inline-flex items-center gap-1 mt-1 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React5.createElement(Plus2, { size: 13 }), " adicionar"), /* @__PURE__ */ React5.createElement(PorQueImporta, { texto: porque }));
+}
+function BlocoAbertura({ abertura, setAbertura, perguntas }) {
+  const porBloco3 = (ordem) => perguntas.find((p) => p.bloco === 3 && p.ordem === ordem)?.porque_importa;
+  return /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement("div", { className: "text-xs mb-5", style: { color: "var(--muted)" } }, "Todo cliente chega no meio da vida \u2014 esta \xE9 a foto do que ele tem e do que deve hoje. Valor aproximado est\xE1 de bom tamanho; tudo \xE9 corrig\xEDvel depois, com rastro."), /* @__PURE__ */ React5.createElement("div", { className: "grid grid-cols-2 gap-3 mb-6" }, /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement(Label, null, "Dinheiro em esp\xE9cie"), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: abertura.caixa, onChange: (e) => setAbertura({ ...abertura, caixa: e.target.value }) })), /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement(Label, null, "Na conta (banco)"), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: abertura.banco, onChange: (e) => setAbertura({ ...abertura, banco: e.target.value }) }))), /* @__PURE__ */ React5.createElement(PorQueImporta, { texto: porBloco3(1) }), /* @__PURE__ */ React5.createElement(
+    ListaItens,
+    {
+      titulo: "O que o neg\xF3cio tem que vale dinheiro (equipamentos, m\xF3veis, ve\xEDculo)",
+      porque: porBloco3(2),
+      itens: abertura.equipamentos,
+      onChange: (v) => setAbertura({ ...abertura, equipamentos: v })
+    }
+  ), /* @__PURE__ */ React5.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React5.createElement(Label, null, "Mercadoria parada (valor total aproximado)"), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: abertura.estoque, onChange: (e) => setAbertura({ ...abertura, estoque: e.target.value }) }), /* @__PURE__ */ React5.createElement(PorQueImporta, { texto: porBloco3(3) })), /* @__PURE__ */ React5.createElement(
+    ListaItens,
+    {
+      titulo: "Quem te deve, quanto, e para quando",
+      comVencimento: true,
+      porque: porBloco3(4),
+      itens: abertura.aReceber,
+      onChange: (v) => setAbertura({ ...abertura, aReceber: v })
+    }
+  ), /* @__PURE__ */ React5.createElement(
+    ListaItens,
+    {
+      titulo: "Quanto voc\xEA deve, para quem, e quando vence",
+      comVencimento: true,
+      porque: porBloco3(5),
+      itens: abertura.aPagar,
+      onChange: (v) => setAbertura({ ...abertura, aPagar: v })
+    }
+  ), /* @__PURE__ */ React5.createElement(
+    ListaItens,
+    {
+      titulo: "Empr\xE9stimo ou financiamento (saldo devedor)",
+      porque: porBloco3(6),
+      itens: abertura.emprestimos,
+      onChange: (v) => setAbertura({ ...abertura, emprestimos: v })
+    }
+  ));
+}
+function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
+  const [perguntas, setPerguntas] = useState4([]);
+  const [bloco, setBloco] = useState4(1);
+  const [respostas, setRespostas] = useState4({});
+  const [abertura, setAbertura] = useState4({ caixa: "", banco: "", equipamentos: [], estoque: "", aReceber: [], aPagar: [], emprestimos: [] });
+  const [salvando, setSalvando] = useState4(false);
+  const [erro, setErro] = useState4("");
+  useEffect4(() => {
+    supabase.from("roteiro_perguntas").select("*").eq("ativo", true).order("bloco").order("ordem").then(({ data, error }) => {
+      if (!error) setPerguntas(data || []);
+    });
+  }, []);
+  const perguntasDoBloco = (n) => perguntas.filter((p) => p.bloco === n && p.destino !== "negocios.tipo");
+  const numeroOuNulo = (v) => {
+    const n = parseFloat(String(v).replace(",", "."));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const montarItensAbertura = () => {
+    const itens = [];
+    const caixa = numeroOuNulo(abertura.caixa);
+    if (caixa) itens.push({ contaId: "caixa", tipo: "D", valor: caixa, descricao: "Dinheiro em esp\xE9cie" });
+    const banco = numeroOuNulo(abertura.banco);
+    if (banco) itens.push({ contaId: "banco", tipo: "D", valor: banco, descricao: "Saldo em conta" });
+    for (const eq of abertura.equipamentos) {
+      const v = numeroOuNulo(eq.valor);
+      if (v) itens.push({ contaId: "equipamentos", tipo: "D", valor: v, descricao: eq.descricao || null });
+    }
+    const estoque = numeroOuNulo(abertura.estoque);
+    if (estoque) itens.push({ contaId: "estoque", tipo: "D", valor: estoque, descricao: "Mercadoria em estoque" });
+    for (const r of abertura.aReceber) {
+      const v = numeroOuNulo(r.valor);
+      if (v) itens.push({ contaId: "clientes", tipo: "D", valor: v, descricao: r.descricao || null, vencimento: r.vencimento || null });
+    }
+    for (const p of abertura.aPagar) {
+      const v = numeroOuNulo(p.valor);
+      if (v) itens.push({ contaId: "fornecedores", tipo: "C", valor: v, descricao: p.descricao || null, vencimento: p.vencimento || null });
+    }
+    for (const e of abertura.emprestimos) {
+      const v = numeroOuNulo(e.valor);
+      if (v) itens.push({ contaId: "emprestimos", tipo: "C", valor: v, descricao: e.descricao || null });
+    }
+    return itens;
+  };
+  const concluir = async () => {
+    setErro("");
+    const itens = montarItensAbertura();
+    if (itens.length === 0) {
+      setErro("O Bloco 3 (a foto de hoje) precisa de pelo menos um valor \u2014 nem que seja s\xF3 o caixa.");
+      setBloco(3);
+      return;
+    }
+    setSalvando(true);
+    try {
+      const idAbertura = `abertura_${negocio.id}`;
+      const { lancamento, linhas } = montarLancamentoAbertura({
+        inicioDoServico: hojeISO(),
+        itens
+      });
+      const { data: linhasAntigas } = await supabase.from("lancamento_linhas").select("id").eq("negocio_id", negocio.id).eq("lancamento_id", idAbertura);
+      const ops = [
+        ...(linhasAntigas || []).map((l) => ({ acao: "apagar", tabela: "lancamento_linhas", chave: { id: l.id } })),
+        ...planoDeFabrica().map((c) => ({
+          acao: "gravar",
+          tabela: "contas",
+          valores: { id: c.id, codigo: c.codigo, nome: c.nome, tipo: c.tipo, subtipo: c.subtipo ?? null, ordem: c.ordem, ativa: true }
+        })),
+        {
+          acao: "gravar",
+          tabela: "lancamentos",
+          valores: { id: idAbertura, data: lancamento.data, data_competencia: lancamento.dataCompetencia, descricao: lancamento.descricao, origem: lancamento.origem, documento: null }
+        },
+        ...linhas.map((l) => ({
+          acao: "gravar",
+          tabela: "lancamento_linhas",
+          valores: { id: l.id, lancamento_id: idAbertura, conta_id: l.contaId, tipo: l.tipo, valor: l.valor, descricao: l.descricao, vencimento: l.vencimento }
+        }))
+      ];
+      const { error: erroLote } = await supabase.rpc("aplicar_lote", { p_negocio: negocio.id, p_ops: ops });
+      if (erroLote) throw new Error(`N\xE3o consegui gravar o balan\xE7o de abertura: ${erroLote.message}`);
+      const bloco1 = respostas;
+      const patchNegocio = { inicio_do_servico: hojeISO(), configuracao: { ...negocio.configuracao || {}, onboarded: true } };
+      for (const p of perguntas) {
+        if (p.bloco !== 1) continue;
+        const valor = respostas[p.id];
+        if (valor === void 0 || valor === "") continue;
+        if (p.destino === "negocios.data_abertura") patchNegocio.data_abertura = valor;
+        if (p.destino === "negocios.atividade") patchNegocio.atividade = valor;
+        if (p.destino === "negocios.tem_funcionario") patchNegocio.tem_funcionario = valor === "sim";
+        if (p.destino === "negocios.whatsapp") patchNegocio.whatsapp = valor;
+      }
+      const { error: erroNegocio } = await supabase.from("negocios").update(patchNegocio).eq("id", negocio.id);
+      if (erroNegocio) throw new Error(`Balan\xE7o gravado, mas n\xE3o consegui atualizar o cadastro: ${erroNegocio.message}`);
+      const linhasRespostas = Object.entries(respostas).filter(([, resposta]) => resposta !== void 0 && resposta !== "").map(([perguntaId, resposta]) => ({ negocio_id: negocio.id, pergunta_id: perguntaId, resposta: String(resposta) }));
+      if (linhasRespostas.length) {
+        await supabase.from("roteiro_respostas").upsert(linhasRespostas, { onConflict: "negocio_id,pergunta_id" });
+      }
+      onConcluido();
+    } catch (e) {
+      setErro(e.message || "Algo deu errado \u2014 tenta de novo.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+  const ultimoBloco = bloco === 6;
+  return /* @__PURE__ */ React5.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React5.createElement("div", { className: "max-w-2xl mx-auto px-5 py-8" }, /* @__PURE__ */ React5.createElement("button", { onClick: onVoltarSemSalvar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React5.createElement(ArrowLeft, { size: 14 }), " Voltar"), /* @__PURE__ */ React5.createElement("div", { className: "mb-2 text-xs", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Roteiro do Cliente Novo \xB7 Bloco ", bloco, " de 6"), /* @__PURE__ */ React5.createElement("div", { className: "text-xl font-bold mb-6", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome, " \u2014 ", NOMES_BLOCO[bloco]), /* @__PURE__ */ React5.createElement("div", { className: "flex gap-1 mb-8" }, [1, 2, 3, 4, 5, 6].map((n) => /* @__PURE__ */ React5.createElement(
+    "div",
+    {
+      key: n,
+      className: "h-1 flex-1 rounded-full transition-colors duration-300",
+      style: { background: n <= bloco ? "var(--gold)" : "var(--rule-faint)" }
+    }
+  ))), /* @__PURE__ */ React5.createElement(Card, { className: "mb-6" }, bloco === 3 ? /* @__PURE__ */ React5.createElement(BlocoAbertura, { abertura, setAbertura, perguntas }) : perguntasDoBloco(bloco).map((p) => /* @__PURE__ */ React5.createElement(
+    CampoRoteiro,
+    {
+      key: p.id,
+      pergunta: p,
+      valor: respostas[p.id],
+      onChange: (v) => setRespostas({ ...respostas, [p.id]: v })
+    }
+  ))), erro && /* @__PURE__ */ React5.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React5.createElement("div", { className: "flex justify-between" }, /* @__PURE__ */ React5.createElement(Button, { variant: "ghost", disabled: bloco === 1, onClick: () => setBloco((b) => b - 1) }, /* @__PURE__ */ React5.createElement(ArrowLeft, { size: 14 }), " Anterior"), ultimoBloco ? /* @__PURE__ */ React5.createElement(Button, { onClick: concluir, disabled: salvando }, salvando ? "Gravando\u2026" : "Concluir cadastro") : /* @__PURE__ */ React5.createElement(Button, { onClick: () => setBloco((b) => b + 1) }, "Pr\xF3ximo ", /* @__PURE__ */ React5.createElement(ArrowRight, { size: 14 })))));
+}
+
 // src/app/App.jsx
 function DentroDoNegocio({ negocio, onVoltar }) {
-  return /* @__PURE__ */ React5.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React5.createElement("div", { className: "max-w-3xl mx-auto px-5 py-8" }, /* @__PURE__ */ React5.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React5.createElement(ArrowLeft, { size: 14 }), " Voltar"), /* @__PURE__ */ React5.createElement("div", { className: "text-xl font-bold mb-2", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React5.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "A Caixa de Entrada e o Livro chegam no pr\xF3ximo passo (docs/06_MODELO_DE_DADOS.md \xA713, passo 5).")));
+  return /* @__PURE__ */ React6.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React6.createElement("div", { className: "max-w-3xl mx-auto px-5 py-8" }, /* @__PURE__ */ React6.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React6.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React6.createElement("div", { className: "text-xl font-bold mb-2", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React6.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "O balan\xE7o de abertura j\xE1 est\xE1 lan\xE7ado. A Caixa de Entrada e o resto do Livro chegam no pr\xF3ximo passo (docs/06_MODELO_DE_DADOS.md \xA713, passo 6).")));
 }
 function App() {
-  const [authSession, setAuthSession] = useState4(void 0);
-  const [dark] = useState4(true);
-  const [negocioAberto, setNegocioAberto] = useState4(null);
-  useEffect4(() => {
+  const [authSession, setAuthSession] = useState5(void 0);
+  const [dark] = useState5(true);
+  const [negocioAberto, setNegocioAberto] = useState5(null);
+  useEffect5(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
       if (vivo) setAuthSession(data.session);
@@ -381,7 +683,8 @@ function App() {
       assinatura.subscription.unsubscribe();
     };
   }, []);
-  return /* @__PURE__ */ React5.createElement(React5.Fragment, null, /* @__PURE__ */ React5.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React5.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React5.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto ? /* @__PURE__ */ React5.createElement(DentroDoNegocio, { negocio: negocioAberto, onVoltar: () => setNegocioAberto(null) }) : /* @__PURE__ */ React5.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
+  const fecharNegocio = () => setNegocioAberto(null);
+  return /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React6.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React6.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React6.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? /* @__PURE__ */ React6.createElement(DentroDoNegocio, { negocio: negocioAberto, onVoltar: fecharNegocio }) : /* @__PURE__ */ React6.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
 }
 export {
   App as default

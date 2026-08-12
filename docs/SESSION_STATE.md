@@ -18,8 +18,12 @@ lançamento inteiro não acusa falso desequilíbrio. Os passos 1 e 2 do `06` §1
 **concluídos e provados**, não só escritos.
 
 **O passo 4 também está concluído e verificado no navegador de verdade** (não só compilado):
-login, cadastro de negócio via `criar_negocio()`, e a prateleira — rodando contra o banco
-real, na porta isolada 8788 (nunca uma porta de uso real). Ver a seção própria mais abaixo.
+login, cadastro de negócio via `criar_negocio()`, e a prateleira.
+
+**O passo 5 está concluído e verificado com o teste mais completo até aqui:** o Roteiro do
+Cliente Novo inteiro (6 blocos) rodado ponta a ponta no navegador, terminando num balanço de
+abertura real de 6 linhas gravado pela trava de equilíbrio — débitos e créditos batendo em
+R$ 4.810,00, capital do titular calculado certo (R$ 4.010,00). Ver a seção própria abaixo.
 
 | Arquivo | O que é |
 |---|---|
@@ -259,17 +263,87 @@ O negócio de teste foi apagado do banco depois — não é dado real, era só p
 
 ---
 
-## ➡️ Próxima tarefa — passo 5 do `06` §13: Roteiro do Cliente Novo + balanço de abertura
+## ✅ Passo 5 do `06` §13 — CONCLUÍDO E VERIFICADO PONTA A PONTA (12/ago)
 
-A primeira tela que usa `aplicar_lote()` de verdade, com o lançamento de N linhas:
+O Roteiro do Cliente Novo (`05` §4) + o balanço de abertura (`06` §4) — a primeira tela que
+usa `aplicar_lote()` de verdade, com lançamento de N linhas.
 
-1. Substituir o placeholder `DentroDoNegocio` (em `src/app/App.jsx`) pela tela real
-2. O Roteiro em 6 blocos (`05` §4), cada resposta virando registro — **não** um formulário
-   solto no fim
-3. O Bloco 3 (a foto de hoje) gera o lançamento de abertura com o Capital do titular
-   **calculado**, não perguntado (`06` §4)
-4. Ao terminar, o negócio tem plano de contas de fábrica (`06` §7) + saldo inicial — e a Mesa
-   de Revisão (ainda não construída) deveria fechar limpa nele
+### Um buraco achado construindo, corrigido antes de virar dívida
+
+`lancamento_linhas` só tinha `conta_id/tipo/valor` — bastava para o teste da trava, mas não
+para "quem te deve, quanto e **pra quando**": isso exige várias linhas na MESMA conta
+(Clientes), cada uma com identidade própria. **Corrigido em
+`0006_linha_descricao.sql`** — `descricao` e `vencimento` por linha, adicionadas por `ALTER
+TABLE` (nunca editando a 0001 já aplicada). O teste do motor de sincronização foi
+**generalizado** para escanear `ALTER TABLE ADD COLUMN` em todas as migrações, não só
+`CREATE TABLE` na 0001 — sabotado de novo e confirmado que pega as colunas certas.
+
+### Outro achado: `aplicar-migracoes.mjs` não era seguro para rodar duas vezes
+
+`create policy` não é idempotente — reaplicar a 0001 depois de já aplicada quebraria com
+"política já existe" e abortaria o lote inteiro, inclusive migrações novas que viessem
+depois. **Corrigido:** o script agora registra o que já rodou numa tabela
+`_migracoes_aplicadas` (RLS ligada, zero política de propósito — infraestrutura, não dado de
+domínio; `conferir.mjs` sabe distinguir isso e não acusa mais falso alarme). Rodar o script
+de novo agora é seguro e só aplica o que é novo.
+
+### Decisão de arquitetura registrada
+
+`roteiro_perguntas` mora no banco (texto e "por que importa" editáveis sem mexer em código —
+docs/05 §1), mas **não existe interpretador genérico do campo `destino`**: cada bloco do
+Roteiro tem código explícito que grava a resposta no lugar certo. Um interpretador genérico
+seria abstração para um problema com exatamente UM formulário (CLAUDE.md: "três linhas
+parecidas é melhor que abstração prematura"). Bloco 4 ("quais contas você paga todo mês")
+captura como texto livre por enquanto — a automação de recorrentes é peça futura, sem tabela
+própria ainda.
+
+### Segurança contra retry: id determinístico + apagar-e-regravar no mesmo lote
+
+O lançamento de abertura usa `id = "abertura_" + negocio.id` (não aleatório) — se a gravação
+falhar no meio e o dono tentar de novo, o retry cai no MESMO lançamento. As linhas antigas
+(se houver) são apagadas e as novas gravadas no mesmo `aplicar_lote`, atômico: ou o balanço
+fica limpo, ou nada muda. Sem isso, um retry duplicaria o balanço de abertura em silêncio.
+
+### Verificado ponta a ponta no navegador, contra o banco real
+
+Roteiro completo (6 blocos) rodado de verdade num negócio de teste ("Salgados da Léia"):
+tooltips "por que importa" mostrando o texto certo vindo do banco, Bloco 3 com listas
+repetíveis (equipamento, a receber, a pagar) funcionando, e ao concluir — **conferido
+direto no banco**, não só na tela:
+- 31 contas de fábrica gravadas
+- 1 lançamento (`abertura_<id>`, datado do dia anterior ao início do serviço)
+- 6 linhas, cada uma com sua descrição e vencimento próprios
+- **débitos = créditos = R$ 4.810,00** — a trava aceitou porque estava certo
+- capital do titular calculado em R$ 4.010,00 (4.810 − 800), exatamente a conta manual
+- `negocios` atualizado (data_abertura, atividade, tem_funcionario, whatsapp, onboarded)
+- 4 respostas do roteiro arquivadas em `roteiro_respostas`
+
+Negócio de teste apagado depois — `cascade` confirmado limpando tudo (contas, lançamento,
+linhas, respostas), zero órfão.
+
+### Bug de ambiente achado e corrigido: boot travava em aba fora de foco
+
+A tela de boot dependia só de `requestAnimationFrame` dobrado para sumir — mas rAF fica
+pausado em aba sem foco/minimizada. Achado tentando testar no navegador (a tela ficava presa
+mesmo com o app já pintado por baixo). **Corrigido em `dist/index.html`:** `setTimeout` de
+1500ms como rede de segurança, independente da aba estar visível.
+
+---
+
+## ➡️ Próxima tarefa — passo 6 do `06` §13: o Livro (Lançar, Diário, Razão, Balancete)
+
+Substituir o placeholder `DentroDoNegocio` (em `src/app/App.jsx`) pela tela real — a partir
+daqui o negócio tem plano de contas e saldo inicial de verdade para exercitar:
+
+1. Carregar o estado do negócio (contas + lançamentos + linhas) via `montarEstado` do motor
+   de sincronização — primeira vez que ele roda de ponta a ponta, não só em teste
+2. Telas: Diário (tudo em ordem de data), Razão/razonete (por conta), Balancete (saldos +
+   prova de que débito = crédito)
+3. Lançar — o formulário de lançamento com N linhas, reaproveitando a lógica de
+   `aberturaBalanco.mjs` como referência de como montar `ops` para `aplicar_lote`
+4. A partir daqui, considerar migrar do "chamar `aplicar_lote` direto no clique" (como o
+   Roteiro faz) para o padrão do ContLife — `fotoRef` + `calcularDiferenca` + debounce — já
+   que o Livro terá edição contínua, não um formulário de uma vez só
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
 semanal (lacuna 1, acima).
@@ -277,7 +351,7 @@ semanal (lacuna 1, acima).
 ### Duas conferências obrigatórias
 
 ⚠️ **O token de gerenciamento (`sbp_...`) segue ativo** — pedido ao Luan revogar. Não é mais
-necessário para nada do passo 5 em diante.
+necessário para nada do passo 6 em diante.
 
 ⚠️ **Antes do primeiro cliente real:** conferir na legislação vigente o limite anual do MEI
 (e a regra de proporcionalidade no 1º ano), o valor e a composição do DAS, e os prazos. Os

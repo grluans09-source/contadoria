@@ -33,6 +33,15 @@ const ESPERADAS = [
   "conciliacoes", "parametros_fiscais",
 ];
 
+/* Tabela de infraestrutura do PRÓPRIO aplicar-migracoes.mjs (não é dado
+   de domínio, não vive em supabase/migrations/ — nasce ali mesmo, na
+   primeira vez que o script roda). RLS ligada sem política nenhuma
+   (graças ao "Enable automatic RLS") é o estado CERTO para ela: zero
+   acesso via API, de propósito — só a API de gerenciamento a toca.
+   Sem esta exceção, `conferir.mjs` acusaria "sem política/grant" para
+   sempre, mesmo estando tudo certo. */
+const INFRAESTRUTURA = ["_migracoes_aplicadas"];
+
 const tabelas = await q(`
   select c.relname as tabela, c.relrowsecurity as rls,
          (select count(*) from pg_policies p where p.tablename = c.relname) as politicas,
@@ -49,10 +58,12 @@ console.log(`TABELAS (${tabelas.length} de ${ESPERADAS.length} esperadas)`);
 let semRls = 0, semPol = 0, semGrant = 0;
 const achadas = new Set(tabelas.map(t => t.tabela));
 for (const t of tabelas) {
-  if (!t.rls) semRls++;
-  if (Number(t.politicas) === 0) semPol++;
-  if (!t.pode_ler || !t.pode_gravar) semGrant++;
-  console.log(`  ${t.rls ? "🔒" : "⚠️ "} ${t.tabela.padEnd(24)} políticas: ${t.politicas}  grant: ${t.pode_ler && t.pode_gravar ? "✓" : "❌ FALTA (ver 0004_grants.sql)"}`);
+  const infra = INFRAESTRUTURA.includes(t.tabela);
+  if (!t.rls && !infra) semRls++;
+  if (Number(t.politicas) === 0 && !infra) semPol++;
+  if ((!t.pode_ler || !t.pode_gravar) && !infra) semGrant++;
+  const rotulo = infra ? "🔧 infra, sem acesso via API de propósito" : `grant: ${t.pode_ler && t.pode_gravar ? "✓" : "❌ FALTA (ver 0004_grants.sql)"}`;
+  console.log(`  ${t.rls ? "🔒" : "⚠️ "} ${t.tabela.padEnd(24)} políticas: ${t.politicas}  ${rotulo}`);
 }
 for (const esperada of ESPERADAS) {
   if (!achadas.has(esperada)) console.log(`  ❌ ${esperada.padEnd(24)} NÃO EXISTE no banco`);

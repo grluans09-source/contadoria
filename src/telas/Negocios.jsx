@@ -34,7 +34,11 @@ function CardNegocio({ negocio, recemCriado, onAbrir }) {
         </span>
       </div>
       <div className="mt-3 text-xs" style={{ color: "var(--muted)" }}>
-        {negocio.situacao === "ativo" ? "Nenhum lançamento ainda" : "Encerrado"}
+        {negocio.situacao !== "ativo"
+          ? "Encerrado"
+          : negocio.configuracao?.onboarded
+          ? "Nenhum lançamento novo ainda"
+          : "Roteiro do Cliente Novo pendente"}
       </div>
     </Card>
   );
@@ -108,7 +112,7 @@ export function Negocios({ onAbrirNegocio }) {
   const carregar = useCallback(async () => {
     const { data, error } = await supabase
       .from("negocios")
-      .select("id, nome, apelido, tipo, situacao, created_at")
+      .select("id, nome, apelido, tipo, situacao, created_at, configuracao")
       .order("created_at", { ascending: false });
     if (error) { setErro(error.message); return; }
     setNegocios(data || []);
