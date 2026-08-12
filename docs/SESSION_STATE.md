@@ -6,10 +6,11 @@
 
 ---
 
-## Estado atual — 11/ago/2026
+## Estado atual — 12/ago/2026
 
-**Nada foi construído** (sem código, sem banco). Mas o **escopo está fechado** e o sistema
-tem nome: **Contadoria**.
+**O código começou.** Schema, RLS, a trava de equilíbrio e o motor de sincronização estão
+escritos e testados localmente (13/13 testes). **Falta um projeto Supabase de verdade para
+continuar** — ver a seção "Onde o trabalho parou", mais abaixo, é a primeira coisa a ler.
 
 | Arquivo | O que é |
 |---|---|
@@ -147,19 +148,45 @@ antes do passo 1; é o tipo de limite que muda sem aviso.
 
 ---
 
-## Próxima tarefa recomendada — **começa o código**
+## ✅ Código começou em 12/ago — o que já está escrito (ainda não roda contra banco real)
 
-O desenho está completo. Seguir `06_MODELO_DE_DADOS.md` §13:
+Seguindo `06_MODELO_DE_DADOS.md` §13, passos 1 a 3 estão **escritos e testados no que dá para
+testar sem um projeto Supabase de verdade**:
 
-1. Projeto Supabase novo + schema + RLS + `aplicar_lote` adaptado
-2. **A trava do equilíbrio** — provar com o teste NEGATIVO primeiro: lançamento torto tem
-   que ser **recusado pelo banco**
-3. Motor de sincronização com `COLECOES` novo + testes contra o SQL real (com sabotagem
-   deliberada para provar que o teste sabe falhar)
-4. Login + cadastro de negócio
-5. Roteiro do Cliente Novo + balanço de abertura
-6. …e daí em diante, a lista do `06` §13 — com o que o `08` §7 acrescenta
-7. **Antes do primeiro cliente:** o script de exportação semanal (ver lacuna 1 acima)
+| Arquivo | O que é |
+|---|---|
+| `supabase/migrations/0001_schema_inicial.sql` | schema completo: `negocios`, `membros` (com `meu_papel()` e `criar_negocio()` resolvendo o ovo-e-a-galinha), `contas`, `lancamentos`, `lancamento_linhas`, `periodos_fechados`, `entrada_itens`, `regras_classificacao`, `roteiro_perguntas/respostas`, `trilha`, `lixeira`, `conciliacoes`, `parametros_fiscais` — e a RLS inteira (leitura para qualquer membro, escrita só para `contador`, preparada para o portal do cliente da v2 sem precisar tocar depois) |
+| `supabase/migrations/0002_trava_equilibrio.sql` | a trava dura: gatilho **adiado** em `lancamento_linhas` exigindo débitos = créditos por lançamento. As três armadilhas do `06` §1 resolvidas e comentadas junto do código, não só na doc |
+| `supabase/migrations/0003_aplicar_lote.sql` | adaptado do ContLife (nota A da análise) — `dossier_id` → `negocio_id`, lista branca trocada |
+| `supabase/aplicar-migracoes.mjs`, `conferir.mjs` | copiados do ContLife (padrão 100% genérico) — **`REF` vazio de propósito**, preencher quando o projeto existir |
+| `supabase/testar-equilibrio.mjs` | o teste NEGATIVO do passo 2 — tenta gravar lançamento torto e exige que o banco recuse, **antes** de testar o caminho feliz. Pronto para rodar assim que o projeto existir |
+| `src/dados/sinc.mjs` | motor de sincronização com `COLECOES` do Contadoria. Generalizou uma peça do original que estava hardcoded em `.id` (ver comentário no topo do arquivo) |
+| `tests/sinc.test.mjs` | **13 testes, todos passando.** Inclui os dois que conferem contra o SQL real (toda coluna tem quem preencha; nenhuma `not null` recebe null) — **sabotado de propósito e confirmado que falha** antes de ser aceito (regra do `08` §6) |
+| `package.json` | scripts de build/teste/migração. `build`/`bump`/`serve` ainda apontam para arquivos que **não existem** (`src/app/main.jsx`, `scripts/bump.mjs`, `serve.mjs`) — nascem no passo 4, quando houver frontend de verdade |
+
+### 🛑 Onde o trabalho parou — precisa de ação FORA do código
+
+**Não existe projeto Supabase do Contadoria ainda.** Todo o resto do `06` §13 (passo 1
+completo, passo 2 rodar de verdade, passos 4 em diante) depende disso. Criar o projeto exige
+o painel do Supabase (login), que não é algo a fazer sozinho sem o dono.
+
+**Precisa de uma decisão do Luan:** como provisionar o projeto —
+1. Ele cria o projeto no painel (nome sugerido: `contadoria`, mesma organização do ContLife,
+   região `sa-east-1`) e me passa a **referência do projeto** e um **token de acesso
+   temporário** (`sbp_...`, gerado em Settings → Access Tokens, revogado por mim depois de
+   usar — mesmo protocolo do ContLife, doc 29 §8.6); ou
+2. Eu abro o painel pelo navegador, já autenticado na sessão dele, e crio por lá.
+
+Assim que o projeto existir: preencher `REF` nos três scripts de `supabase/`, rodar
+`npm run migrar`, depois `npm run conferir` para provar no banco real (não só "deu OK"), e
+só então `node supabase/testar-equilibrio.mjs` — o teste negativo antes de qualquer código
+de tela.
+
+**Depois disso retoma:** passo 4 (login + cadastro de negócio) → passo 5 (Roteiro do Cliente
+Novo + balanço de abertura) → o resto do `06` §13.
+
+⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
+semanal (lacuna 1, acima).
 
 ### Duas conferências obrigatórias
 
