@@ -27,7 +27,8 @@ tem nome: **Contadoria**.
 | `README.md` | porta de entrada |
 | `.gitignore` | já preparado para segredos |
 
-Git iniciado, **sem remoto**.
+Git com remoto **privado**: https://github.com/grluans09-source/contadoria (criado e
+enviado em 11/ago, com autorização do dono).
 
 ### O que a análise de 11/ago acrescentou
 
@@ -124,11 +125,11 @@ profissionalismo básico e ninguém pequeno faz.
 
 **Entra como passo do `06` §13, antes do primeiro cliente.**
 
-### 2. 🟡 O git não tem remoto — e a documentação já é o ativo
+### ✅ 2. Git remoto — RESOLVIDO em 11/ago
 
-São 8 documentos que valem semanas de raciocínio. Se o disco morrer hoje, some tudo. Criar
-repositório remoto é **publicação**, então **exige autorização do dono** (`CLAUDE.md`).
-Perguntado em 11/ago; aguardando resposta. Recomendação: **privado**, como o do ContLife.
+Repositório privado criado com autorização do dono:
+https://github.com/grluans09-source/contadoria. `git push` passa a fazer parte do
+salvamento automático de cada checkpoint, junto do `git commit` (regra do `CLAUDE.md`).
 
 ### 3. 🟡 Contadoria e ContLife vão ficar visualmente idênticos
 
