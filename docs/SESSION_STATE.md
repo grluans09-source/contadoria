@@ -19,6 +19,7 @@ tem nome: **Contadoria**.
 | `docs/02_ESCOPO.md` | **novo (11/ago)** — o que o sistema é, decidido com o dono |
 | `docs/03_CENARIOS_E_CAPACIDADE.md` | **novo (11/ago)** — cenários de dado, quantos clientes cabem, ordem dos gargalos |
 | `docs/04_MAPA_DO_APP.md` | **novo (11/ago)** — o sistema por dentro, em linguagem natural. **É o contrato do desenho** |
+| `docs/06_MODELO_DE_DADOS.md` | **novo (11/ago)** — como o sistema guarda as coisas. **Último documento antes do código** |
 | `docs/05_ROTEIRO_DO_SERVICO.md` | **novo (11/ago)** — quais dados pedir e por quê, a conversa inicial, o ritmo do mês, o roteiro da entrega. **Também é requisito**: define os campos do cadastro e da abertura |
 | `docs/SESSION_STATE.md` | este arquivo |
 | `README.md` | porta de entrada |
@@ -90,38 +91,38 @@ Fica em aberto, para ser respondido pela realidade e não por suposição:
 
 ---
 
-## 🔎 Três buracos achados em 11/ago (a pergunta do balanço patrimonial os revelou)
+## ✅ Os três buracos — resolvidos no `06`
 
-Nenhum estava no desenho. **Os três precisam ser resolvidos DENTRO do documento `05`
-(modelo de dados)** — não são detalhe de tela, mudam a estrutura.
-
-1. **Regime: caixa ou competência?** O relatório do MEI é preenchido pelo que **entrou** no
-   mês (caixa), mas "quanto o negócio ganhou" costuma ser competência. Se os dois números
-   forem apresentados sem distinção, o cliente vê contradição. E **contas a receber só
-   existem sob competência** — ou seja, isto decide se aquela parte do balanço existe.
-   *Encaminhamento provável: escriturar por competência e derivar a visão de caixa, que é o
-   que o ContLife já faz com `compDate`.*
-2. **Saldos iniciais.** Todo cliente chega **no meio da vida** — já opera há 2 anos. Precisa
-   de um **balanço de abertura**: o que ele tem, o que deve, e o resto é dele. Sem isso o
-   livro começa desequilibrado e a Mesa de Revisão acusa erro para sempre. É a primeira
-   coisa que acontece com todo cliente e não estava desenhada.
-3. **Virada de ano.** O limite de faturamento do MEI zera em 1º de janeiro e a DASN cobre o
-   ano fechado. Precisa de um encerramento de exercício que jogue o resultado para o
-   patrimônio líquido e reinicie a contagem. O ContLife tem fechamento de **mês**; **ano**
-   é peça nova.
+1. **Regime caixa vs competência** → **a pergunta se dissolve.** Venda a prazo são dois
+   fatos (a venda e o recebimento); competência = contas de resultado, caixa = contas de
+   Caixa/Banco. Sem seletor global — que no ContLife causou DRE e indicadores discordando
+   para o mesmo mês. `06` §3
+2. **Saldos iniciais** → um lançamento `origem = 'abertura'`, com uma linha por coisa que o
+   cliente tem ou deve, e o Capital do titular **calculado** para fechar. `06` §4
+3. **Virada de ano** → `periodos_fechados` com tipo `mes|ano`; o encerramento anual zera
+   resultado contra o patrimônio. O limite de faturamento não guarda contador: soma dos
+   lançamentos do ano. `06` §5
 
 ---
 
-## Próxima tarefa recomendada
+## Próxima tarefa recomendada — **começa o código**
 
-1. **Desenhar o modelo de dados** (documento `06`): lançamento com N linhas, plano de contas
-   de MEI/serviço, tabela de membros, tabela de parâmetros fiscais com vigência, **os três
-   buracos acima**, e os campos que o `05` §4 exige do cadastro e da abertura
-2. Projeto Supabase novo + schema + RLS + `aplicar_lote` adaptado + testes contra o SQL real
-3. Copiar `contlife-sinc.mjs` com `COLECOES` novo + `TelaAutenticacao`
-4. Seguir a ordem de construção do `04_MAPA_DO_APP.md` §12, **com uma correção do `05` §7**:
-   a tela guiada de cadastro + balanço de abertura sobe de prioridade — é a primeira coisa
-   que acontece com todo cliente, e sem ela o livro nasce torto
+O desenho está completo. Seguir `06_MODELO_DE_DADOS.md` §13:
+
+1. Projeto Supabase novo + schema + RLS + `aplicar_lote` adaptado
+2. **A trava do equilíbrio** — provar com o teste NEGATIVO primeiro: lançamento torto tem
+   que ser **recusado pelo banco**
+3. Motor de sincronização com `COLECOES` novo + testes contra o SQL real (com sabotagem
+   deliberada para provar que o teste sabe falhar)
+4. Login + cadastro de negócio
+5. Roteiro do Cliente Novo + balanço de abertura
+6. …e daí em diante, a lista do `06` §13
+
+⚠️ **Antes do passo 1:** conferir o limite do plano gratuito do Supabase — o ContLife já
+ocupa 1 dos 2 projetos.
+
+**Modelo:** o desenho acabou. Do passo 1 em diante o alvo está claro — **Sonnet**. Voltar ao
+Opus só se o desenho precisar mudar.
 
 ⚠️ Antes do primeiro uso real: **conferir o limite anual do MEI e o valor do DAS na
 legislação vigente.** Ver `02_ESCOPO.md` §2 — os valores vivem em tabela com vigência, nunca

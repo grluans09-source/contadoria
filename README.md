@@ -6,7 +6,7 @@ Ferramenta de escrituração, revisão e consultoria para **MEIs e trabalhadores
 não vende o sistema. O cliente nunca instala nem compra nada; recebe o relatório e a
 conversa.
 
-**Status: não iniciado.** Escopo fechado, nenhuma linha de código escrita.
+**Status: desenho concluído, código não iniciado.**
 
 ## Comece por aqui
 
@@ -17,8 +17,9 @@ conversa.
 | 3 | [docs/04_MAPA_DO_APP.md](docs/04_MAPA_DO_APP.md) | o sistema por dentro, em linguagem natural |
 | 4 | [docs/03_CENARIOS_E_CAPACIDADE.md](docs/03_CENARIOS_E_CAPACIDADE.md) | cenários de dado, quantos clientes cabem, ordem dos gargalos |
 | 5 | [docs/05_ROTEIRO_DO_SERVICO.md](docs/05_ROTEIRO_DO_SERVICO.md) | quais dados pedir e por quê, a conversa inicial, o ritmo do mês |
-| 6 | [docs/01_ANALISE_REAPROVEITAMENTO.md](docs/01_ANALISE_REAPROVEITAMENTO.md) | o que vem do ContLife, conferido no código |
-| 7 | [docs/00_NORTE.md](docs/00_NORTE.md) | o documento de partida, histórico |
+| 6 | [docs/06_MODELO_DE_DADOS.md](docs/06_MODELO_DE_DADOS.md) | como o sistema guarda as coisas. Último doc antes do código |
+| 7 | [docs/01_ANALISE_REAPROVEITAMENTO.md](docs/01_ANALISE_REAPROVEITAMENTO.md) | o que vem do ContLife, conferido no código |
+| 8 | [docs/00_NORTE.md](docs/00_NORTE.md) | o documento de partida, histórico |
 
 ## Relação com o ContLife
 
