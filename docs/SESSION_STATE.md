@@ -118,15 +118,14 @@ O desenho está completo. Seguir `06_MODELO_DE_DADOS.md` §13:
 5. Roteiro do Cliente Novo + balanço de abertura
 6. …e daí em diante, a lista do `06` §13
 
+### Duas conferências obrigatórias
+
 ⚠️ **Antes do passo 1:** conferir o limite do plano gratuito do Supabase — o ContLife já
 ocupa 1 dos 2 projetos.
 
+⚠️ **Antes do primeiro cliente real:** conferir na legislação vigente o limite anual do MEI
+(e a regra de proporcionalidade no 1º ano), o valor e a composição do DAS, e os prazos. Os
+valores vivem em `parametros_fiscais`, com fonte e data — **nunca no código** (`06` §6).
+
 **Modelo:** o desenho acabou. Do passo 1 em diante o alvo está claro — **Sonnet**. Voltar ao
 Opus só se o desenho precisar mudar.
-
-⚠️ Antes do primeiro uso real: **conferir o limite anual do MEI e o valor do DAS na
-legislação vigente.** Ver `02_ESCOPO.md` §2 — os valores vivem em tabela com vigência, nunca
-no código.
-
-**Sugestão de modelo:** o modelo de dados (passo 1) ainda é julgamento — **Opus**. Do passo 2
-em diante, alvo claro — **Sonnet**.
