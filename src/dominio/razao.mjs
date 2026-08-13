@@ -74,6 +74,23 @@ export function balancete(contas, linhas) {
  * Não é o motor contábil em si (não calcula nada), por isso não precisa
  * de teste próprio — é reshape de exibição.
  */
+/**
+ * O resultado de UM mês — e a resposta pra "pra onde foi o que sobrou"
+ * (docs/04 §9.1, docs/08 §3): compara o resultado contábil (receita −
+ * despesa) com a variação REAL de caixa/banco no mesmo mês. Se os dois
+ * não baterem, a diferença virou outra coisa — estoque, conta a
+ * receber, pagamento de dívida, ou retirada.
+ */
+export function resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes) {
+  const idsDoMes = new Set(lancamentos.filter((l) => (l.data || "").slice(0, 7) === mes).map((l) => l.id));
+  const linhasDoMes = lancamentoLinhas.filter((l) => idsDoMes.has(l.lancamentoId));
+  const b = balancete(contas, linhasDoMes);
+  const receita = b.linhas.filter((c) => c.tipo === "receita").reduce((s, c) => s + c.saldo, 0);
+  const despesa = b.linhas.filter((c) => c.tipo === "despesa").reduce((s, c) => s + c.saldo, 0);
+  const variacaoCaixaBanco = b.linhas.filter((c) => c.id === "caixa" || c.id === "banco").reduce((s, c) => s + c.saldo, 0);
+  return { receita, despesa, resultado: receita - despesa, variacaoCaixaBanco };
+}
+
 export function linhasComContexto(lancamentos, linhas) {
   const porLancamento = new Map(lancamentos.map((l) => [l.id, l]));
   return linhas

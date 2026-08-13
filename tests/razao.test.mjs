@@ -1,7 +1,7 @@
 /* Testes de src/dominio/razao.mjs. Rode com `npm test`. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { saldoDeConta, balancete, linhasComContexto } from "../src/dominio/razao.mjs";
+import { saldoDeConta, balancete, linhasComContexto, resultadoDoMes } from "../src/dominio/razao.mjs";
 
 const contas = [
   { id: "caixa", codigo: "1101", nome: "Caixa", tipo: "ativo" },
@@ -80,6 +80,46 @@ test("balancete: linha órfã (conta que não existe) não derruba a tela — s�
   const b = balancete(contas, linhas);
   assert.equal(b.orfas.length, 1);
   assert.equal(b.totalDebito, 0, "linha órfã não deveria entrar nas somas — a conta dela nem existe no plano");
+});
+
+test("resultadoDoMes: quando o dinheiro entra e o resultado bate, a variação de caixa/banco é igual ao resultado", () => {
+  const lancamentos = [{ id: "l1", data: "2026-08-05" }];
+  const linhas = [
+    { contaId: "caixa", tipo: "D", valor: 500, lancamentoId: "l1" },
+    { contaId: "vendas", tipo: "C", valor: 500, lancamentoId: "l1" },
+  ];
+  const r = resultadoDoMes(contas, lancamentos, linhas, "2026-08");
+  assert.equal(r.receita, 500);
+  assert.equal(r.resultado, 500);
+  assert.equal(r.variacaoCaixaBanco, 500);
+});
+
+test("resultadoDoMes: venda a prazo — o resultado sobe mas o caixa NÃO se mexe (é a pergunta 'pra onde foi')", () => {
+  const lancamentos = [{ id: "l1", data: "2026-08-05" }];
+  const linhas = [
+    { contaId: "vendas", tipo: "C", valor: 300, lancamentoId: "l1" },
+  ];
+  /* falta a contrapartida em Clientes de propósito — o teste olha só
+     receita/despesa/caixa, não precisa fechar como lançamento de
+     verdade para provar o comportamento da função */
+  const r = resultadoDoMes(contas, lancamentos, linhas, "2026-08");
+  assert.equal(r.resultado, 300);
+  assert.equal(r.variacaoCaixaBanco, 0, "o resultado subiu mas nenhum caixa/banco tem linha neste mês — a diferença é exatamente o que foi para outro lugar");
+});
+
+test("resultadoDoMes ignora lançamentos de OUTRO mês", () => {
+  const lancamentos = [
+    { id: "l1", data: "2026-07-20" },
+    { id: "l2", data: "2026-08-05" },
+  ];
+  const linhas = [
+    { contaId: "caixa", tipo: "D", valor: 900, lancamentoId: "l1" },
+    { contaId: "vendas", tipo: "C", valor: 900, lancamentoId: "l1" },
+    { contaId: "caixa", tipo: "D", valor: 100, lancamentoId: "l2" },
+    { contaId: "vendas", tipo: "C", valor: 100, lancamentoId: "l2" },
+  ];
+  const r = resultadoDoMes(contas, lancamentos, linhas, "2026-08");
+  assert.equal(r.receita, 100, "julho não deveria contar no relatório de agosto");
 });
 
 test("linhasComContexto junta data e descrição do lançamento pai, ordenado por data", () => {

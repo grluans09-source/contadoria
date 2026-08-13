@@ -11,6 +11,7 @@ import { Lancar } from "./Lancar.jsx";
 import { CaixaEntrada } from "./CaixaEntrada.jsx";
 import { Conciliacao } from "./Conciliacao.jsx";
 import { Revisao } from "./Revisao.jsx";
+import { RetratoDoMes } from "./RetratoDoMes.jsx";
 import { construirLancamentoDeClassificacao } from "../dominio/classificacao.mjs";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -50,6 +51,7 @@ const ABAS = [
   { id: "balancete", label: "Balancete" },
   { id: "conciliacao", label: "Conciliação" },
   { id: "revisao", label: "Revisão" },
+  { id: "entregas", label: "Entregas" },
 ];
 
 export function Livro({ negocio, onVoltar }) {
@@ -276,6 +278,15 @@ export function Livro({ negocio, onVoltar }) {
             trilha={estado.trilha}
             onFechar={fecharMes}
             onReabrir={reabrirMes}
+          />
+        )}
+        {aba === "entregas" && (
+          <RetratoDoMes
+            negocio={negocio}
+            contas={estado.contas}
+            lancamentos={estado.lancamentos}
+            lancamentoLinhas={estado.lancamentoLinhas}
+            periodosFechados={estado.periodosFechados}
           />
         )}
       </div>

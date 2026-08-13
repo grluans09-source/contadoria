@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React14, { useState as useState10, useEffect as useEffect6 } from "react";
+import React15, { useState as useState11, useEffect as useEffect6 } from "react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -675,7 +675,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
 }
 
 // src/telas/Livro.jsx
-import React13, { useState as useState9, useEffect as useEffect5, useRef as useRef2, useCallback as useCallback2 } from "react";
+import React14, { useState as useState10, useEffect as useEffect5, useRef as useRef2, useCallback as useCallback2 } from "react";
 import { ArrowLeft as ArrowLeft2 } from "lucide-react";
 
 // src/dados/sinc.mjs
@@ -911,6 +911,15 @@ import React7, { useState as useState5, useMemo as useMemo2 } from "react";
 
 // src/dominio/razao.mjs
 var DEBITO_NORMAL = { ativo: true, despesa: true, passivo: false, pl: false, receita: false };
+function saldoDeConta(conta, linhas) {
+  let d = 0, c = 0;
+  for (const l of linhas) {
+    if (l.contaId !== conta.id) continue;
+    if (l.tipo === "D") d += l.valor;
+    else c += l.valor;
+  }
+  return DEBITO_NORMAL[conta.tipo] ? d - c : c - d;
+}
 function balancete(contas, linhas) {
   const porConta = new Map(contas.map((c) => [c.id, { ...c, debito: 0, credito: 0 }]));
   const orfas = [];
@@ -933,6 +942,15 @@ function balancete(contas, linhas) {
     fecha: Math.abs(totalDebito - totalCredito) < 0.01,
     orfas
   };
+}
+function resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes) {
+  const idsDoMes = new Set(lancamentos.filter((l) => (l.data || "").slice(0, 7) === mes).map((l) => l.id));
+  const linhasDoMes = lancamentoLinhas.filter((l) => idsDoMes.has(l.lancamentoId));
+  const b = balancete(contas, linhasDoMes);
+  const receita = b.linhas.filter((c) => c.tipo === "receita").reduce((s, c) => s + c.saldo, 0);
+  const despesa = b.linhas.filter((c) => c.tipo === "despesa").reduce((s, c) => s + c.saldo, 0);
+  const variacaoCaixaBanco = b.linhas.filter((c) => c.id === "caixa" || c.id === "banco").reduce((s, c) => s + c.saldo, 0);
+  return { receita, despesa, resultado: receita - despesa, variacaoCaixaBanco };
 }
 
 // src/telas/Razao.jsx
@@ -1327,6 +1345,89 @@ function Revisao({ contas, lancamentos, lancamentoLinhas, periodosFechados, tril
   return /* @__PURE__ */ React12.createElement("div", null, /* @__PURE__ */ React12.createElement(MesaChecks, { checks }), /* @__PURE__ */ React12.createElement(Fechamento, { lancamentos, periodosFechados, mesaPassa, onFechar, onReabrir }), /* @__PURE__ */ React12.createElement(Trilha, { trilha }));
 }
 
+// src/telas/RetratoDoMes.jsx
+import React13, { useState as useState9, useMemo as useMemo7 } from "react";
+
+// src/dominio/disponivel.mjs
+var DIAS_JANELA = 30;
+var CONTAS_COMPROMISSO = ["fornecedores", "das_a_pagar", "emprestimos", "salarios_a_pagar"];
+function addDias(iso, n) {
+  const d = /* @__PURE__ */ new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function somaComVencimentoEmJanela(linhas, contaId, tipo, hoje, dias) {
+  const limite = addDias(hoje, dias);
+  return linhas.filter((l) => l.contaId === contaId && l.tipo === tipo && l.vencimento && l.vencimento >= hoje && l.vencimento <= limite).reduce((s, l) => s + l.valor, 0);
+}
+function capadoNoSaldo(valorBruto, contas, contaId, linhas) {
+  const conta = contas.find((c) => c.id === contaId);
+  if (!conta) return 0;
+  const saldoAberto = Math.max(0, saldoDeConta(conta, linhas));
+  return Math.min(valorBruto, saldoAberto);
+}
+function reservaMinima({ contas, lancamentos, lancamentoLinhas, periodosFechados }) {
+  const mesesFechados = (periodosFechados || []).filter((p) => p.startsWith("mes:")).map((p) => p.slice(4)).sort().slice(-3);
+  if (!mesesFechados.length) return 0;
+  const idsDespesa = new Set(contas.filter((c) => c.tipo === "despesa").map((c) => c.id));
+  const porLancamento = new Map(lancamentos.map((l) => [l.id, l]));
+  const despesaPorMes = /* @__PURE__ */ new Map();
+  for (const linha of lancamentoLinhas) {
+    if (!idsDespesa.has(linha.contaId) || linha.tipo !== "D") continue;
+    const mes = (porLancamento.get(linha.lancamentoId)?.data || "").slice(0, 7);
+    if (!mesesFechados.includes(mes)) continue;
+    despesaPorMes.set(mes, (despesaPorMes.get(mes) || 0) + linha.valor);
+  }
+  return despesaPorMes.size ? Math.max(...despesaPorMes.values()) : 0;
+}
+function quantoPodeTirar({ contas, lancamentos, lancamentoLinhas, periodosFechados, hoje }) {
+  const caixaConta = contas.find((c) => c.id === "caixa");
+  const bancoConta = contas.find((c) => c.id === "banco");
+  const disponivelHoje = (caixaConta ? saldoDeConta(caixaConta, lancamentoLinhas) : 0) + (bancoConta ? saldoDeConta(bancoConta, lancamentoLinhas) : 0);
+  const aReceberBruto = somaComVencimentoEmJanela(lancamentoLinhas, "clientes", "D", hoje, DIAS_JANELA);
+  const aReceber = capadoNoSaldo(aReceberBruto, contas, "clientes", lancamentoLinhas);
+  let compromissos = 0;
+  for (const contaId of CONTAS_COMPROMISSO) {
+    const bruto = somaComVencimentoEmJanela(lancamentoLinhas, contaId, "C", hoje, DIAS_JANELA);
+    compromissos += capadoNoSaldo(bruto, contas, contaId, lancamentoLinhas);
+  }
+  const reserva = reservaMinima({ contas, lancamentos, lancamentoLinhas, periodosFechados });
+  const podeTirar = Math.max(0, disponivelHoje + aReceber - compromissos - reserva);
+  return { podeTirar, disponivelHoje, aReceber, compromissos, reserva };
+}
+
+// src/telas/RetratoDoMes.jsx
+var fmt7 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmtMes2 = (m) => {
+  const [ano, mes] = m.split("-");
+  return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+};
+var hojeISO3 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados }) {
+  const mesesComMovimento = useMemo7(() => {
+    const meses = new Set(lancamentos.map((l) => (l.data || "").slice(0, 7)).filter(Boolean));
+    return [...meses].sort().reverse();
+  }, [lancamentos]);
+  const mesesFechados = useMemo7(
+    () => new Set((periodosFechados || []).filter((p) => p.startsWith("mes:")).map((p) => p.slice(4))),
+    [periodosFechados]
+  );
+  const mesPadrao = [...mesesFechados].sort().reverse()[0] || mesesComMovimento[0] || hojeISO3().slice(0, 7);
+  const [mes, setMes] = useState9(mesPadrao);
+  const opcoesMes = useMemo7(() => {
+    const todos = /* @__PURE__ */ new Set([...mesesComMovimento, ...mesesFechados, mes]);
+    return [...todos].sort().reverse().map((m) => ({ value: m, label: `${fmtMes2(m)}${mesesFechados.has(m) ? " \xB7 fechado" : ""}` }));
+  }, [mesesComMovimento, mesesFechados, mes]);
+  const r = useMemo7(() => resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes), [contas, lancamentos, lancamentoLinhas, mes]);
+  const disp = useMemo7(
+    () => quantoPodeTirar({ contas, lancamentos, lancamentoLinhas, periodosFechados, hoje: hojeISO3() }),
+    [contas, lancamentos, lancamentoLinhas, periodosFechados]
+  );
+  const diferenca = Math.round((r.resultado - r.variacaoCaixaBanco) * 100) / 100;
+  const sobrouPositivo = r.resultado >= 0;
+  return /* @__PURE__ */ React13.createElement("div", { className: "max-w-lg" }, /* @__PURE__ */ React13.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React13.createElement(Select, { value: mes, onChange: setMes, options: opcoesMes })), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4", style: { background: "linear-gradient(160deg, var(--surface), var(--paper))" } }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, negocio.apelido || negocio.nome, " \xB7 ", fmtMes2(mes)), /* @__PURE__ */ React13.createElement("div", { className: "text-3xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: sobrouPositivo ? "var(--credit)" : "var(--debit)" } }, fmt7(r.resultado)), /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-1", style: { color: "var(--ink)" } }, "Entrou ", fmt7(r.receita), ", saiu ", fmt7(r.despesa), ", ", sobrouPositivo ? "sobrou" : "faltou", " ", fmt7(Math.abs(r.resultado)), "."), Math.abs(diferenca) >= 0.01 && /* @__PURE__ */ React13.createElement("div", { className: "text-xs mt-2", style: { color: "var(--muted)" } }, "O caixa e o banco se mexeram ", fmt7(r.variacaoCaixaBanco), " \u2014 a diferen\xE7a de ", fmt7(Math.abs(diferenca)), " ", "virou estoque, conta a receber, pagamento de d\xEDvida ou retirada. \xC9 o Balan\xE7o que mostra onde exatamente.")), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Quanto voc\xEA pode tirar"), /* @__PURE__ */ React13.createElement("div", { className: "text-2xl font-bold mb-2", style: { fontFamily: "var(--font-display)", color: "var(--accent)" } }, fmt7(disp.podeTirar)), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt7(disp.disponivelHoje), " dispon\xEDvel hoje em caixa e banco"), disp.aReceber > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt7(disp.aReceber), " a receber nos pr\xF3ximos 30 dias"), disp.compromissos > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt7(disp.compromissos), " em compromissos que vencem nos pr\xF3ximos 30 dias"), disp.reserva > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt7(disp.reserva), " de reserva m\xEDnima")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "\xC9 uma recomenda\xE7\xE3o com base no que foi lan\xE7ado, n\xE3o uma garantia.")), /* @__PURE__ */ React13.createElement("div", { className: "text-[10px] text-center", style: { color: "var(--muted)" } }, "Relat\xF3rio gerencial \u2014 n\xE3o \xE9 pe\xE7a cont\xE1bil oficial assinada."));
+}
+
 // src/telas/Livro.jsx
 var uid3 = () => Math.random().toString(36).slice(2, 10);
 var mesDe = (dataIso) => (dataIso || "").slice(0, 7);
@@ -1337,15 +1438,16 @@ var ABAS = [
   { id: "razao", label: "Raz\xE3o" },
   { id: "balancete", label: "Balancete" },
   { id: "conciliacao", label: "Concilia\xE7\xE3o" },
-  { id: "revisao", label: "Revis\xE3o" }
+  { id: "revisao", label: "Revis\xE3o" },
+  { id: "entregas", label: "Entregas" }
 ];
 function Livro({ negocio, onVoltar }) {
-  const [aba, setAba] = useState9("caixa");
-  const [estado, setEstado] = useState9(null);
-  const [loaded, setLoaded] = useState9(false);
-  const [erro, setErro] = useState9("");
-  const [salvando, setSalvando] = useState9(false);
-  const [confirmado, setConfirmado] = useState9(false);
+  const [aba, setAba] = useState10("caixa");
+  const [estado, setEstado] = useState10(null);
+  const [loaded, setLoaded] = useState10(false);
+  const [erro, setErro] = useState10("");
+  const [salvando, setSalvando] = useState10(false);
+  const [confirmado, setConfirmado] = useState10(false);
   const fotoRef = useRef2(null);
   const estadoRef = useRef2(null);
   const timerRef = useRef2(null);
@@ -1477,9 +1579,9 @@ function Livro({ negocio, onVoltar }) {
     }));
   }, []);
   if (!loaded || !estado) {
-    return /* @__PURE__ */ React13.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React13.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
+    return /* @__PURE__ */ React14.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React14.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
   }
-  return /* @__PURE__ */ React13.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React13.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React13.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React13.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React13.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React13.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React13.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React13.createElement(
+  return /* @__PURE__ */ React14.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React14.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React14.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React14.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React14.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React14.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React14.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React14.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React14.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React14.createElement(
     CaixaEntrada,
     {
       contas: estado.contas,
@@ -1490,7 +1592,7 @@ function Livro({ negocio, onVoltar }) {
       onPessoal: (item) => marcarSituacao(item, "pessoal"),
       onDuvida: (item) => marcarSituacao(item, "duvida")
     }
-  ), aba === "lancar" && /* @__PURE__ */ React13.createElement(Lancar, { contas: estado.contas, onAdicionar: adicionarLancamento }), aba === "diario" && /* @__PURE__ */ React13.createElement(Diario, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "razao" && /* @__PURE__ */ React13.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React13.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React13.createElement(
+  ), aba === "lancar" && /* @__PURE__ */ React14.createElement(Lancar, { contas: estado.contas, onAdicionar: adicionarLancamento }), aba === "diario" && /* @__PURE__ */ React14.createElement(Diario, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "razao" && /* @__PURE__ */ React14.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React14.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React14.createElement(
     Conciliacao,
     {
       lancamentos: estado.lancamentos,
@@ -1498,7 +1600,7 @@ function Livro({ negocio, onVoltar }) {
       conciliacoes: estado.conciliacoes,
       onAlternar: alternarConciliacao
     }
-  ), aba === "revisao" && /* @__PURE__ */ React13.createElement(
+  ), aba === "revisao" && /* @__PURE__ */ React14.createElement(
     Revisao,
     {
       contas: estado.contas,
@@ -1509,14 +1611,23 @@ function Livro({ negocio, onVoltar }) {
       onFechar: fecharMes,
       onReabrir: reabrirMes
     }
+  ), aba === "entregas" && /* @__PURE__ */ React14.createElement(
+    RetratoDoMes,
+    {
+      negocio,
+      contas: estado.contas,
+      lancamentos: estado.lancamentos,
+      lancamentoLinhas: estado.lancamentoLinhas,
+      periodosFechados: estado.periodosFechados
+    }
   )));
 }
 
 // src/app/App.jsx
 function App() {
-  const [authSession, setAuthSession] = useState10(void 0);
-  const [dark] = useState10(true);
-  const [negocioAberto, setNegocioAberto] = useState10(null);
+  const [authSession, setAuthSession] = useState11(void 0);
+  const [dark] = useState11(true);
+  const [negocioAberto, setNegocioAberto] = useState11(null);
   useEffect6(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -1531,14 +1642,14 @@ function App() {
     };
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
-  return /* @__PURE__ */ React14.createElement(React14.Fragment, null, /* @__PURE__ */ React14.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React14.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React14.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React14.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
+  return /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React15.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React15.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React15.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
     /* `key={negocioAberto.id}` desmonta e remonta o Livro inteiro ao
        trocar de negócio — é o que elimina por construção a classe de
        bug H3 do ContLife (doc 26): sem isso, o estado em memória de
        um negócio podia vazar para dentro da chave do próximo por um
        instante, entre trocar o id e a carga nova terminar. */
-    /* @__PURE__ */ React14.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
-  ) : /* @__PURE__ */ React14.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
+    /* @__PURE__ */ React15.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+  ) : /* @__PURE__ */ React15.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
 }
 export {
   App as default

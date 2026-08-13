@@ -36,7 +36,16 @@ extrato CSV de teste, classifiquei "POSTO IPIRANGA 1234" ensinando o padrão gen
 "POSTO IPIRANGA" → Combustível, marquei outro item como pessoal (sem gerar lançamento), e
 ao importar um SEGUNDO extrato com "POSTO IPIRANGA 9999" (loja diferente), **a sugestão
 "Combustível" apareceu sozinha** — o mecanismo de aprendizado funciona de verdade, não só
-no papel. Ver a seção própria abaixo.
+no papel.
+
+**Fechamento + Revisão concluídos:** fechar um mês bloqueia escrita nele de verdade (testado
+tentando lançar num mês fechado — recusado, nada vazou pro banco), reabrir libera de novo, e
+a trilha registra a sequência inteira.
+
+**Entregas concluídas — o Retrato do Mês e "quanto você pode tirar" conferidos casa decimal
+por casa decimal contra conta manual**, com dado semeado deliberadamente para testar a
+pergunta "pra onde foi o que sobrou" (uma venda a prazo fez o resultado subir sem o caixa se
+mexer — a tela apontou a diferença sozinha). Ver a seção própria abaixo.
 
 | Arquivo | O que é |
 |---|---|
@@ -460,19 +469,62 @@ junto.
 
 ---
 
+## ✅ Entregas — O RETRATO DO MÊS, CONCLUÍDO E CONFERIDO CONTRA CONTA MANUAL (13/ago)
+
+Implementa `04_MAPA_DO_APP.md` §9 e o diferencial mais forte do produto (`08` §2-3). Nova
+aba "Entregas" no Livro.
+
+| Arquivo | O que é |
+|---|---|
+| `src/dominio/disponivel.mjs` | `quantoPodeTirar` — a proposta mais forte do produto (`08` §2). Cada parcela CAPADA no que o livro garante matematicamente, nunca superestima |
+| `src/dominio/razao.mjs` (`resultadoDoMes`) | resultado do mês + variação real de caixa/banco — a resposta pra "pra onde foi o que sobrou" (`04` §9.1) |
+| `src/telas/RetratoDoMes.jsx` | a página única (`08` §3): número grande, poucas frases, o rodapé que protege o limite profissional |
+| `tests/disponivel.test.mjs` | 9 testes — inclui o caso do recebível já pago que NÃO pode contar de novo |
+| `tests/razao.test.mjs` (+3) | `resultadoDoMes` |
+
+### Por que "a receber" e "compromissos" são CAPADOS no saldo, não somados cru por vencimento
+
+Somar linhas de Clientes com vencimento nos próximos 30 dias pode superestimar se uma já foi
+paga — o pagamento é OUTRO lançamento; a linha original com o vencimento antigo continua lá.
+O SALDO da conta, por outro lado, é sempre matematicamente correto (todo pagamento gera um
+crédito que desconta). Solução: usa o MENOR entre os dois. Registrado no código o que falta
+para ficar mais preciso — uma tela de baixa de recebível ligando pagamento a origem, ainda
+não construída.
+
+### Reserva mínima: a MAIOR despesa entre os últimos meses fechados, não a média
+
+Deliberado — é o lado conservador (`08` §2, "errar para baixo"). Sem nenhum mês fechado
+ainda, a reserva é zero: sem histórico, não se inventa número.
+
+### Verificado com dado semeado e conferido À MÃO, não só rodando
+
+Julho fechado (aluguel R$400, venda R$900) + agosto com venda à vista (R$500) e a prazo
+(R$300, vence em 10 dias). Na tela:
+- **Julho:** "sobrou R$500,00" — bate (900−400)
+- **Agosto:** "sobrou R$800,00", e o aviso de "pra onde foi" apontou a diferença de R$300
+  entre o resultado e a variação real de caixa — **exatamente** o valor que foi para
+  Clientes (a venda a prazo), sem eu precisar apontar
+- **Quanto pode tirar:** R$900,00 = R$1.000 disponível + R$300 a receber − R$400 de reserva
+  — bate com a conta manual, casa decimal por casa decimal
+
+Negócio de teste apagado depois.
+
+---
+
 ## ➡️ Próxima tarefa — o que falta do `04_MAPA_DO_APP.md` §12
 
 O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro,
-Caixa de Entrada, Revisão e Fechamento. O que falta:
+Caixa de Entrada, Revisão, Fechamento e Entregas. O que falta:
 
-1. **Entregas** (`04` §9) — o Retrato do Mês (`08` §3), "quanto você pode tirar" (`08` §2).
-   Agora tem tudo que precisa: `razao.mjs` para os números, `periodos_fechados` para saber
-   o que já foi selado
-2. **Painel do Mês** (`04` §3) — só faz sentido com mais de 1 cliente real usando
-3. **Recorrentes** — peça futura sinalizada no passo 5 (Bloco 4 do Roteiro captura como
+1. **Painel do Mês** (`04` §3) — só faz sentido com mais de 1 cliente real usando
+2. **Recorrentes** — peça futura sinalizada no passo 5 (Bloco 4 do Roteiro captura como
    texto livre por enquanto); sem tabela própria ainda
-4. **Achados/anomalias** (`04` §7) — deliberadamente adiado nesta etapa: exige histórico de
-   meses para ter uma média com que comparar, e ainda não existe cliente real com histórico
+3. **Achados/anomalias** (`04` §7) — deliberadamente adiado: exige histórico de meses para
+   ter uma média com que comparar, e ainda não existe cliente real com histórico
+4. **Baixa de recebível/pagável** — ligar um pagamento à origem específica (docs/08
+   §2, registrado como próximo ganho de precisão do "quanto você pode tirar")
+5. **Carta de recomendações** (`04` §9) — texto livre por enquanto; a UI de captura ainda
+   não existe
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
 semanal (lacuna 1, acima).
