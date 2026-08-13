@@ -5,6 +5,7 @@ import { TelaCarregandoAuth, TelaAutenticacao } from "../telas/Autenticacao.jsx"
 import { Negocios } from "../telas/Negocios.jsx";
 import { ClienteNovo } from "../telas/ClienteNovo.jsx";
 import { Livro } from "../telas/Livro.jsx";
+import { PainelDoMes } from "../telas/PainelDoMes.jsx";
 
 export default function App() {
   /* undefined = checando sessão · null = sem sessão · objeto = autenticado —
@@ -12,6 +13,7 @@ export default function App() {
   const [authSession, setAuthSession] = useState(undefined);
   const [dark] = useState(true); /* padrão da casa: preto + cobre. Alternância fica para quando houver ConfigView. */
   const [negocioAberto, setNegocioAberto] = useState(null);
+  const [painelAberto, setPainelAberto] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -38,8 +40,10 @@ export default function App() {
            um negócio podia vazar para dentro da chave do próximo por um
            instante, entre trocar o id e a carga nova terminar. */
         <Livro key={negocioAberto.id} negocio={negocioAberto} onVoltar={fecharNegocio} />
+      ) : painelAberto ? (
+        <PainelDoMes onVoltar={() => setPainelAberto(false)} />
       ) : (
-        <Negocios onAbrirNegocio={setNegocioAberto} />
+        <Negocios onAbrirNegocio={setNegocioAberto} onAbrirPainel={() => setPainelAberto(true)} />
       )}
     </>
   );

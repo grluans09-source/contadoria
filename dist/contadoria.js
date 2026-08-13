@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React18, { useState as useState15, useEffect as useEffect8 } from "react";
+import React19, { useState as useState16, useEffect as useEffect9 } from "react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -290,7 +290,7 @@ function TelaAutenticacao({ redirectTo }) {
 
 // src/telas/Negocios.jsx
 import React4, { useState as useState3, useEffect as useEffect3, useCallback } from "react";
-import { Building2, Plus, X, LogOut } from "lucide-react";
+import { Building2, Plus, X, LogOut, ClipboardList } from "lucide-react";
 
 // src/dominio/razao.mjs
 var DEBITO_NORMAL = { ativo: true, despesa: true, passivo: false, pl: false, receita: false };
@@ -426,7 +426,7 @@ function FormularioNovoNegocio({ onCriado, onFechar }) {
     { value: "informal", label: "Informal" }
   ] })), erro && /* @__PURE__ */ React4.createElement("div", { className: "text-xs rounded-md px-3 py-2", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React4.createElement(Button, { type: "submit", disabled: salvando }, salvando ? "Criando\u2026" : "Criar neg\xF3cio")));
 }
-function Negocios({ onAbrirNegocio }) {
+function Negocios({ onAbrirNegocio, onAbrirPainel }) {
   const [negocios, setNegocios] = useState3(null);
   const [mostrarForm, setMostrarForm] = useState3(false);
   const [recemCriadoId, setRecemCriadoId] = useState3(null);
@@ -451,7 +451,7 @@ function Negocios({ onAbrirNegocio }) {
     setTimeout(() => setConfirmacao(false), 2200);
     setTimeout(() => setRecemCriadoId(null), 900);
   };
-  return /* @__PURE__ */ React4.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React4.createElement("div", { className: "max-w-3xl mx-auto px-5 py-8" }, /* @__PURE__ */ React4.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Seus neg\xF3cios"), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "a prateleira")), /* @__PURE__ */ React4.createElement("div", { className: "flex items-center gap-2" }, !mostrarForm && /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Novo neg\xF3cio"), /* @__PURE__ */ React4.createElement(
+  return /* @__PURE__ */ React4.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React4.createElement("div", { className: "max-w-3xl mx-auto px-5 py-8" }, /* @__PURE__ */ React4.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Seus neg\xF3cios"), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "a prateleira")), /* @__PURE__ */ React4.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React4.createElement(Button, { variant: "ghost", onClick: onAbrirPainel }, /* @__PURE__ */ React4.createElement(ClipboardList, { size: 15 }), " Painel do M\xEAs"), !mostrarForm && /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Novo neg\xF3cio"), /* @__PURE__ */ React4.createElement(
     "button",
     {
       onClick: () => supabase.auth.signOut(),
@@ -2022,12 +2022,120 @@ function Livro({ negocio, onVoltar }) {
   ), aba === "negocio" && /* @__PURE__ */ React17.createElement(ConfigNegocio, { negocioId: negocio.id })));
 }
 
+// src/telas/PainelDoMes.jsx
+import React18, { useEffect as useEffect8, useState as useState15 } from "react";
+import { ArrowLeft as ArrowLeft3, Copy, Check as Check4 } from "lucide-react";
+
+// src/dados/painelDoMes.mjs
+async function carregarPainelDoMes() {
+  const mes = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
+  const inicio = `${mes}-01`;
+  const fimExclusivo = /* @__PURE__ */ new Date(`${mes}-01T00:00:00Z`);
+  fimExclusivo.setUTCMonth(fimExclusivo.getUTCMonth() + 1);
+  const fim = fimExclusivo.toISOString().slice(0, 10);
+  const [{ data: negocios, error: e1 }, { data: itens, error: e2 }, { data: periodos, error: e3 }] = await Promise.all([
+    supabase.from("negocios").select("id, nome, apelido, situacao, configuracao"),
+    supabase.from("entrada_itens").select("negocio_id, situacao, criado_em").gte("criado_em", inicio).lt("criado_em", fim),
+    supabase.from("periodos_fechados").select("negocio_id").eq("tipo", "mes").eq("periodo", mes)
+  ]);
+  if (e1) throw new Error(`Falha ao carregar neg\xF3cios: ${e1.message}`);
+  if (e2) throw new Error(`Falha ao carregar a Caixa de Entrada: ${e2.message}`);
+  if (e3) throw new Error(`Falha ao carregar per\xEDodos fechados: ${e3.message}`);
+  const itensPorNegocio = /* @__PURE__ */ new Map();
+  for (const item of itens || []) {
+    if (!itensPorNegocio.has(item.negocio_id)) itensPorNegocio.set(item.negocio_id, []);
+    itensPorNegocio.get(item.negocio_id).push({ situacao: item.situacao });
+  }
+  const negociosComMesFechado = new Set((periodos || []).map((p) => p.negocio_id));
+  return { negocios: negocios || [], itensPorNegocio, negociosComMesFechado, mes };
+}
+
+// src/dominio/painelDoMes.mjs
+var MES_NOME = ["janeiro", "fevereiro", "mar\xE7o", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+function nomeDoMes(mes) {
+  const [ano, m] = mes.split("-");
+  return `${MES_NOME[Number(m) - 1]}/${ano}`;
+}
+function statusDoMes(itensDoMes, mesFechado) {
+  if (mesFechado) return { status: "fechado", pendentes: 0 };
+  if (!itensDoMes.length) return { status: "nada", pendentes: 0 };
+  const pendentes = itensDoMes.filter((i) => i.situacao === "pendente" || i.situacao === "duvida").length;
+  return pendentes === 0 ? { status: "pronto", pendentes: 0 } : { status: "faltando", pendentes };
+}
+function montarPainelDoMes(negocios, itensPorNegocio, negociosComMesFechado) {
+  const ORDEM = { nada: 0, faltando: 1, pronto: 2, fechado: 3 };
+  const linhas = (negocios || []).filter((n) => n.situacao === "ativo" && n.configuracao?.onboarded).map((n) => {
+    const itens = itensPorNegocio.get(n.id) || [];
+    const info = statusDoMes(itens, negociosComMesFechado.has(n.id));
+    return { negocioId: n.id, nome: n.nome, apelido: n.apelido, ...info };
+  });
+  return linhas.sort((a, b) => ORDEM[a.status] - ORDEM[b.status] || b.pendentes - a.pendentes);
+}
+function mensagemCobranca(linha, mes) {
+  const nome = linha.apelido || linha.nome;
+  const mesTexto = nomeDoMes(mes);
+  if (linha.status === "nada") {
+    return `Oi, ${nome}! Ainda n\xE3o recebi nada de ${mesTexto} \u2014 pode ir mandando o extrato e as vendas quando puder?`;
+  }
+  if (linha.status === "faltando") {
+    const n = linha.pendentes;
+    return `Oi, ${nome}! Para fechar ${mesTexto} ainda preciso que voc\xEA confirme ${n} ${n === 1 ? "item" : "itens"} que ca\xED(ram) na Caixa de Entrada \u2014 d\xE1 uma olhada quando puder?`;
+  }
+  return null;
+}
+
+// src/telas/PainelDoMes.jsx
+var STATUS_INFO = {
+  nada: { texto: "falta: TUDO \u2014 nada chegou este m\xEAs", cor: "var(--debit)" },
+  faltando: { texto: null, cor: "var(--debit)" },
+  // texto vem de `pendentes`, montado abaixo
+  pronto: { texto: "falta: NADA \u2014 pronto pra fechar", cor: "var(--credit)" },
+  fechado: { texto: "m\xEAs fechado", cor: "var(--muted)" }
+};
+function BotaoCopiar({ texto }) {
+  const [copiado, setCopiado] = useState15(false);
+  const copiar = async () => {
+    await navigator.clipboard.writeText(texto);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 1800);
+  };
+  return /* @__PURE__ */ React18.createElement("button", { onClick: copiar, className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70 shrink-0", style: { color: "var(--accent)" } }, copiado ? /* @__PURE__ */ React18.createElement(React18.Fragment, null, /* @__PURE__ */ React18.createElement(Check4, { size: 13 }), " Copiado") : /* @__PURE__ */ React18.createElement(React18.Fragment, null, /* @__PURE__ */ React18.createElement(Copy, { size: 13 }), " Copiar mensagem"));
+}
+function PainelDoMes({ onVoltar }) {
+  const [dados, setDados] = useState15(null);
+  const [erro, setErro] = useState15("");
+  useEffect8(() => {
+    let vivo = true;
+    carregarPainelDoMes().then((d) => {
+      if (vivo) setDados(d);
+    }).catch((e) => {
+      if (vivo) setErro(e.message);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  return /* @__PURE__ */ React18.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React18.createElement("div", { className: "max-w-2xl mx-auto px-5 py-8" }, /* @__PURE__ */ React18.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React18.createElement(ArrowLeft3, { size: 14 }), " Voltar"), /* @__PURE__ */ React18.createElement("div", { className: "mb-1 text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Painel do M\xEAs"), dados && /* @__PURE__ */ React18.createElement("div", { className: "text-xs mb-6", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, nomeDoMes(dados.mes), " \u2014 quem mandou, quem falta"), erro && /* @__PURE__ */ React18.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), !dados && !erro && /* @__PURE__ */ React18.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026"), dados && (() => {
+    const painel = montarPainelDoMes(dados.negocios, dados.itensPorNegocio, dados.negociosComMesFechado);
+    if (!painel.length) {
+      return /* @__PURE__ */ React18.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React18.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum neg\xF3cio ativo com onboarding conclu\xEDdo ainda."));
+    }
+    return /* @__PURE__ */ React18.createElement("div", { className: "space-y-2" }, painel.map((linha) => {
+      const info = STATUS_INFO[linha.status];
+      const texto = linha.status === "faltando" ? `falta: ${linha.pendentes} ${linha.pendentes === 1 ? "item" : "itens"} por classificar` : info.texto;
+      const mensagem = mensagemCobranca(linha, dados.mes);
+      return /* @__PURE__ */ React18.createElement(Card, { key: linha.negocioId, pad: "apertado" }, /* @__PURE__ */ React18.createElement("div", { className: "flex items-center justify-between gap-3 flex-wrap" }, /* @__PURE__ */ React18.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React18.createElement("span", { className: "text-sm font-medium mr-2", style: { color: "var(--ink)" } }, linha.apelido || linha.nome), /* @__PURE__ */ React18.createElement("span", { className: "text-xs", style: { color: info.cor } }, texto)), mensagem && /* @__PURE__ */ React18.createElement(BotaoCopiar, { texto: mensagem })));
+    }));
+  })()));
+}
+
 // src/app/App.jsx
 function App() {
-  const [authSession, setAuthSession] = useState15(void 0);
-  const [dark] = useState15(true);
-  const [negocioAberto, setNegocioAberto] = useState15(null);
-  useEffect8(() => {
+  const [authSession, setAuthSession] = useState16(void 0);
+  const [dark] = useState16(true);
+  const [negocioAberto, setNegocioAberto] = useState16(null);
+  const [painelAberto, setPainelAberto] = useState16(false);
+  useEffect9(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
       if (vivo) setAuthSession(data.session);
@@ -2041,14 +2149,14 @@ function App() {
     };
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
-  return /* @__PURE__ */ React18.createElement(React18.Fragment, null, /* @__PURE__ */ React18.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React18.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React18.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React18.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
+  return /* @__PURE__ */ React19.createElement(React19.Fragment, null, /* @__PURE__ */ React19.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React19.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React19.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React19.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
     /* `key={negocioAberto.id}` desmonta e remonta o Livro inteiro ao
        trocar de negócio — é o que elimina por construção a classe de
        bug H3 do ContLife (doc 26): sem isso, o estado em memória de
        um negócio podia vazar para dentro da chave do próximo por um
        instante, entre trocar o id e a carga nova terminar. */
-    /* @__PURE__ */ React18.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
-  ) : /* @__PURE__ */ React18.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
+    /* @__PURE__ */ React19.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+  ) : painelAberto ? /* @__PURE__ */ React19.createElement(PainelDoMes, { onVoltar: () => setPainelAberto(false) }) : /* @__PURE__ */ React19.createElement(Negocios, { onAbrirNegocio: setNegocioAberto, onAbrirPainel: () => setPainelAberto(true) }));
 }
 export {
   App as default

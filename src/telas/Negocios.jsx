@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Building2, Plus, X, LogOut } from "lucide-react";
+import { Building2, Plus, X, LogOut, ClipboardList } from "lucide-react";
 import { supabase } from "../dados/supabase.mjs";
 import { resumoDoMesAtual } from "../dados/resumoNegocio.mjs";
 import { Card, Label, Input, Select, Button, Confirmacao } from "../ui/primitivas.jsx";
@@ -124,7 +124,7 @@ function FormularioNovoNegocio({ onCriado, onFechar }) {
   );
 }
 
-export function Negocios({ onAbrirNegocio }) {
+export function Negocios({ onAbrirNegocio, onAbrirPainel }) {
   const [negocios, setNegocios] = useState(null); /* null = carregando */
   const [mostrarForm, setMostrarForm] = useState(false);
   const [recemCriadoId, setRecemCriadoId] = useState(null);
@@ -160,6 +160,9 @@ export function Negocios({ onAbrirNegocio }) {
             <div className="text-xs mt-1" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>a prateleira</div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={onAbrirPainel}>
+              <ClipboardList size={15} /> Painel do Mês
+            </Button>
             {!mostrarForm && (
               <Button onClick={() => setMostrarForm(true)}>
                 <Plus size={15} /> Novo negócio

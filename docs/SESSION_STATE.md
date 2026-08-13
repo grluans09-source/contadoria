@@ -586,18 +586,51 @@ zero linhas órfãs. `npm test`: 67/67 passando.
 
 ---
 
+## ✅ Painel do Mês (13/ago)
+
+Implementa docs/04_MAPA_DO_APP.md §3 — o gargalo nº 2 (docs/03 §5.1): "quem mandou e quem não
+mandou", de todos os clientes ao mesmo tempo. Acessível da prateleira.
+
+| Arquivo | O que é |
+|---|---|
+| `src/dominio/painelDoMes.mjs` (novo) | `statusDoMes`/`montarPainelDoMes`/`mensagemCobranca` — funções puras |
+| `src/dados/painelDoMes.mjs` (novo) | 3 consultas (negócios, entrada_itens do mês, períodos fechados), sem `negocio_id` explícito — a RLS já limita aos negócios do Luan, então agrupar em memória é mais barato que N idas ao banco por cliente |
+| `tests/painelDoMes.test.mjs` (novo) | 10 testes — inclui a ordenação (quem falta primeiro) e singular/plural da mensagem |
+| `src/telas/PainelDoMes.jsx` (novo) | lista ordenada por urgência, botão "Copiar mensagem" (clipboard) só para quem falta algo |
+| `src/app/App.jsx`, `src/telas/Negocios.jsx` | rota nova + botão na prateleira |
+
+### O sinal de "mandou" que existe de verdade, sem inventar granularidade
+
+O mockup do doc mostra pendência específica ("extrato de julho, notas da semana 3") — isso
+exigiria uma lista de "o que se espera receber" que não existe no modelo (docs/06). Em vez de
+inventar esse dado, o painel usa o sinal real: quantos itens chegaram na Caixa de Entrada
+este mês, e quantos ainda esperam decisão (`pendente`/`duvida`). Menos detalhado que o
+mockup, mas verdadeiro — e já resolve o gargalo (saber QUEM cobrar).
+
+### Verificado no navegador contra o banco real
+
+Três negócios de teste: "Nanda" sem nenhum item este mês (`falta: TUDO`), "Léia" com 2 itens
+pendentes de 3 (`falta: 2 itens por classificar`), "Zé" com tudo resolvido (`falta: NADA —
+pronto pra fechar`). O painel ordenou certo (nada → faltando → pronto), e "Copiar mensagem"
+escreveu no clipboard sem erro (confirmado pela UI mudando para "Copiado" — leitura do
+clipboard fica bloqueada por permissão do navegador nesta configuração de teste, mas a
+escrita não lançou exceção, que é o que o usuário real vê). Negócios de teste apagados
+depois, zero linhas órfãs. `npm test`: 77/77 passando.
+
+---
+
 ## ➡️ Próxima tarefa — o que falta do `04_MAPA_DO_APP.md` §12
 
 O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro,
 Caixa de Entrada, Revisão, Fechamento, Entregas, edição/exclusão de lançamento, cadastro e
-plano de contas editáveis, logout, prateleira com resumo do mês e recorrentes. O que falta:
+plano de contas editáveis, logout, prateleira com resumo do mês, recorrentes e Painel do Mês.
+O que falta:
 
-1. **Painel do Mês** (`04` §3) — só faz sentido com mais de 1 cliente real usando
-2. **Achados/anomalias** (`04` §7) — deliberadamente adiado: exige histórico de meses para
+1. **Achados/anomalias** (`04` §7) — deliberadamente adiado: exige histórico de meses para
    ter uma média com que comparar, e ainda não existe cliente real com histórico
-3. **Baixa de recebível/pagável** — ligar um pagamento à origem específica (docs/08
+2. **Baixa de recebível/pagável** — ligar um pagamento à origem específica (docs/08
    §2, registrado como próximo ganho de precisão do "quanto você pode tirar")
-4. **Carta de recomendações** (`04` §9) — texto livre por enquanto; a UI de captura ainda
+3. **Carta de recomendações** (`04` §9) — texto livre por enquanto; a UI de captura ainda
    não existe
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
