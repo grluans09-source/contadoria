@@ -730,34 +730,57 @@ automação do navegador desta sessão, não do código.
 
 ---
 
+## ✅ Parâmetros fiscais do MEI 2026, populados com fonte (13/ago)
+
+Fecha o checklist de `07_MEI_O_QUE_SABER.md` §10. Pesquisado via busca na web (Receita
+Federal e fontes secundárias cruzadas), gravado em `parametros_fiscais` (`ano = 2026`), 7
+chaves: `limite_anual_receita_bruta`, `salario_minimo`, `das_mei`, `prazos`,
+`desenquadramento`, `limite_empregados`, `carencia_beneficios` — cada uma com `fonte` e
+`conferido_em` preenchidos, nunca hardcoded no código (`06` §6).
+
+⚠️ **Duas ressalvas que ficaram registradas nos próprios dados, não escondidas:**
+- `limite_anual_receita_bruta` (R$ 81.000): dois projetos de lei tramitam para aumentá-lo
+  (PLP 108/2021, aprovado no Senado, R$ 130 mil; PLP 186/2026, na Câmara desde jun/2026) —
+  **nenhum virou lei ainda**. Reconferir antes de repetir esse número a um cliente.
+- `desenquadramento`: fonte primária é o Manual do Desenquadramento do SIMEI (Receita
+  Federal) — vale abrir o PDF original antes do primeiro caso real.
+
+Ainda em aberto (não é valor único pra guardar em `parametros_fiscais`): a lista de CNAEs
+permitidos ao MEI — conferir caso a caso, na hora de cadastrar cada cliente.
+
+---
+
+## ✅ Script de backup semanal (13/ago)
+
+`supabase/backup.mjs` (`npm run backup`) — exporta TODAS as tabelas de dado (via token de
+gerenciamento, o mesmo caminho de `conferir.mjs`/`aplicar-migracoes.mjs`, de propósito: um
+backup que dependesse do login de um usuário só enxergaria os negócios daquele usuário via
+RLS, docs/06 §2) para `backups/contadoria-backup-<timestamp>.json`. Mantém as últimas 12
+cópias e apaga o resto sozinho (~3 meses no ritmo semanal — mesmo raciocínio de "teto de
+volume" do resto do projeto, docs/03 §6, aplicado a disco). `backups/` está no `.gitignore`:
+dado de cliente de verdade nunca vai pro git, mesma regra dos segredos.
+
+Testado ao vivo: rodou, gravou 17 tabelas (a maioria vazia agora, sem cliente real ainda;
+`parametros_fiscais` com as 7 chaves recém-populadas, `roteiro_perguntas` com as 29
+perguntas seedadas), JSON válido conferido.
+
+**Sugestão de rotina pro Luan:** toda sexta-feira, ou antes de qualquer migração arriscada.
+
+---
+
 ## ➡️ Próxima tarefa
 
-Os dez itens do "O QUE FALTA" (mandato "quero o sistema já pronto com tudo") estão
-completos: núcleo contábil, onboarding, livro completo (lançar/editar/excluir, diário, razão,
-balancete, plano de contas editável, conciliação, baixas), Revisão com Achados, Fechamento,
-Entregas com Carta de recomendações, Recorrentes, Painel do Mês, cadastro editável, logout e
-prateleira rica. Não há mais nenhum item pendente desta lista.
+Os dez itens do "O QUE FALTA" original (mandato "quero o sistema já pronto com tudo") e mais
+dois dos quatro itens de pós-produção estão completos. O que resta, tudo fora do escopo de
+código:
 
-O que resta é o que já estava registrado como fora do escopo de código, pendente de ação do
-Luan (não bloqueia nada tecnicamente):
-
-1. ⚠️ Revogar o token de gerenciamento do Supabase (`sbp_...`) — não é mais necessário
-2. ⚠️ Conferir na legislação vigente o limite anual do MEI, o DAS e os prazos, antes do
-   primeiro cliente real — popular `parametros_fiscais`
-3. Script de exportação/backup semanal
-4. Testar o fluxo real de confirmação de e-mail no cadastro (ainda só testado com o usuário
-   de teste)
-
-⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
-semanal (lacuna 1, acima).
-
-### Duas conferências obrigatórias
-
-⚠️ **O token de gerenciamento (`sbp_...`) segue ativo** — pedido ao Luan revogar. Não é mais
-necessário para nada do que vem a seguir.
-
-⚠️ **Antes do primeiro cliente real:** conferir na legislação vigente o limite anual do MEI
-(e a regra de proporcionalidade no 1º ano), o valor e a composição do DAS, e os prazos. Os
-valores vivem em `parametros_fiscais`, com fonte e data — **nunca no código** (`06` §6).
+1. ⚠️ **Revogar o token de gerenciamento do Supabase (`sbp_...`)** — decisão do Luan, não
+   unilateral: o token ainda é a base de `conferir.mjs`, `aplicar-migracoes.mjs` e
+   `backup.mjs`. Revogar agora significa perder a via rápida de rodar migração ou backup até
+   gerar um token novo. Perguntar ao Luan se prefere revogar já (e aceitar essa fricção nas
+   próximas mudanças de schema) ou manter até o sistema estar mais parado.
+2. Testar o fluxo real de confirmação de e-mail no cadastro — precisa de um e-mail de
+   verdade (não o usuário de teste `contadoria-teste@mailinator.com`), então depende do Luan
+   testar com a própria caixa de entrada ou combinar um jeito de fazer isso junto.
 
 **Modelo:** alvo claro, segue em **Sonnet**.

@@ -22,5 +22,9 @@ token.txt
 supabase/.temp/
 .supabase/
 
+# Backups — dado de cliente de verdade, nunca no git (mesma regra dos
+# segredos: fora do repositório, sempre).
+backups/
+
 # Netlify (se houver deploy)
 .netlify

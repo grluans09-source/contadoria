@@ -12,7 +12,8 @@
     "serve": "node serve.mjs",
     "celular": "node serve.mjs --lan",
     "migrar": "node supabase/aplicar-migracoes.mjs",
-    "conferir": "node supabase/conferir.mjs"
+    "conferir": "node supabase/conferir.mjs",
+    "backup": "node supabase/backup.mjs"
   },
   "devDependencies": {
     "esbuild": "0.21.5"

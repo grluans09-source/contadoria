@@ -228,13 +228,27 @@ quebra a confiança — e em imposto, chute errado custa dinheiro ao cliente.
 Conferir na legislação vigente e **registrar em `parametros_fiscais` com fonte e data**
 (`06` §6) — nunca no código:
 
-- [ ] limite anual de receita bruta e a regra de proporcionalidade do 1º ano
-- [ ] valor e composição do DAS (INSS + ICMS e/ou ISS) por tipo de atividade
-- [ ] prazos: DAS, relatório mensal, declaração anual
-- [ ] quantos empregados o MEI pode ter
-- [ ] as duas faixas de estouro do limite (até 20% / acima de 20%) e seus efeitos
-- [ ] carências dos benefícios previdenciários
-- [ ] a lista de ocupações permitidas (só conferir se a atividade do cliente está lá)
+- [x] limite anual de receita bruta e a regra de proporcionalidade do 1º ano — `limite_anual_receita_bruta`
+- [x] valor e composição do DAS (INSS + ICMS e/ou ISS) por tipo de atividade — `das_mei`
+- [x] prazos: DAS, relatório mensal, declaração anual — `prazos`
+- [x] quantos empregados o MEI pode ter — `limite_empregados`
+- [x] as duas faixas de estouro do limite (até 20% / acima de 20%) e seus efeitos — `desenquadramento`
+- [x] carências dos benefícios previdenciários — `carencia_beneficios`
+- [ ] a lista de ocupações permitidas (só conferir se a atividade do cliente está lá — não é
+      um valor único pra guardar em `parametros_fiscais`; consultar
+      [CNAEs permitidos ao MEI](https://www.gov.br/empresas-e-negocios/pt-br/empreendedor)
+      caso a caso, na hora do cadastro)
+
+**Populado em 13/ago/2026** (ver `parametros_fiscais`, `ano = 2026`), com fonte em cada
+registro. Duas ressalvas importantes que ficaram registradas nos próprios dados:
+
+- **`limite_anual_receita_bruta`**: o teto de R$ 81.000 segue valendo, mas dois projetos de
+  lei tramitam para aumentá-lo (PLP 108/2021, aprovado no Senado, propõe R$ 130 mil; PLP
+  186/2026, enviado pelo Governo à Câmara em jun/2026) — **nenhum virou lei ainda**. Reconferir
+  antes de repetir esse número para um cliente.
+- **`desenquadramento`**: fonte primária é o Manual do Desenquadramento do SIMEI da Receita
+  Federal — vale abrir o PDF original antes do primeiro caso real, não só confiar na leitura
+  cruzada de hoje.
 
 **Sugestão de rotina:** reconferir tudo isto **todo mês de janeiro**, quando o salário mínimo
 muda e o DAS sobe junto. Marque no calendário — é a manutenção anual do seu serviço.
