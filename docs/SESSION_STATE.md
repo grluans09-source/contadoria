@@ -768,19 +768,56 @@ perguntas seedadas), JSON válido conferido.
 
 ---
 
+## ✅ Token de gerenciamento: decisão tomada (13/ago)
+
+Perguntado ao Luan se revogava agora ou depois — resposta: **manter por enquanto**. Motivo
+registrado: o token ainda sustenta `conferir.mjs`, `aplicar-migracoes.mjs` e `backup.mjs`;
+revogar agora trocaria a via rápida de mexer no banco por fricção (gerar token novo a cada
+sessão) sem ganho real neste momento do projeto. Reconsiderar quando o sistema estiver mais
+parado ou perto do primeiro cliente real.
+
+---
+
+## ✅ Confirmação de e-mail testada de ponta a ponta com inbox real (13/ago)
+
+Dois problemas de **infraestrutura** (não de código) apareceram no caminho, achados e
+corrigidos antes do teste valer:
+
+1. **O servidor de desenvolvimento (`serve.mjs`) tinha caído** entre uma sessão e outra —
+   o Luan não conseguia nem abrir a tela de login. Sem processo nenhum escutando a porta
+   8788 (`netstat` confirmou). Corrigido subindo de novo via `preview_start` (criado
+   `.claude/launch.json`, que não existia ainda, apontando pra `npm run serve`).
+2. **Redirect de confirmação de e-mail mal configurado no Supabase**: `site_url` do projeto
+   apontava pra `http://localhost:3000` (porta que nada serve) e `uri_allow_list` estava
+   vazia — o app pede `emailRedirectTo: window.location.origin` (`:8788`), mas sem esse
+   endereço na lista de permitidos, o link do e-mail provavelmente cairia na porta errada.
+   Corrigido via API de gerenciamento (autorizado pelo Luan antes de mexer, por ser
+   configuração de conta): `uri_allow_list = "http://localhost:8788/**"`.
+
+Achado também, sem custo de correção: **o projeto usa o e-mail padrão do Supabase, sem SMTP
+próprio configurado** (`smtp_host` vazio) — funciona, mas com limite de 2 e-mails/hora. Não é
+problema para uso pessoal/teste; **vale revisitar antes de ter clientes reais** mandando
+e-mail de verdade para eles (confirmação, recuperação de senha) — considerar SMTP próprio se
+o volume crescer.
+
+**Teste real, com a caixa de entrada do próprio Luan** (`grluans.09@gmail.com`, não mais o
+usuário `contadoria-teste@mailinator.com`): cadastro às 20:56, e-mail de confirmação
+recebido e confirmado às 20:57 (menos de 1 minuto), login funcionando às 21:00 — confirmado
+direto em `auth.users`. Ciclo completo provado.
+
+---
+
 ## ➡️ Próxima tarefa
 
-Os dez itens do "O QUE FALTA" original (mandato "quero o sistema já pronto com tudo") e mais
-dois dos quatro itens de pós-produção estão completos. O que resta, tudo fora do escopo de
-código:
+Os dez itens do "O QUE FALTA" original (mandato "quero o sistema já pronto com tudo") e os
+quatro itens de pós-produção (parâmetros fiscais, backup, decisão do token, confirmação de
+e-mail) estão **todos completos**. Não há pendência de código conhecida.
 
-1. ⚠️ **Revogar o token de gerenciamento do Supabase (`sbp_...`)** — decisão do Luan, não
-   unilateral: o token ainda é a base de `conferir.mjs`, `aplicar-migracoes.mjs` e
-   `backup.mjs`. Revogar agora significa perder a via rápida de rodar migração ou backup até
-   gerar um token novo. Perguntar ao Luan se prefere revogar já (e aceitar essa fricção nas
-   próximas mudanças de schema) ou manter até o sistema estar mais parado.
-2. Testar o fluxo real de confirmação de e-mail no cadastro — precisa de um e-mail de
-   verdade (não o usuário de teste `contadoria-teste@mailinator.com`), então depende do Luan
-   testar com a própria caixa de entrada ou combinar um jeito de fazer isso junto.
+O que resta é rotina, não tarefa:
+- Reconferir `parametros_fiscais` todo janeiro (salário mínimo muda, DAS sobe) e antes do
+  primeiro cliente real (os dois PLPs de aumento do teto do MEI ainda não são lei)
+- Rodar `npm run backup` semanalmente (ou antes de qualquer migração arriscada)
+- Lembrar de subir `serve.mjs` (ou `preview_start`) no início de cada sessão de trabalho —
+  ele não fica rodando sozinho entre uma sessão e outra
 
 **Modelo:** alvo claro, segue em **Sonnet**.
