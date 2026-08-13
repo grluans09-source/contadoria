@@ -511,10 +511,52 @@ Negócio de teste apagado depois.
 
 ---
 
+## ✅ Editar/excluir lançamento, sair, editar cadastro, editar plano de contas, prateleira rica (13/ago)
+
+Resposta ao "quero o sistema já pronto com tudo" — lacunas descobertas construindo que não
+estavam em nenhum doc, mais o item 1 do `04_MAPA_DO_APP.md` §3 (prateleira).
+
+| Arquivo | O que é |
+|---|---|
+| `src/telas/Lancar.jsx` | agora serve criar E editar (`editando`/`onEditar`/`onCancelarEdicao`) |
+| `src/telas/Diario.jsx` | ícones de editar/excluir por card (só em lançamentos de origem `manual`/`extrato` — nunca em `abertura`/`encerramento_mes`); excluir tem confirmação em duas etapas |
+| `src/telas/Livro.jsx` | `editarLancamento`, `excluirLancamento` (respeita `mesEstaFechado`, vai pra `lixeira`, zera `entrada_itens` que apontavam pro lançamento apagado), `adicionarConta`/`alternarAtivaConta`; abas novas "Plano de contas" e "Negócio" |
+| `src/telas/ConfigNegocio.jsx` (novo) | editar nome/apelido/CNPJ/atividade/WhatsApp/funcionário/situação — direto no Supabase, fora do loop reativo (mesmo motivo do `ClienteNovo.jsx`: não é coleção-filha) |
+| `src/telas/PlanoContas.jsx` (novo) | adicionar conta nova, ativar/desativar — sem excluir de propósito (conta com movimento não pode sumir sem quebrar histórico) |
+| `src/telas/Negocios.jsx` | botão "Sair" (`supabase.auth.signOut()`); prateleira agora mostra "sobrou/faltou R$X este mês" por card (só para negócio ativo e já onboarded) |
+| `src/dados/resumoNegocio.mjs` (novo) | reaproveita `resultadoDoMes` já testado — não reinventa soma em SQL |
+
+### Bug pego ao vivo, antes de qualquer relato do usuário
+
+`Lancar.jsx`: depois de salvar uma edição, o formulário voltava pro modo "criar" mas ficava
+com os valores da edição ainda preenchidos — parecia que ia duplicar o lançamento. Faltava
+`limpar()` + confirmação depois de `onCancelarEdicao()`. Corrigido e reconferido: reload de
+página, o valor editado (R$150) persistiu certo, formulário limpo.
+
+### Bug pego ao vivo verificando a prateleira rica
+
+`resumoNegocio.mjs` buscava contas com `select("id, tipo")` — sem `codigo`. `resultadoDoMes`
+usa `balancete()` por baixo, que ordena por `c.codigo.localeCompare(...)`: tela travava em
+"…" pra sempre, erro só no console (`Cannot read properties of undefined (reading
+'localeCompare')`). Corrigido incluindo `codigo` na consulta. Reconferido lançando uma venda
+de R$300 de verdade: a prateleira mostrou "sobrou R$ 300,00 este mês", batendo.
+
+### Verificado no navegador contra o banco real
+
+Negócio de teste "Pizzaria Rossi": editei um lançamento (persistiu o novo valor após reload),
+excluí outro (foi pra `lixeira` com conteúdo completo, `entrada_itens` voltou pra
+`pendente`/sem vínculo, `trilha` registrou `lancar → editar → excluir` em ordem), editei o
+cadastro (atividade/WhatsApp persistiram), adicionei conta "5114 — Embalagens de entrega" e
+desativei (persistiu `ativa:false`). Negócio de teste apagado depois, zero linhas órfãs em
+nenhuma tabela. `npm test`: 62/62 passando.
+
+---
+
 ## ➡️ Próxima tarefa — o que falta do `04_MAPA_DO_APP.md` §12
 
 O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro,
-Caixa de Entrada, Revisão, Fechamento e Entregas. O que falta:
+Caixa de Entrada, Revisão, Fechamento, Entregas, edição/exclusão de lançamento, cadastro e
+plano de contas editáveis, logout e prateleira com resumo do mês. O que falta:
 
 1. **Painel do Mês** (`04` §3) — só faz sentido com mais de 1 cliente real usando
 2. **Recorrentes** — peça futura sinalizada no passo 5 (Bloco 4 do Roteiro captura como

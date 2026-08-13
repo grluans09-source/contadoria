@@ -1,4 +1,5 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
+import { Pencil, Trash2, Check, X } from "lucide-react";
 import { Card } from "../ui/primitivas.jsx";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
@@ -6,11 +7,33 @@ const fmtData = (d) => (d ? d.split("-").reverse().join("/") : "—");
 
 const ORIGEM_LABEL = { manual: "Manual", extrato: "Extrato", recorrente: "Recorrente", abertura: "Abertura", encerramento_mes: "Fechamento", encerramento_ano: "Encerramento" };
 
+/* Lançamento gerado pelo sistema (abertura, fechamento) não se edita
+   nem apaga na mão — são a fundação do livro ou o selo de um mês. */
+const ORIGENS_EDITAVEIS = new Set(["manual", "extrato"]);
+
+function LinhaExcluir({ lancamento, onConfirmar }) {
+  const [confirmando, setConfirmando] = useState(false);
+  if (confirmando) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px]" style={{ color: "var(--debit)" }}>Excluir de vez?</span>
+        <button onClick={() => onConfirmar(lancamento.id)} className="transition-opacity hover:opacity-70" style={{ color: "var(--debit)" }} aria-label="Confirmar exclusão"><Check size={13} /></button>
+        <button onClick={() => setConfirmando(false)} className="transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }} aria-label="Cancelar"><X size={13} /></button>
+      </div>
+    );
+  }
+  return (
+    <button onClick={() => setConfirmando(true)} className="transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }} aria-label="Excluir">
+      <Trash2 size={13} />
+    </button>
+  );
+}
+
 /* O Diário — tudo que aconteceu, em ordem de data (docs/04 §6). Cada
    lançamento com suas N linhas por baixo, não achatado numa linha só —
    é exatamente essa estrutura que motivou o lançamento de N linhas
    desde o desenho (docs/06 §1). */
-export function Diario({ contas, lancamentos, lancamentoLinhas }) {
+export function Diario({ contas, lancamentos, lancamentoLinhas, onEditar, onExcluir }) {
   const nomeConta = useMemo(() => new Map(contas.map((c) => [c.id, c.nome])), [contas]);
   const linhasPorLancamento = useMemo(() => {
     const mapa = new Map();
@@ -34,16 +57,27 @@ export function Diario({ contas, lancamentos, lancamentoLinhas }) {
     <div className="space-y-3">
       {ordenados.map((l) => {
         const linhas = linhasPorLancamento.get(l.id) || [];
+        const editavel = ORIGENS_EDITAVEIS.has(l.origem);
         return (
           <Card key={l.id} pad="apertado">
-            <div className="flex items-center justify-between mb-2">
-              <div>
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <div className="min-w-0">
                 <span className="font-mono text-xs mr-2" style={{ color: "var(--muted)" }}>{fmtData(l.data)}</span>
                 <span style={{ color: "var(--ink)" }}>{l.descricao}</span>
               </div>
-              <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" }}>
-                {ORIGEM_LABEL[l.origem] || l.origem}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" }}>
+                  {ORIGEM_LABEL[l.origem] || l.origem}
+                </span>
+                {editavel && (
+                  <>
+                    <button onClick={() => onEditar(l.id)} className="transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }} aria-label="Editar">
+                      <Pencil size={13} />
+                    </button>
+                    <LinhaExcluir lancamento={l} onConfirmar={onExcluir} />
+                  </>
+                )}
+              </div>
             </div>
             <table className="w-full text-xs">
               <tbody>

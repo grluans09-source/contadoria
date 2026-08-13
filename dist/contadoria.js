@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React15, { useState as useState11, useEffect as useEffect6 } from "react";
+import React17, { useState as useState14, useEffect as useEffect8 } from "react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -290,9 +290,91 @@ function TelaAutenticacao({ redirectTo }) {
 
 // src/telas/Negocios.jsx
 import React4, { useState as useState3, useEffect as useEffect3, useCallback } from "react";
-import { Building2, Plus, X } from "lucide-react";
+import { Building2, Plus, X, LogOut } from "lucide-react";
+
+// src/dominio/razao.mjs
+var DEBITO_NORMAL = { ativo: true, despesa: true, passivo: false, pl: false, receita: false };
+function saldoDeConta(conta, linhas) {
+  let d = 0, c = 0;
+  for (const l of linhas) {
+    if (l.contaId !== conta.id) continue;
+    if (l.tipo === "D") d += l.valor;
+    else c += l.valor;
+  }
+  return DEBITO_NORMAL[conta.tipo] ? d - c : c - d;
+}
+function balancete(contas, linhas) {
+  const porConta = new Map(contas.map((c) => [c.id, { ...c, debito: 0, credito: 0 }]));
+  const orfas = [];
+  for (const l of linhas) {
+    const c = porConta.get(l.contaId);
+    if (!c) {
+      orfas.push(l);
+      continue;
+    }
+    if (l.tipo === "D") c.debito += l.valor;
+    else c.credito += l.valor;
+  }
+  const linhasBalancete = [...porConta.values()].map((c) => ({ ...c, saldo: DEBITO_NORMAL[c.tipo] ? c.debito - c.credito : c.credito - c.debito })).sort((a, b) => a.codigo.localeCompare(b.codigo));
+  const totalDebito = linhasBalancete.reduce((s, c) => s + c.debito, 0);
+  const totalCredito = linhasBalancete.reduce((s, c) => s + c.credito, 0);
+  return {
+    linhas: linhasBalancete,
+    totalDebito,
+    totalCredito,
+    fecha: Math.abs(totalDebito - totalCredito) < 0.01,
+    orfas
+  };
+}
+function resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes) {
+  const idsDoMes = new Set(lancamentos.filter((l) => (l.data || "").slice(0, 7) === mes).map((l) => l.id));
+  const linhasDoMes = lancamentoLinhas.filter((l) => idsDoMes.has(l.lancamentoId));
+  const b = balancete(contas, linhasDoMes);
+  const receita = b.linhas.filter((c) => c.tipo === "receita").reduce((s, c) => s + c.saldo, 0);
+  const despesa = b.linhas.filter((c) => c.tipo === "despesa").reduce((s, c) => s + c.saldo, 0);
+  const variacaoCaixaBanco = b.linhas.filter((c) => c.id === "caixa" || c.id === "banco").reduce((s, c) => s + c.saldo, 0);
+  return { receita, despesa, resultado: receita - despesa, variacaoCaixaBanco };
+}
+
+// src/dados/resumoNegocio.mjs
+async function resumoDoMesAtual(negocioId) {
+  const mes = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
+  const inicio = `${mes}-01`;
+  const fim = `${mes}-31`;
+  const [{ data: contasRaw }, { data: lancRaw }] = await Promise.all([
+    supabase.from("contas").select("id, codigo, tipo").eq("negocio_id", negocioId),
+    supabase.from("lancamentos").select("id, data").eq("negocio_id", negocioId).gte("data", inicio).lte("data", fim)
+  ]);
+  if (!lancRaw?.length) return { resultado: 0, temMovimento: false };
+  const ids = lancRaw.map((l) => l.id);
+  const { data: linhasRaw } = await supabase.from("lancamento_linhas").select("lancamento_id, conta_id, tipo, valor").in("lancamento_id", ids);
+  const contas = (contasRaw || []).map((c) => ({ id: c.id, codigo: c.codigo, tipo: c.tipo }));
+  const lancamentos = lancRaw.map((l) => ({ id: l.id, data: l.data }));
+  const linhas = (linhasRaw || []).map((l) => ({ lancamentoId: l.lancamento_id, contaId: l.conta_id, tipo: l.tipo, valor: Number(l.valor) }));
+  const r = resultadoDoMes(contas, lancamentos, linhas, mes);
+  return { resultado: r.resultado, temMovimento: true };
+}
+
+// src/telas/Negocios.jsx
 var TIPO_LABEL = { mei: "MEI", informal: "Informal" };
+var fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+function ResumoDoMes({ negocioId }) {
+  const [resumo, setResumo] = useState3(null);
+  useEffect3(() => {
+    let vivo = true;
+    resumoDoMesAtual(negocioId).then((r) => {
+      if (vivo) setResumo(r);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [negocioId]);
+  if (!resumo) return /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "\u2026");
+  if (!resumo.temMovimento) return /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento neste m\xEAs");
+  return /* @__PURE__ */ React4.createElement("span", { style: { color: resumo.resultado >= 0 ? "var(--credit)" : "var(--debit)" } }, resumo.resultado >= 0 ? "sobrou" : "faltou", " ", fmt(Math.abs(resumo.resultado)), " este m\xEAs");
+}
 function CardNegocio({ negocio, recemCriado, onAbrir }) {
+  const onboarded = !!negocio.configuracao?.onboarded;
   return /* @__PURE__ */ React4.createElement(
     Card,
     {
@@ -308,7 +390,7 @@ function CardNegocio({ negocio, recemCriado, onAbrir }) {
       },
       TIPO_LABEL[negocio.tipo] || negocio.tipo
     )),
-    /* @__PURE__ */ React4.createElement("div", { className: "mt-3 text-xs", style: { color: "var(--muted)" } }, negocio.situacao !== "ativo" ? "Encerrado" : negocio.configuracao?.onboarded ? "Nenhum lan\xE7amento novo ainda" : "Roteiro do Cliente Novo pendente")
+    /* @__PURE__ */ React4.createElement("div", { className: "mt-3 text-xs" }, negocio.situacao !== "ativo" ? /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "Encerrado") : !onboarded ? /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "Roteiro do Cliente Novo pendente") : /* @__PURE__ */ React4.createElement(ResumoDoMes, { negocioId: negocio.id }))
   );
 }
 function FormularioNovoNegocio({ onCriado, onFechar }) {
@@ -369,7 +451,17 @@ function Negocios({ onAbrirNegocio }) {
     setTimeout(() => setConfirmacao(false), 2200);
     setTimeout(() => setRecemCriadoId(null), 900);
   };
-  return /* @__PURE__ */ React4.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React4.createElement("div", { className: "max-w-3xl mx-auto px-5 py-8" }, /* @__PURE__ */ React4.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Seus neg\xF3cios"), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "a prateleira")), !mostrarForm && /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Novo neg\xF3cio")), /* @__PURE__ */ React4.createElement("div", { className: "mb-4" }, /* @__PURE__ */ React4.createElement(Confirmacao, { texto: "Neg\xF3cio criado.", ativa: confirmacao })), mostrarForm && /* @__PURE__ */ React4.createElement(FormularioNovoNegocio, { onCriado: aoCriar, onFechar: () => setMostrarForm(false) }), erro && /* @__PURE__ */ React4.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), negocios === null && /* @__PURE__ */ React4.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026"), negocios !== null && negocios.length === 0 && !mostrarForm && /* @__PURE__ */ React4.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React4.createElement(Building2, { size: 28, className: "mx-auto mb-3", style: { color: "var(--muted)" } }), /* @__PURE__ */ React4.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum neg\xF3cio cadastrado ainda."), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1 mb-4", style: { color: "var(--muted)" } }, "O primeiro passo \xE9 criar o neg\xF3cio do seu primeiro cliente."), /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Criar o primeiro")), negocios !== null && negocios.length > 0 && /* @__PURE__ */ React4.createElement("div", { className: "grid gap-3 sm:grid-cols-2" }, negocios.map((n) => /* @__PURE__ */ React4.createElement(CardNegocio, { key: n.id, negocio: n, recemCriado: n.id === recemCriadoId, onAbrir: onAbrirNegocio })))));
+  return /* @__PURE__ */ React4.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React4.createElement("div", { className: "max-w-3xl mx-auto px-5 py-8" }, /* @__PURE__ */ React4.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Seus neg\xF3cios"), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "a prateleira")), /* @__PURE__ */ React4.createElement("div", { className: "flex items-center gap-2" }, !mostrarForm && /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Novo neg\xF3cio"), /* @__PURE__ */ React4.createElement(
+    "button",
+    {
+      onClick: () => supabase.auth.signOut(),
+      className: "text-xs inline-flex items-center gap-1.5 px-2 py-2 transition-opacity hover:opacity-70",
+      style: { color: "var(--muted)" },
+      "aria-label": "Sair",
+      title: "Sair da conta"
+    },
+    /* @__PURE__ */ React4.createElement(LogOut, { size: 15 })
+  ))), /* @__PURE__ */ React4.createElement("div", { className: "mb-4" }, /* @__PURE__ */ React4.createElement(Confirmacao, { texto: "Neg\xF3cio criado.", ativa: confirmacao })), mostrarForm && /* @__PURE__ */ React4.createElement(FormularioNovoNegocio, { onCriado: aoCriar, onFechar: () => setMostrarForm(false) }), erro && /* @__PURE__ */ React4.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), negocios === null && /* @__PURE__ */ React4.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026"), negocios !== null && negocios.length === 0 && !mostrarForm && /* @__PURE__ */ React4.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React4.createElement(Building2, { size: 28, className: "mx-auto mb-3", style: { color: "var(--muted)" } }), /* @__PURE__ */ React4.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum neg\xF3cio cadastrado ainda."), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1 mb-4", style: { color: "var(--muted)" } }, "O primeiro passo \xE9 criar o neg\xF3cio do seu primeiro cliente."), /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Criar o primeiro")), negocios !== null && negocios.length > 0 && /* @__PURE__ */ React4.createElement("div", { className: "grid gap-3 sm:grid-cols-2" }, negocios.map((n) => /* @__PURE__ */ React4.createElement(CardNegocio, { key: n.id, negocio: n, recemCriado: n.id === recemCriadoId, onAbrir: onAbrirNegocio })))));
 }
 
 // src/telas/ClienteNovo.jsx
@@ -675,7 +767,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
 }
 
 // src/telas/Livro.jsx
-import React14, { useState as useState10, useEffect as useEffect5, useRef as useRef2, useCallback as useCallback2 } from "react";
+import React16, { useState as useState13, useEffect as useEffect7, useRef as useRef2, useCallback as useCallback2 } from "react";
 import { ArrowLeft as ArrowLeft2 } from "lucide-react";
 
 // src/dados/sinc.mjs
@@ -879,11 +971,20 @@ async function carregarEstadoNegocio(negocioId) {
 }
 
 // src/telas/Diario.jsx
-import React6, { useMemo } from "react";
-var fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+import React6, { useMemo, useState as useState5 } from "react";
+import { Pencil, Trash2 as Trash22, Check, X as X2 } from "lucide-react";
+var fmt2 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtData = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
 var ORIGEM_LABEL = { manual: "Manual", extrato: "Extrato", recorrente: "Recorrente", abertura: "Abertura", encerramento_mes: "Fechamento", encerramento_ano: "Encerramento" };
-function Diario({ contas, lancamentos, lancamentoLinhas }) {
+var ORIGENS_EDITAVEIS = /* @__PURE__ */ new Set(["manual", "extrato"]);
+function LinhaExcluir({ lancamento, onConfirmar }) {
+  const [confirmando, setConfirmando] = useState5(false);
+  if (confirmando) {
+    return /* @__PURE__ */ React6.createElement("div", { className: "flex items-center gap-1.5" }, /* @__PURE__ */ React6.createElement("span", { className: "text-[10px]", style: { color: "var(--debit)" } }, "Excluir de vez?"), /* @__PURE__ */ React6.createElement("button", { onClick: () => onConfirmar(lancamento.id), className: "transition-opacity hover:opacity-70", style: { color: "var(--debit)" }, "aria-label": "Confirmar exclus\xE3o" }, /* @__PURE__ */ React6.createElement(Check, { size: 13 })), /* @__PURE__ */ React6.createElement("button", { onClick: () => setConfirmando(false), className: "transition-opacity hover:opacity-70", style: { color: "var(--muted)" }, "aria-label": "Cancelar" }, /* @__PURE__ */ React6.createElement(X2, { size: 13 })));
+  }
+  return /* @__PURE__ */ React6.createElement("button", { onClick: () => setConfirmando(true), className: "transition-opacity hover:opacity-70", style: { color: "var(--muted)" }, "aria-label": "Excluir" }, /* @__PURE__ */ React6.createElement(Trash22, { size: 13 }));
+}
+function Diario({ contas, lancamentos, lancamentoLinhas, onEditar, onExcluir }) {
   const nomeConta = useMemo(() => new Map(contas.map((c) => [c.id, c.nome])), [contas]);
   const linhasPorLancamento = useMemo(() => {
     const mapa = /* @__PURE__ */ new Map();
@@ -902,63 +1003,18 @@ function Diario({ contas, lancamentos, lancamentoLinhas }) {
   }
   return /* @__PURE__ */ React6.createElement("div", { className: "space-y-3" }, ordenados.map((l) => {
     const linhas = linhasPorLancamento.get(l.id) || [];
-    return /* @__PURE__ */ React6.createElement(Card, { key: l.id, pad: "apertado" }, /* @__PURE__ */ React6.createElement("div", { className: "flex items-center justify-between mb-2" }, /* @__PURE__ */ React6.createElement("div", null, /* @__PURE__ */ React6.createElement("span", { className: "font-mono text-xs mr-2", style: { color: "var(--muted)" } }, fmtData(l.data)), /* @__PURE__ */ React6.createElement("span", { style: { color: "var(--ink)" } }, l.descricao)), /* @__PURE__ */ React6.createElement("span", { className: "text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full", style: { background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" } }, ORIGEM_LABEL[l.origem] || l.origem)), /* @__PURE__ */ React6.createElement("table", { className: "w-full text-xs" }, /* @__PURE__ */ React6.createElement("tbody", null, linhas.map((linha) => /* @__PURE__ */ React6.createElement("tr", { key: linha.id }, /* @__PURE__ */ React6.createElement("td", { className: "py-0.5 pr-2", style: { color: linha.tipo === "D" ? "var(--ink)" : "var(--muted)", paddingLeft: linha.tipo === "C" ? "1.5rem" : 0 } }, linha.tipo === "D" ? "D" : "C", " ", nomeConta.get(linha.contaId) || linha.contaId, linha.descricao ? /* @__PURE__ */ React6.createElement("span", { style: { color: "var(--muted)" } }, " \u2014 ", linha.descricao) : null), /* @__PURE__ */ React6.createElement("td", { className: "py-0.5 text-right tabular-nums" }, fmt(linha.valor)))))));
+    const editavel = ORIGENS_EDITAVEIS.has(l.origem);
+    return /* @__PURE__ */ React6.createElement(Card, { key: l.id, pad: "apertado" }, /* @__PURE__ */ React6.createElement("div", { className: "flex items-center justify-between mb-2 gap-2" }, /* @__PURE__ */ React6.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React6.createElement("span", { className: "font-mono text-xs mr-2", style: { color: "var(--muted)" } }, fmtData(l.data)), /* @__PURE__ */ React6.createElement("span", { style: { color: "var(--ink)" } }, l.descricao)), /* @__PURE__ */ React6.createElement("div", { className: "flex items-center gap-2 shrink-0" }, /* @__PURE__ */ React6.createElement("span", { className: "text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full", style: { background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" } }, ORIGEM_LABEL[l.origem] || l.origem), editavel && /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("button", { onClick: () => onEditar(l.id), className: "transition-opacity hover:opacity-70", style: { color: "var(--muted)" }, "aria-label": "Editar" }, /* @__PURE__ */ React6.createElement(Pencil, { size: 13 })), /* @__PURE__ */ React6.createElement(LinhaExcluir, { lancamento: l, onConfirmar: onExcluir })))), /* @__PURE__ */ React6.createElement("table", { className: "w-full text-xs" }, /* @__PURE__ */ React6.createElement("tbody", null, linhas.map((linha) => /* @__PURE__ */ React6.createElement("tr", { key: linha.id }, /* @__PURE__ */ React6.createElement("td", { className: "py-0.5 pr-2", style: { color: linha.tipo === "D" ? "var(--ink)" : "var(--muted)", paddingLeft: linha.tipo === "C" ? "1.5rem" : 0 } }, linha.tipo === "D" ? "D" : "C", " ", nomeConta.get(linha.contaId) || linha.contaId, linha.descricao ? /* @__PURE__ */ React6.createElement("span", { style: { color: "var(--muted)" } }, " \u2014 ", linha.descricao) : null), /* @__PURE__ */ React6.createElement("td", { className: "py-0.5 text-right tabular-nums" }, fmt2(linha.valor)))))));
   }));
 }
 
 // src/telas/Razao.jsx
-import React7, { useState as useState5, useMemo as useMemo2 } from "react";
-
-// src/dominio/razao.mjs
-var DEBITO_NORMAL = { ativo: true, despesa: true, passivo: false, pl: false, receita: false };
-function saldoDeConta(conta, linhas) {
-  let d = 0, c = 0;
-  for (const l of linhas) {
-    if (l.contaId !== conta.id) continue;
-    if (l.tipo === "D") d += l.valor;
-    else c += l.valor;
-  }
-  return DEBITO_NORMAL[conta.tipo] ? d - c : c - d;
-}
-function balancete(contas, linhas) {
-  const porConta = new Map(contas.map((c) => [c.id, { ...c, debito: 0, credito: 0 }]));
-  const orfas = [];
-  for (const l of linhas) {
-    const c = porConta.get(l.contaId);
-    if (!c) {
-      orfas.push(l);
-      continue;
-    }
-    if (l.tipo === "D") c.debito += l.valor;
-    else c.credito += l.valor;
-  }
-  const linhasBalancete = [...porConta.values()].map((c) => ({ ...c, saldo: DEBITO_NORMAL[c.tipo] ? c.debito - c.credito : c.credito - c.debito })).sort((a, b) => a.codigo.localeCompare(b.codigo));
-  const totalDebito = linhasBalancete.reduce((s, c) => s + c.debito, 0);
-  const totalCredito = linhasBalancete.reduce((s, c) => s + c.credito, 0);
-  return {
-    linhas: linhasBalancete,
-    totalDebito,
-    totalCredito,
-    fecha: Math.abs(totalDebito - totalCredito) < 0.01,
-    orfas
-  };
-}
-function resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes) {
-  const idsDoMes = new Set(lancamentos.filter((l) => (l.data || "").slice(0, 7) === mes).map((l) => l.id));
-  const linhasDoMes = lancamentoLinhas.filter((l) => idsDoMes.has(l.lancamentoId));
-  const b = balancete(contas, linhasDoMes);
-  const receita = b.linhas.filter((c) => c.tipo === "receita").reduce((s, c) => s + c.saldo, 0);
-  const despesa = b.linhas.filter((c) => c.tipo === "despesa").reduce((s, c) => s + c.saldo, 0);
-  const variacaoCaixaBanco = b.linhas.filter((c) => c.id === "caixa" || c.id === "banco").reduce((s, c) => s + c.saldo, 0);
-  return { receita, despesa, resultado: receita - despesa, variacaoCaixaBanco };
-}
-
-// src/telas/Razao.jsx
-var fmt2 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+import React7, { useState as useState6, useMemo as useMemo2 } from "react";
+var fmt3 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtData2 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
 function Razao({ contas, lancamentos, lancamentoLinhas }) {
   const contasOrdenadas = useMemo2(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
-  const [contaId, setContaId] = useState5(contasOrdenadas[0]?.id || "");
+  const [contaId, setContaId] = useState6(contasOrdenadas[0]?.id || "");
   const conta = contas.find((c) => c.id === contaId);
   const linhas = useMemo2(() => {
     if (!conta) return [];
@@ -970,32 +1026,39 @@ function Razao({ contas, lancamentos, lancamentoLinhas }) {
       return { ...l, saldoCorrente: corrente };
     });
   }, [contaId, conta, lancamentoLinhas, lancamentos]);
-  return /* @__PURE__ */ React7.createElement("div", null, /* @__PURE__ */ React7.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React7.createElement(Select, { value: contaId, onChange: setContaId, options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React7.createElement(Card, null, linhas.length === 0 ? /* @__PURE__ */ React7.createElement("div", { className: "text-center py-8 text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento nesta conta ainda.") : /* @__PURE__ */ React7.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React7.createElement("thead", null, /* @__PURE__ */ React7.createElement("tr", { style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React7.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Data"), /* @__PURE__ */ React7.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Descri\xE7\xE3o"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "D\xE9bito"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "Cr\xE9dito"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2", style: { color: "var(--muted)" } }, "Saldo"))), /* @__PURE__ */ React7.createElement("tbody", null, linhas.map((l) => /* @__PURE__ */ React7.createElement("tr", { key: l.id, style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 font-mono text-xs", style: { color: "var(--muted)" } }, fmtData2(l.data)), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3" }, l.descricao || l.lancDescricao), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, l.tipo === "D" ? fmt2(l.valor) : "\u2014"), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, l.tipo === "C" ? fmt2(l.valor) : "\u2014"), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 text-right tabular-nums font-medium" }, fmt2(l.saldoCorrente))))))));
+  return /* @__PURE__ */ React7.createElement("div", null, /* @__PURE__ */ React7.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React7.createElement(Select, { value: contaId, onChange: setContaId, options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React7.createElement(Card, null, linhas.length === 0 ? /* @__PURE__ */ React7.createElement("div", { className: "text-center py-8 text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento nesta conta ainda.") : /* @__PURE__ */ React7.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React7.createElement("thead", null, /* @__PURE__ */ React7.createElement("tr", { style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React7.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Data"), /* @__PURE__ */ React7.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Descri\xE7\xE3o"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "D\xE9bito"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "Cr\xE9dito"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2", style: { color: "var(--muted)" } }, "Saldo"))), /* @__PURE__ */ React7.createElement("tbody", null, linhas.map((l) => /* @__PURE__ */ React7.createElement("tr", { key: l.id, style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 font-mono text-xs", style: { color: "var(--muted)" } }, fmtData2(l.data)), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3" }, l.descricao || l.lancDescricao), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, l.tipo === "D" ? fmt3(l.valor) : "\u2014"), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, l.tipo === "C" ? fmt3(l.valor) : "\u2014"), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 text-right tabular-nums font-medium" }, fmt3(l.saldoCorrente))))))));
 }
 
 // src/telas/Balancete.jsx
 import React8 from "react";
 var TIPO_LABEL2 = { ativo: "Ativo", passivo: "Passivo", pl: "Patrim\xF4nio L\xEDquido", receita: "Receita", despesa: "Despesa" };
-var fmt3 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt4 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 function Balancete({ contas, lancamentoLinhas }) {
   const b = balancete(contas, lancamentoLinhas);
-  return /* @__PURE__ */ React8.createElement(Card, null, /* @__PURE__ */ React8.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React8.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React8.createElement("thead", null, /* @__PURE__ */ React8.createElement("tr", { style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React8.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "C\xF3digo"), /* @__PURE__ */ React8.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Conta"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "D\xE9bito"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "Cr\xE9dito"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2", style: { color: "var(--muted)" } }, "Saldo"))), /* @__PURE__ */ React8.createElement("tbody", null, b.linhas.filter((c) => c.debito || c.credito).map((c) => /* @__PURE__ */ React8.createElement("tr", { key: c.id, style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 font-mono text-xs", style: { color: "var(--muted)" } }, c.codigo), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3" }, c.nome, /* @__PURE__ */ React8.createElement("span", { className: "text-[10px] ml-2 uppercase tracking-wide", style: { color: "var(--muted)" } }, TIPO_LABEL2[c.tipo])), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, c.debito ? fmt3(c.debito) : "\u2014"), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, c.credito ? fmt3(c.credito) : "\u2014"), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 text-right tabular-nums font-medium", style: { color: "var(--ink)" } }, fmt3(c.saldo)))), b.linhas.every((c) => !c.debito && !c.credito) && /* @__PURE__ */ React8.createElement("tr", null, /* @__PURE__ */ React8.createElement("td", { colSpan: 5, className: "py-8 text-center text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento ainda."))), /* @__PURE__ */ React8.createElement("tfoot", null, /* @__PURE__ */ React8.createElement("tr", { style: { borderTop: "2px solid var(--rule)" } }, /* @__PURE__ */ React8.createElement("td", { colSpan: 2, className: "py-2 pr-3 font-medium" }, "Total"), /* @__PURE__ */ React8.createElement("td", { className: "py-2 pr-3 text-right tabular-nums font-medium" }, fmt3(b.totalDebito)), /* @__PURE__ */ React8.createElement("td", { className: "py-2 pr-3 text-right tabular-nums font-medium" }, fmt3(b.totalCredito)), /* @__PURE__ */ React8.createElement("td", { className: "py-2 text-right" }, /* @__PURE__ */ React8.createElement("span", { className: "text-xs px-2 py-1 rounded-full", style: { background: b.fecha ? "var(--credit-soft)" : "var(--debit-soft)", color: b.fecha ? "var(--credit)" : "var(--debit)" } }, b.fecha ? "fecha \u2713" : "n\xE3o fecha \u26A0")))))));
+  return /* @__PURE__ */ React8.createElement(Card, null, /* @__PURE__ */ React8.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React8.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React8.createElement("thead", null, /* @__PURE__ */ React8.createElement("tr", { style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React8.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "C\xF3digo"), /* @__PURE__ */ React8.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Conta"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "D\xE9bito"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "Cr\xE9dito"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2", style: { color: "var(--muted)" } }, "Saldo"))), /* @__PURE__ */ React8.createElement("tbody", null, b.linhas.filter((c) => c.debito || c.credito).map((c) => /* @__PURE__ */ React8.createElement("tr", { key: c.id, style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 font-mono text-xs", style: { color: "var(--muted)" } }, c.codigo), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3" }, c.nome, /* @__PURE__ */ React8.createElement("span", { className: "text-[10px] ml-2 uppercase tracking-wide", style: { color: "var(--muted)" } }, TIPO_LABEL2[c.tipo])), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, c.debito ? fmt4(c.debito) : "\u2014"), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, c.credito ? fmt4(c.credito) : "\u2014"), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 text-right tabular-nums font-medium", style: { color: "var(--ink)" } }, fmt4(c.saldo)))), b.linhas.every((c) => !c.debito && !c.credito) && /* @__PURE__ */ React8.createElement("tr", null, /* @__PURE__ */ React8.createElement("td", { colSpan: 5, className: "py-8 text-center text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento ainda."))), /* @__PURE__ */ React8.createElement("tfoot", null, /* @__PURE__ */ React8.createElement("tr", { style: { borderTop: "2px solid var(--rule)" } }, /* @__PURE__ */ React8.createElement("td", { colSpan: 2, className: "py-2 pr-3 font-medium" }, "Total"), /* @__PURE__ */ React8.createElement("td", { className: "py-2 pr-3 text-right tabular-nums font-medium" }, fmt4(b.totalDebito)), /* @__PURE__ */ React8.createElement("td", { className: "py-2 pr-3 text-right tabular-nums font-medium" }, fmt4(b.totalCredito)), /* @__PURE__ */ React8.createElement("td", { className: "py-2 text-right" }, /* @__PURE__ */ React8.createElement("span", { className: "text-xs px-2 py-1 rounded-full", style: { background: b.fecha ? "var(--credit-soft)" : "var(--debit-soft)", color: b.fecha ? "var(--credit)" : "var(--debit)" } }, b.fecha ? "fecha \u2713" : "n\xE3o fecha \u26A0")))))));
 }
 
 // src/telas/Lancar.jsx
-import React9, { useState as useState6, useMemo as useMemo3 } from "react";
-import { Plus as Plus3, Trash2 as Trash22 } from "lucide-react";
+import React9, { useState as useState7, useMemo as useMemo3, useEffect as useEffect5 } from "react";
+import { Plus as Plus3, Trash2 as Trash23, X as X3 } from "lucide-react";
 var uid = () => Math.random().toString(36).slice(2, 10);
 var hojeISO2 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-var fmt4 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt5 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var linhaVazia = () => ({ chave: uid(), contaId: "", tipo: "D", valor: "", descricao: "" });
-function Lancar({ contas, onAdicionar }) {
+var linhaDe = (l) => ({ chave: uid(), contaId: l.contaId, tipo: l.tipo, valor: String(l.valor), descricao: l.descricao || "" });
+function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdicao }) {
   const contasOrdenadas = useMemo3(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
   const opcoesContas = contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` }));
-  const [data, setData] = useState6(hojeISO2());
-  const [descricao, setDescricao] = useState6("");
-  const [linhas, setLinhas] = useState6([linhaVazia(), linhaVazia()]);
-  const [confirmado, setConfirmado] = useState6(false);
+  const [data, setData] = useState7(editando?.lancamento.data || hojeISO2());
+  const [descricao, setDescricao] = useState7(editando?.lancamento.descricao || "");
+  const [linhas, setLinhas] = useState7(editando ? editando.linhas.map(linhaDe) : [linhaVazia(), linhaVazia()]);
+  const [confirmado, setConfirmado] = useState7(false);
+  useEffect5(() => {
+    if (!editando) return;
+    setData(editando.lancamento.data);
+    setDescricao(editando.lancamento.descricao);
+    setLinhas(editando.linhas.map(linhaDe));
+  }, [editando]);
   const editarLinha = (chave, campo, valor) => setLinhas((ls) => ls.map((l) => l.chave === chave ? { ...l, [campo]: valor } : l));
   const removerLinha = (chave) => setLinhas((ls) => ls.filter((l) => l.chave !== chave));
   const adicionarLinha = () => setLinhas((ls) => [...ls, linhaVazia()]);
@@ -1008,8 +1071,34 @@ function Lancar({ contas, onAdicionar }) {
   const diferenca = Math.round((somaD - somaC) * 100) / 100;
   const linhasValidas = linhas.filter((l) => l.contaId && numero(l.valor) > 0);
   const podeGravar = descricao.trim() && linhasValidas.length >= 2 && diferenca === 0 && somaD > 0;
+  const limpar = () => {
+    setData(hojeISO2());
+    setDescricao("");
+    setLinhas([linhaVazia(), linhaVazia()]);
+  };
   const gravar = () => {
     if (!podeGravar) return;
+    if (editando) {
+      const aceito2 = onEditar({
+        lancamentoId: editando.lancamento.id,
+        lancamento: { id: editando.lancamento.id, data, dataCompetencia: data, descricao: descricao.trim(), origem: editando.lancamento.origem, documento: editando.lancamento.documento },
+        linhas: linhasValidas.map((l) => ({
+          id: uid(),
+          lancamentoId: editando.lancamento.id,
+          contaId: l.contaId,
+          tipo: l.tipo,
+          valor: numero(l.valor),
+          descricao: l.descricao.trim() || null,
+          vencimento: null
+        }))
+      });
+      if (aceito2 === false) return;
+      onCancelarEdicao();
+      limpar();
+      setConfirmado(true);
+      setTimeout(() => setConfirmado(false), 2e3);
+      return;
+    }
     const idLancamento = uid();
     const aceito = onAdicionar({
       lancamento: { id: idLancamento, data, dataCompetencia: data, descricao: descricao.trim(), origem: "manual", documento: null },
@@ -1024,18 +1113,19 @@ function Lancar({ contas, onAdicionar }) {
       }))
     });
     if (aceito === false) return;
-    setData(hojeISO2());
-    setDescricao("");
-    setLinhas([linhaVazia(), linhaVazia()]);
+    limpar();
     setConfirmado(true);
     setTimeout(() => setConfirmado(false), 2e3);
   };
-  return /* @__PURE__ */ React9.createElement(Card, null, /* @__PURE__ */ React9.createElement("div", { className: "grid grid-cols-2 gap-3 mb-4" }, /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Data"), /* @__PURE__ */ React9.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React9.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Venda do dia" }))), /* @__PURE__ */ React9.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React9.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React9.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React9.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React9.createElement(Trash22, { size: 15 })))), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React9.createElement(Plus3, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement("span", null, "D\xE9bitos: ", fmt4(somaD), " \xB7 Cr\xE9ditos: ", fmt4(somaC)), diferenca !== 0 && /* @__PURE__ */ React9.createElement(AlertLine, null, "Diferen\xE7a de ", fmt4(Math.abs(diferenca)), " \u2014 o lan\xE7amento precisa fechar antes de gravar")), /* @__PURE__ */ React9.createElement(Button, { onClick: gravar, disabled: !podeGravar }, "Lan\xE7ar"), confirmado && /* @__PURE__ */ React9.createElement("span", { className: "ml-3 text-xs", style: { color: "var(--credit)" } }, "Lan\xE7ado."));
+  return /* @__PURE__ */ React9.createElement(Card, null, editando && /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 pb-3", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React9.createElement("span", { className: "text-xs uppercase tracking-wide", style: { color: "var(--accent)", fontFamily: "var(--font-mono)" } }, "Editando lan\xE7amento"), /* @__PURE__ */ React9.createElement("button", { onClick: () => {
+    onCancelarEdicao();
+    limpar();
+  }, className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement(X3, { size: 13 }), " Cancelar")), /* @__PURE__ */ React9.createElement("div", { className: "grid grid-cols-2 gap-3 mb-4" }, /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Data"), /* @__PURE__ */ React9.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React9.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Venda do dia" }))), /* @__PURE__ */ React9.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React9.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React9.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React9.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React9.createElement(Trash23, { size: 15 })))), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React9.createElement(Plus3, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement("span", null, "D\xE9bitos: ", fmt5(somaD), " \xB7 Cr\xE9ditos: ", fmt5(somaC)), diferenca !== 0 && /* @__PURE__ */ React9.createElement(AlertLine, null, "Diferen\xE7a de ", fmt5(Math.abs(diferenca)), " \u2014 o lan\xE7amento precisa fechar antes de gravar")), /* @__PURE__ */ React9.createElement(Button, { onClick: gravar, disabled: !podeGravar }, editando ? "Salvar edi\xE7\xE3o" : "Lan\xE7ar"), confirmado && /* @__PURE__ */ React9.createElement("span", { className: "ml-3 text-xs", style: { color: "var(--credit)" } }, "Lan\xE7ado."));
 }
 
 // src/telas/CaixaEntrada.jsx
-import React10, { useState as useState7, useMemo as useMemo4 } from "react";
-import { Upload, Check, X as X2, HelpCircle as HelpCircle2 } from "lucide-react";
+import React10, { useState as useState8, useMemo as useMemo4 } from "react";
+import { Upload, Check as Check2, X as X4, HelpCircle as HelpCircle2 } from "lucide-react";
 
 // src/dominio/importarExtrato.mjs
 function parseOFX(text) {
@@ -1108,14 +1198,14 @@ function construirLancamentoDeClassificacao(item, contaCategoriaId, gerarId = ui
 
 // src/telas/CaixaEntrada.jsx
 var uid2 = () => Math.random().toString(36).slice(2, 10);
-var fmt5 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt6 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtData3 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
 var CONTAS_TRANSITO = [{ value: "caixa", label: "Caixa (dinheiro)" }, { value: "banco", label: "Banco" }];
 function ImportarExtrato({ onImportar }) {
-  const [texto, setTexto] = useState7("");
-  const [contaOrigem, setContaOrigem] = useState7("banco");
-  const [linhas, setLinhas] = useState7(null);
-  const [erro, setErro] = useState7("");
+  const [texto, setTexto] = useState8("");
+  const [contaOrigem, setContaOrigem] = useState8("banco");
+  const [linhas, setLinhas] = useState8(null);
+  const [erro, setErro] = useState8("");
   const processar = () => {
     setErro("");
     const bruto = texto.trim();
@@ -1176,20 +1266,20 @@ function ImportarExtrato({ onImportar }) {
       className: "w-full rounded-md border px-3 py-2 text-xs font-mono mb-3 transition-colors duration-150",
       style: { borderColor: "var(--rule-faint)", background: "var(--paper)", color: "var(--ink)" }
     }
-  ), erro && /* @__PURE__ */ React10.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React10.createElement(Button, { onClick: processar }, "Processar")) : /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, linhas.length, " linha(s) encontrada(s) \u2014 confira antes de importar:"), /* @__PURE__ */ React10.createElement("div", { className: "max-h-56 overflow-y-auto mb-3 text-xs" }, linhas.map((l, i) => /* @__PURE__ */ React10.createElement("div", { key: i, className: "flex justify-between py-1", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("span", { style: { color: "var(--muted)" } }, fmtData3(l.data)), /* @__PURE__ */ React10.createElement("span", { className: "flex-1 mx-2 truncate" }, l.descricaoBruta), /* @__PURE__ */ React10.createElement("span", { className: "tabular-nums" }, fmt5(l.valor))))), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React10.createElement(Button, { onClick: confirmar }, "Importar ", linhas.length, " linha(s)"), /* @__PURE__ */ React10.createElement(Button, { variant: "ghost", onClick: () => setLinhas(null) }, "Cancelar"))));
+  ), erro && /* @__PURE__ */ React10.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React10.createElement(Button, { onClick: processar }, "Processar")) : /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, linhas.length, " linha(s) encontrada(s) \u2014 confira antes de importar:"), /* @__PURE__ */ React10.createElement("div", { className: "max-h-56 overflow-y-auto mb-3 text-xs" }, linhas.map((l, i) => /* @__PURE__ */ React10.createElement("div", { key: i, className: "flex justify-between py-1", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("span", { style: { color: "var(--muted)" } }, fmtData3(l.data)), /* @__PURE__ */ React10.createElement("span", { className: "flex-1 mx-2 truncate" }, l.descricaoBruta), /* @__PURE__ */ React10.createElement("span", { className: "tabular-nums" }, fmt6(l.valor))))), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React10.createElement(Button, { onClick: confirmar }, "Importar ", linhas.length, " linha(s)"), /* @__PURE__ */ React10.createElement(Button, { variant: "ghost", onClick: () => setLinhas(null) }, "Cancelar"))));
 }
 function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida }) {
-  const [classificando, setClassificando] = useState7(false);
+  const [classificando, setClassificando] = useState8(false);
   const sugestao = useMemo4(() => sugerirConta(item.descricaoBruta, regras), [item.descricaoBruta, regras]);
-  const [contaId, setContaId] = useState7(sugestao?.contaId || "");
-  const [padrao, setPadrao] = useState7(sugestao?.padrao || item.descricaoBruta);
+  const [contaId, setContaId] = useState8(sugestao?.contaId || "");
+  const [padrao, setPadrao] = useState8(sugestao?.padrao || item.descricaoBruta);
   const contasOrdenadas = useMemo4(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
   const confirmar = () => {
     if (!contaId) return;
     const aceito = onClassificar({ item, contaCategoriaId: contaId, padrao: padrao.trim() || item.descricaoBruta });
     if (aceito !== false) setClassificando(false);
   };
-  return /* @__PURE__ */ React10.createElement(Card, { pad: "apertado", className: "mb-2" }, /* @__PURE__ */ React10.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React10.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React10.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData3(item.data), " \xB7 ", item.contaOrigemId === "banco" ? "Banco" : "Caixa"), /* @__PURE__ */ React10.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, item.descricaoBruta), sugestao && !classificando && /* @__PURE__ */ React10.createElement("div", { className: "text-[10px] mt-0.5", style: { color: "var(--accent)" } }, "sugest\xE3o: ", contas.find((c) => c.id === sugestao.contaId)?.nome)), /* @__PURE__ */ React10.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: item.valor >= 0 ? "var(--credit)" : "var(--debit)" } }, fmt5(item.valor))), classificando ? /* @__PURE__ */ React10.createElement("div", { className: "mt-3 pt-3 space-y-2", style: { borderTop: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Categoria"), /* @__PURE__ */ React10.createElement(Select, { value: contaId, onChange: setContaId, placeholder: "escolha a conta", options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Padr\xE3o para lembrar da pr\xF3xima vez"), /* @__PURE__ */ React10.createElement(Input, { value: padrao, onChange: (e) => setPadrao(e.target.value) })), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 pt-1" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: confirmar, disabled: !contaId }, "Confirmar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => setClassificando(false) }, "Cancelar"))) : /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 mt-2" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: () => setClassificando(true) }, /* @__PURE__ */ React10.createElement(Check, { size: 12 }), " Classificar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onPessoal(item) }, /* @__PURE__ */ React10.createElement(X2, { size: 12 }), " \xC9 pessoal"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onDuvida(item) }, /* @__PURE__ */ React10.createElement(HelpCircle2, { size: 12 }), " N\xE3o sei")));
+  return /* @__PURE__ */ React10.createElement(Card, { pad: "apertado", className: "mb-2" }, /* @__PURE__ */ React10.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React10.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React10.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData3(item.data), " \xB7 ", item.contaOrigemId === "banco" ? "Banco" : "Caixa"), /* @__PURE__ */ React10.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, item.descricaoBruta), sugestao && !classificando && /* @__PURE__ */ React10.createElement("div", { className: "text-[10px] mt-0.5", style: { color: "var(--accent)" } }, "sugest\xE3o: ", contas.find((c) => c.id === sugestao.contaId)?.nome)), /* @__PURE__ */ React10.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: item.valor >= 0 ? "var(--credit)" : "var(--debit)" } }, fmt6(item.valor))), classificando ? /* @__PURE__ */ React10.createElement("div", { className: "mt-3 pt-3 space-y-2", style: { borderTop: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Categoria"), /* @__PURE__ */ React10.createElement(Select, { value: contaId, onChange: setContaId, placeholder: "escolha a conta", options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Padr\xE3o para lembrar da pr\xF3xima vez"), /* @__PURE__ */ React10.createElement(Input, { value: padrao, onChange: (e) => setPadrao(e.target.value) })), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 pt-1" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: confirmar, disabled: !contaId }, "Confirmar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => setClassificando(false) }, "Cancelar"))) : /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 mt-2" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: () => setClassificando(true) }, /* @__PURE__ */ React10.createElement(Check2, { size: 12 }), " Classificar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onPessoal(item) }, /* @__PURE__ */ React10.createElement(X4, { size: 12 }), " \xC9 pessoal"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onDuvida(item) }, /* @__PURE__ */ React10.createElement(HelpCircle2, { size: 12 }), " N\xE3o sei")));
 }
 function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, onClassificar, onPessoal, onDuvida }) {
   const pendentes = entradaItens.filter((i) => i.situacao === "pendente" || i.situacao === "duvida");
@@ -1209,8 +1299,8 @@ function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, o
 
 // src/telas/Conciliacao.jsx
 import React11, { useMemo as useMemo5 } from "react";
-import { Check as Check2 } from "lucide-react";
-var fmt6 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+import { Check as Check3 } from "lucide-react";
+var fmt7 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtData4 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
 var CONTAS_TRANSITO2 = /* @__PURE__ */ new Set(["caixa", "banco"]);
 function Conciliacao({ lancamentos, lancamentoLinhas, conciliacoes, onAlternar }) {
@@ -1240,13 +1330,13 @@ function Conciliacao({ lancamentos, lancamentoLinhas, conciliacoes, onAlternar }
         style: { borderColor: ok ? "var(--credit)" : "var(--rule-faint)", background: ok ? "var(--credit-soft)" : "transparent" },
         "aria-label": ok ? "Desmarcar conferido" : "Marcar como conferido"
       },
-      ok && /* @__PURE__ */ React11.createElement(Check2, { size: 14, style: { color: "var(--credit)" } })
-    ), /* @__PURE__ */ React11.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React11.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData4(l.data)), /* @__PURE__ */ React11.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, l.descricao)), /* @__PURE__ */ React11.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: "var(--ink)" } }, linhaTransito ? fmt6(linhaTransito.valor) : "\u2014")));
+      ok && /* @__PURE__ */ React11.createElement(Check3, { size: 14, style: { color: "var(--credit)" } })
+    ), /* @__PURE__ */ React11.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React11.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData4(l.data)), /* @__PURE__ */ React11.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, l.descricao)), /* @__PURE__ */ React11.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: "var(--ink)" } }, linhaTransito ? fmt7(linhaTransito.valor) : "\u2014")));
   }));
 }
 
 // src/telas/Revisao.jsx
-import React12, { useMemo as useMemo6, useState as useState8 } from "react";
+import React12, { useMemo as useMemo6, useState as useState9 } from "react";
 import { CheckCircle2, AlertTriangle, Lock, Unlock } from "lucide-react";
 
 // src/dominio/revisao.mjs
@@ -1331,7 +1421,7 @@ function Fechamento({ lancamentos, periodosFechados, mesaPassa, onFechar, onReab
   }, [lancamentos]);
   const fechados = useMemo6(() => new Set(periodosFechados.filter((p) => p.startsWith("mes:")).map((p) => p.slice(4))), [periodosFechados]);
   const abertos = mesesComMovimento.filter((m) => !fechados.has(m));
-  const [mesEscolhido, setMesEscolhido] = useState8(abertos[0] || "");
+  const [mesEscolhido, setMesEscolhido] = useState9(abertos[0] || "");
   return /* @__PURE__ */ React12.createElement(Card, null, /* @__PURE__ */ React12.createElement("div", { className: "font-medium mb-3", style: { color: "var(--ink)" } }, "Fechamento de m\xEAs"), abertos.length === 0 ? /* @__PURE__ */ React12.createElement("div", { className: "text-sm mb-4", style: { color: "var(--muted)" } }, "Nenhum m\xEAs em aberto com movimento para fechar.") : /* @__PURE__ */ React12.createElement("div", { className: "flex items-center gap-3 mb-4" }, /* @__PURE__ */ React12.createElement("div", { className: "w-48" }, /* @__PURE__ */ React12.createElement(Select, { value: mesEscolhido, onChange: setMesEscolhido, options: abertos.map((m) => ({ value: m, label: fmtMes(m) })) })), /* @__PURE__ */ React12.createElement(Button, { onClick: () => onFechar(mesEscolhido), disabled: !mesaPassa || !mesEscolhido }, /* @__PURE__ */ React12.createElement(Lock, { size: 13 }), " Fechar ", mesEscolhido ? fmtMes(mesEscolhido) : "")), !mesaPassa && abertos.length > 0 && /* @__PURE__ */ React12.createElement("div", { className: "text-xs mb-4", style: { color: "var(--debit)" } }, "A Mesa de Revis\xE3o precisa passar em tudo antes de fechar."), fechados.size > 0 && /* @__PURE__ */ React12.createElement("div", null, /* @__PURE__ */ React12.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Meses fechados"), [...fechados].sort().reverse().map((m) => /* @__PURE__ */ React12.createElement("div", { key: m, className: "flex items-center justify-between py-1.5 text-sm", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React12.createElement("span", { style: { color: "var(--ink)" } }, fmtMes(m)), /* @__PURE__ */ React12.createElement("button", { onClick: () => onReabrir(m), className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React12.createElement(Unlock, { size: 12 }), " Reabrir")))));
 }
 function Trilha({ trilha }) {
@@ -1346,7 +1436,7 @@ function Revisao({ contas, lancamentos, lancamentoLinhas, periodosFechados, tril
 }
 
 // src/telas/RetratoDoMes.jsx
-import React13, { useState as useState9, useMemo as useMemo7 } from "react";
+import React13, { useState as useState10, useMemo as useMemo7 } from "react";
 
 // src/dominio/disponivel.mjs
 var DIAS_JANELA = 30;
@@ -1397,7 +1487,7 @@ function quantoPodeTirar({ contas, lancamentos, lancamentoLinhas, periodosFechad
 }
 
 // src/telas/RetratoDoMes.jsx
-var fmt7 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt8 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtMes2 = (m) => {
   const [ano, mes] = m.split("-");
   return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -1413,7 +1503,7 @@ function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodos
     [periodosFechados]
   );
   const mesPadrao = [...mesesFechados].sort().reverse()[0] || mesesComMovimento[0] || hojeISO3().slice(0, 7);
-  const [mes, setMes] = useState9(mesPadrao);
+  const [mes, setMes] = useState10(mesPadrao);
   const opcoesMes = useMemo7(() => {
     const todos = /* @__PURE__ */ new Set([...mesesComMovimento, ...mesesFechados, mes]);
     return [...todos].sort().reverse().map((m) => ({ value: m, label: `${fmtMes2(m)}${mesesFechados.has(m) ? " \xB7 fechado" : ""}` }));
@@ -1425,11 +1515,108 @@ function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodos
   );
   const diferenca = Math.round((r.resultado - r.variacaoCaixaBanco) * 100) / 100;
   const sobrouPositivo = r.resultado >= 0;
-  return /* @__PURE__ */ React13.createElement("div", { className: "max-w-lg" }, /* @__PURE__ */ React13.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React13.createElement(Select, { value: mes, onChange: setMes, options: opcoesMes })), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4", style: { background: "linear-gradient(160deg, var(--surface), var(--paper))" } }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, negocio.apelido || negocio.nome, " \xB7 ", fmtMes2(mes)), /* @__PURE__ */ React13.createElement("div", { className: "text-3xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: sobrouPositivo ? "var(--credit)" : "var(--debit)" } }, fmt7(r.resultado)), /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-1", style: { color: "var(--ink)" } }, "Entrou ", fmt7(r.receita), ", saiu ", fmt7(r.despesa), ", ", sobrouPositivo ? "sobrou" : "faltou", " ", fmt7(Math.abs(r.resultado)), "."), Math.abs(diferenca) >= 0.01 && /* @__PURE__ */ React13.createElement("div", { className: "text-xs mt-2", style: { color: "var(--muted)" } }, "O caixa e o banco se mexeram ", fmt7(r.variacaoCaixaBanco), " \u2014 a diferen\xE7a de ", fmt7(Math.abs(diferenca)), " ", "virou estoque, conta a receber, pagamento de d\xEDvida ou retirada. \xC9 o Balan\xE7o que mostra onde exatamente.")), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Quanto voc\xEA pode tirar"), /* @__PURE__ */ React13.createElement("div", { className: "text-2xl font-bold mb-2", style: { fontFamily: "var(--font-display)", color: "var(--accent)" } }, fmt7(disp.podeTirar)), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt7(disp.disponivelHoje), " dispon\xEDvel hoje em caixa e banco"), disp.aReceber > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt7(disp.aReceber), " a receber nos pr\xF3ximos 30 dias"), disp.compromissos > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt7(disp.compromissos), " em compromissos que vencem nos pr\xF3ximos 30 dias"), disp.reserva > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt7(disp.reserva), " de reserva m\xEDnima")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "\xC9 uma recomenda\xE7\xE3o com base no que foi lan\xE7ado, n\xE3o uma garantia.")), /* @__PURE__ */ React13.createElement("div", { className: "text-[10px] text-center", style: { color: "var(--muted)" } }, "Relat\xF3rio gerencial \u2014 n\xE3o \xE9 pe\xE7a cont\xE1bil oficial assinada."));
+  return /* @__PURE__ */ React13.createElement("div", { className: "max-w-lg" }, /* @__PURE__ */ React13.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React13.createElement(Select, { value: mes, onChange: setMes, options: opcoesMes })), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4", style: { background: "linear-gradient(160deg, var(--surface), var(--paper))" } }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, negocio.apelido || negocio.nome, " \xB7 ", fmtMes2(mes)), /* @__PURE__ */ React13.createElement("div", { className: "text-3xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: sobrouPositivo ? "var(--credit)" : "var(--debit)" } }, fmt8(r.resultado)), /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-1", style: { color: "var(--ink)" } }, "Entrou ", fmt8(r.receita), ", saiu ", fmt8(r.despesa), ", ", sobrouPositivo ? "sobrou" : "faltou", " ", fmt8(Math.abs(r.resultado)), "."), Math.abs(diferenca) >= 0.01 && /* @__PURE__ */ React13.createElement("div", { className: "text-xs mt-2", style: { color: "var(--muted)" } }, "O caixa e o banco se mexeram ", fmt8(r.variacaoCaixaBanco), " \u2014 a diferen\xE7a de ", fmt8(Math.abs(diferenca)), " ", "virou estoque, conta a receber, pagamento de d\xEDvida ou retirada. \xC9 o Balan\xE7o que mostra onde exatamente.")), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Quanto voc\xEA pode tirar"), /* @__PURE__ */ React13.createElement("div", { className: "text-2xl font-bold mb-2", style: { fontFamily: "var(--font-display)", color: "var(--accent)" } }, fmt8(disp.podeTirar)), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt8(disp.disponivelHoje), " dispon\xEDvel hoje em caixa e banco"), disp.aReceber > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt8(disp.aReceber), " a receber nos pr\xF3ximos 30 dias"), disp.compromissos > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt8(disp.compromissos), " em compromissos que vencem nos pr\xF3ximos 30 dias"), disp.reserva > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt8(disp.reserva), " de reserva m\xEDnima")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "\xC9 uma recomenda\xE7\xE3o com base no que foi lan\xE7ado, n\xE3o uma garantia.")), /* @__PURE__ */ React13.createElement("div", { className: "text-[10px] text-center", style: { color: "var(--muted)" } }, "Relat\xF3rio gerencial \u2014 n\xE3o \xE9 pe\xE7a cont\xE1bil oficial assinada."));
+}
+
+// src/telas/PlanoContas.jsx
+import React14, { useState as useState11, useMemo as useMemo8 } from "react";
+import { Plus as Plus4, X as X5 } from "lucide-react";
+var uid3 = () => Math.random().toString(36).slice(2, 10);
+var TIPO_LABEL3 = { ativo: "Ativo", passivo: "Passivo", pl: "Patrim\xF4nio L\xEDquido", receita: "Receita", despesa: "Despesa" };
+var slug = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+function FormularioNovaConta({ contas, onAdicionar, onFechar }) {
+  const [codigo, setCodigo] = useState11("");
+  const [nome, setNome] = useState11("");
+  const [tipo, setTipo] = useState11("despesa");
+  const [erro, setErro] = useState11("");
+  const salvar = () => {
+    if (!codigo.trim() || !nome.trim()) {
+      setErro("C\xF3digo e nome s\xE3o obrigat\xF3rios.");
+      return;
+    }
+    const id = slug(nome) + "_" + uid3().slice(0, 4);
+    if (contas.some((c) => c.codigo === codigo.trim())) {
+      setErro("J\xE1 existe uma conta com esse c\xF3digo.");
+      return;
+    }
+    onAdicionar({ id, codigo: codigo.trim(), nome: nome.trim(), tipo, subtipo: null, ordem: contas.filter((c) => c.tipo === tipo).length + 1, ativa: true });
+    setCodigo("");
+    setNome("");
+    onFechar();
+  };
+  return /* @__PURE__ */ React14.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React14.createElement("div", { className: "flex items-center justify-between mb-3" }, /* @__PURE__ */ React14.createElement("div", { className: "font-medium", style: { color: "var(--ink)" } }, "Nova conta"), /* @__PURE__ */ React14.createElement("button", { onClick: onFechar, style: { color: "var(--muted)" }, "aria-label": "Fechar" }, /* @__PURE__ */ React14.createElement(X5, { size: 15 }))), /* @__PURE__ */ React14.createElement("div", { className: "grid grid-cols-3 gap-2 mb-3" }, /* @__PURE__ */ React14.createElement("div", null, /* @__PURE__ */ React14.createElement(Label, null, "C\xF3digo"), /* @__PURE__ */ React14.createElement(Input, { value: codigo, onChange: (e) => setCodigo(e.target.value), placeholder: "ex.: 5114" })), /* @__PURE__ */ React14.createElement("div", { className: "col-span-2" }, /* @__PURE__ */ React14.createElement(Label, null, "Nome"), /* @__PURE__ */ React14.createElement(Input, { value: nome, onChange: (e) => setNome(e.target.value), placeholder: "ex.: Manuten\xE7\xE3o de equipamento" }))), /* @__PURE__ */ React14.createElement("div", { className: "mb-3 max-w-xs" }, /* @__PURE__ */ React14.createElement(Label, null, "Tipo"), /* @__PURE__ */ React14.createElement(Select, { value: tipo, onChange: setTipo, options: Object.entries(TIPO_LABEL3).map(([value, label]) => ({ value, label })) })), erro && /* @__PURE__ */ React14.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React14.createElement(Button, { onClick: salvar }, "Adicionar"));
+}
+function PlanoContas({ contas, onAdicionar, onAlternarAtiva }) {
+  const [mostrarForm, setMostrarForm] = useState11(false);
+  const porTipo = useMemo8(() => {
+    const grupos = {};
+    for (const c of [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo))) {
+      (grupos[c.tipo] = grupos[c.tipo] || []).push(c);
+    }
+    return grupos;
+  }, [contas]);
+  return /* @__PURE__ */ React14.createElement("div", null, /* @__PURE__ */ React14.createElement("div", { className: "flex justify-end mb-4" }, !mostrarForm && /* @__PURE__ */ React14.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React14.createElement(Plus4, { size: 14 }), " Nova conta")), mostrarForm && /* @__PURE__ */ React14.createElement(FormularioNovaConta, { contas, onAdicionar, onFechar: () => setMostrarForm(false) }), Object.entries(TIPO_LABEL3).map(([tipo, label]) => (porTipo[tipo] || []).length > 0 && /* @__PURE__ */ React14.createElement("div", { key: tipo, className: "mb-5" }, /* @__PURE__ */ React14.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, label), /* @__PURE__ */ React14.createElement(Card, { pad: "apertado" }, porTipo[tipo].map((c) => /* @__PURE__ */ React14.createElement("div", { key: c.id, className: "flex items-center justify-between py-1.5", style: { borderBottom: "1px solid var(--rule-faint)", opacity: c.ativa ? 1 : 0.45 } }, /* @__PURE__ */ React14.createElement("div", { className: "text-sm" }, /* @__PURE__ */ React14.createElement("span", { className: "font-mono text-xs mr-2", style: { color: "var(--muted)" } }, c.codigo), /* @__PURE__ */ React14.createElement("span", { style: { color: "var(--ink)" } }, c.nome)), /* @__PURE__ */ React14.createElement("button", { onClick: () => onAlternarAtiva(c.id, !c.ativa), className: "text-xs transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, c.ativa ? "desativar" : "ativar")))))));
+}
+
+// src/telas/ConfigNegocio.jsx
+import React15, { useState as useState12, useEffect as useEffect6 } from "react";
+function ConfigNegocio({ negocioId, onAtualizado }) {
+  const [carregando, setCarregando] = useState12(true);
+  const [erro, setErro] = useState12("");
+  const [salvando, setSalvando] = useState12(false);
+  const [confirmado, setConfirmado] = useState12(false);
+  const [campo, setCampo] = useState12(null);
+  useEffect6(() => {
+    let vivo = true;
+    supabase.from("negocios").select("*").eq("id", negocioId).single().then(({ data, error }) => {
+      if (!vivo) return;
+      if (error) {
+        setErro(error.message);
+        return;
+      }
+      setCampo({
+        nome: data.nome || "",
+        apelido: data.apelido || "",
+        cnpj: data.cnpj || "",
+        atividade: data.atividade || "",
+        whatsapp: data.whatsapp || "",
+        tem_funcionario: data.tem_funcionario ? "sim" : "nao",
+        situacao: data.situacao || "ativo"
+      });
+      setCarregando(false);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [negocioId]);
+  const set = (chave, valor) => setCampo((c) => ({ ...c, [chave]: valor }));
+  const salvar = async () => {
+    setSalvando(true);
+    setErro("");
+    const { error } = await supabase.from("negocios").update({
+      nome: campo.nome.trim(),
+      apelido: campo.apelido.trim() || null,
+      cnpj: campo.cnpj.trim() || null,
+      atividade: campo.atividade.trim() || null,
+      whatsapp: campo.whatsapp.trim() || null,
+      tem_funcionario: campo.tem_funcionario === "sim",
+      situacao: campo.situacao
+    }).eq("id", negocioId);
+    setSalvando(false);
+    if (error) {
+      setErro(error.message);
+      return;
+    }
+    setConfirmado(true);
+    setTimeout(() => setConfirmado(false), 2e3);
+    onAtualizado?.();
+  };
+  if (carregando) return /* @__PURE__ */ React15.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026");
+  return /* @__PURE__ */ React15.createElement(Card, { className: "max-w-lg" }, /* @__PURE__ */ React15.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Nome"), /* @__PURE__ */ React15.createElement(Input, { value: campo.nome, onChange: (e) => set("nome", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Apelido"), /* @__PURE__ */ React15.createElement(Input, { value: campo.apelido, onChange: (e) => set("apelido", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "CNPJ"), /* @__PURE__ */ React15.createElement(Input, { value: campo.cnpj, onChange: (e) => set("cnpj", e.target.value), placeholder: "opcional" })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Atividade principal"), /* @__PURE__ */ React15.createElement(Input, { value: campo.atividade, onChange: (e) => set("atividade", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "WhatsApp"), /* @__PURE__ */ React15.createElement(Input, { value: campo.whatsapp, onChange: (e) => set("whatsapp", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Tem funcion\xE1rio?"), /* @__PURE__ */ React15.createElement(Select, { value: campo.tem_funcionario, onChange: (v) => set("tem_funcionario", v), options: [{ value: "sim", label: "Sim" }, { value: "nao", label: "N\xE3o" }] })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Situa\xE7\xE3o"), /* @__PURE__ */ React15.createElement(Select, { value: campo.situacao, onChange: (v) => set("situacao", v), options: [{ value: "ativo", label: "Ativo" }, { value: "encerrado", label: "Encerrado" }] })), erro && /* @__PURE__ */ React15.createElement("div", { className: "text-xs rounded-md px-3 py-2", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React15.createElement("div", { className: "flex items-center gap-3 pt-1" }, /* @__PURE__ */ React15.createElement(Button, { onClick: salvar, disabled: salvando }, salvando ? "Salvando\u2026" : "Salvar"), confirmado && /* @__PURE__ */ React15.createElement("span", { className: "text-xs", style: { color: "var(--credit)" } }, "Salvo."))));
 }
 
 // src/telas/Livro.jsx
-var uid3 = () => Math.random().toString(36).slice(2, 10);
+var uid4 = () => Math.random().toString(36).slice(2, 10);
 var mesDe = (dataIso) => (dataIso || "").slice(0, 7);
 var ABAS = [
   { id: "caixa", label: "Caixa de Entrada" },
@@ -1439,22 +1626,25 @@ var ABAS = [
   { id: "balancete", label: "Balancete" },
   { id: "conciliacao", label: "Concilia\xE7\xE3o" },
   { id: "revisao", label: "Revis\xE3o" },
-  { id: "entregas", label: "Entregas" }
+  { id: "entregas", label: "Entregas" },
+  { id: "plano", label: "Plano de contas" },
+  { id: "negocio", label: "Neg\xF3cio" }
 ];
 function Livro({ negocio, onVoltar }) {
-  const [aba, setAba] = useState10("caixa");
-  const [estado, setEstado] = useState10(null);
-  const [loaded, setLoaded] = useState10(false);
-  const [erro, setErro] = useState10("");
-  const [salvando, setSalvando] = useState10(false);
-  const [confirmado, setConfirmado] = useState10(false);
+  const [aba, setAba] = useState13("caixa");
+  const [estado, setEstado] = useState13(null);
+  const [loaded, setLoaded] = useState13(false);
+  const [erro, setErro] = useState13("");
+  const [salvando, setSalvando] = useState13(false);
+  const [confirmado, setConfirmado] = useState13(false);
+  const [editandoId, setEditandoId] = useState13(null);
   const fotoRef = useRef2(null);
   const estadoRef = useRef2(null);
   const timerRef = useRef2(null);
-  useEffect5(() => {
+  useEffect7(() => {
     estadoRef.current = estado;
   }, [estado]);
-  useEffect5(() => {
+  useEffect7(() => {
     let vivo = true;
     carregarEstadoNegocio(negocio.id).then((estadoServidor) => {
       if (!vivo) return;
@@ -1468,7 +1658,7 @@ function Livro({ negocio, onVoltar }) {
       vivo = false;
     };
   }, [negocio.id]);
-  useEffect5(() => {
+  useEffect7(() => {
     if (!loaded || !estado) return;
     const { ops, perigo } = calcularDiferenca(fotoRef.current, fotografar(estado));
     if (!ops.length) {
@@ -1498,7 +1688,7 @@ function Livro({ negocio, onVoltar }) {
     }, 900);
     return () => clearTimeout(timerRef.current);
   }, [estado, loaded]);
-  useEffect5(() => {
+  useEffect7(() => {
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
@@ -1546,7 +1736,7 @@ function Livro({ negocio, onVoltar }) {
       const regraExistente = prev.regrasClassificacao.find(
         (r) => (r.padrao || "").toUpperCase() === padrao.toUpperCase() && r.contaId === contaCategoriaId
       );
-      const regrasClassificacao = regraExistente ? prev.regrasClassificacao.map((r) => r === regraExistente ? { ...r, acertos: (r.acertos || 1) + 1 } : r) : [...prev.regrasClassificacao, { id: uid3(), padrao, contaId: contaCategoriaId, acertos: 1 }];
+      const regrasClassificacao = regraExistente ? prev.regrasClassificacao.map((r) => r === regraExistente ? { ...r, acertos: (r.acertos || 1) + 1 } : r) : [...prev.regrasClassificacao, { id: uid4(), padrao, contaId: contaCategoriaId, acertos: 1 }];
       return {
         ...prev,
         lancamentos: [...prev.lancamentos, lancamento],
@@ -1578,10 +1768,60 @@ function Livro({ negocio, onVoltar }) {
       trilha: [...prev.trilha, { tipo: "reabrir_mes", descricao: `M\xEAs ${mes} reaberto` }]
     }));
   }, []);
+  const iniciarEdicao = useCallback2((lancamentoId) => {
+    setEditandoId(lancamentoId);
+    setAba("lancar");
+  }, []);
+  const cancelarEdicao = useCallback2(() => setEditandoId(null), []);
+  const adicionarConta = useCallback2((conta) => {
+    setEstado((prev) => ({
+      ...prev,
+      contas: [...prev.contas, conta],
+      trilha: [...prev.trilha, { tipo: "conta_nova", descricao: `${conta.codigo} \u2014 ${conta.nome}` }]
+    }));
+  }, []);
+  const alternarAtivaConta = useCallback2((contaId, ativa) => {
+    setEstado((prev) => ({
+      ...prev,
+      contas: prev.contas.map((c) => c.id === contaId ? { ...c, ativa } : c)
+    }));
+  }, []);
+  const editarLancamento = useCallback2(({ lancamentoId, lancamento, linhas }) => {
+    const original = estadoRef.current?.lancamentos.find((l) => l.id === lancamentoId);
+    if (mesEstaFechado(original?.data) || mesEstaFechado(lancamento.data)) {
+      setErro(`O m\xEAs est\xE1 fechado \u2014 reabra na aba Revis\xE3o antes de editar.`);
+      return false;
+    }
+    setEstado((prev) => ({
+      ...prev,
+      lancamentos: prev.lancamentos.map((l) => l.id === lancamentoId ? lancamento : l),
+      lancamentoLinhas: [...prev.lancamentoLinhas.filter((l) => l.lancamentoId !== lancamentoId), ...linhas],
+      trilha: [...prev.trilha, { tipo: "editar", descricao: lancamento.descricao }]
+    }));
+    return true;
+  }, [mesEstaFechado]);
+  const excluirLancamento = useCallback2((lancamentoId) => {
+    const lancamento = estadoRef.current?.lancamentos.find((l) => l.id === lancamentoId);
+    if (!lancamento) return;
+    if (mesEstaFechado(lancamento.data)) {
+      setErro(`O m\xEAs de ${mesDe(lancamento.data)} j\xE1 est\xE1 fechado \u2014 reabra na aba Revis\xE3o antes de excluir.`);
+      return;
+    }
+    const linhas = estadoRef.current.lancamentoLinhas.filter((l) => l.lancamentoId === lancamentoId);
+    setEstado((prev) => ({
+      ...prev,
+      lancamentos: prev.lancamentos.filter((l) => l.id !== lancamentoId),
+      lancamentoLinhas: prev.lancamentoLinhas.filter((l) => l.lancamentoId !== lancamentoId),
+      entradaItens: prev.entradaItens.map((i) => i.lancamentoId === lancamentoId ? { ...i, situacao: "pendente", lancamentoId: null } : i),
+      lixeira: [...prev.lixeira, { lancamentoId, conteudo: { lancamento, linhas }, excluidoEm: (/* @__PURE__ */ new Date()).toISOString() }],
+      trilha: [...prev.trilha, { tipo: "excluir", descricao: lancamento.descricao }]
+    }));
+  }, [mesEstaFechado]);
+  const editando = editandoId && estado ? { lancamento: estado.lancamentos.find((l) => l.id === editandoId), linhas: estado.lancamentoLinhas.filter((l) => l.lancamentoId === editandoId) } : null;
   if (!loaded || !estado) {
-    return /* @__PURE__ */ React14.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React14.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
+    return /* @__PURE__ */ React16.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React16.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
   }
-  return /* @__PURE__ */ React14.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React14.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React14.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React14.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React14.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React14.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React14.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React14.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React14.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React14.createElement(
+  return /* @__PURE__ */ React16.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React16.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React16.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React16.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React16.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React16.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React16.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React16.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React16.createElement(
     CaixaEntrada,
     {
       contas: estado.contas,
@@ -1592,7 +1832,25 @@ function Livro({ negocio, onVoltar }) {
       onPessoal: (item) => marcarSituacao(item, "pessoal"),
       onDuvida: (item) => marcarSituacao(item, "duvida")
     }
-  ), aba === "lancar" && /* @__PURE__ */ React14.createElement(Lancar, { contas: estado.contas, onAdicionar: adicionarLancamento }), aba === "diario" && /* @__PURE__ */ React14.createElement(Diario, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "razao" && /* @__PURE__ */ React14.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React14.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React14.createElement(
+  ), aba === "lancar" && /* @__PURE__ */ React16.createElement(
+    Lancar,
+    {
+      contas: estado.contas,
+      onAdicionar: adicionarLancamento,
+      editando,
+      onEditar: editarLancamento,
+      onCancelarEdicao: cancelarEdicao
+    }
+  ), aba === "diario" && /* @__PURE__ */ React16.createElement(
+    Diario,
+    {
+      contas: estado.contas,
+      lancamentos: estado.lancamentos,
+      lancamentoLinhas: estado.lancamentoLinhas,
+      onEditar: iniciarEdicao,
+      onExcluir: excluirLancamento
+    }
+  ), aba === "razao" && /* @__PURE__ */ React16.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React16.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React16.createElement(
     Conciliacao,
     {
       lancamentos: estado.lancamentos,
@@ -1600,7 +1858,7 @@ function Livro({ negocio, onVoltar }) {
       conciliacoes: estado.conciliacoes,
       onAlternar: alternarConciliacao
     }
-  ), aba === "revisao" && /* @__PURE__ */ React14.createElement(
+  ), aba === "revisao" && /* @__PURE__ */ React16.createElement(
     Revisao,
     {
       contas: estado.contas,
@@ -1611,7 +1869,7 @@ function Livro({ negocio, onVoltar }) {
       onFechar: fecharMes,
       onReabrir: reabrirMes
     }
-  ), aba === "entregas" && /* @__PURE__ */ React14.createElement(
+  ), aba === "entregas" && /* @__PURE__ */ React16.createElement(
     RetratoDoMes,
     {
       negocio,
@@ -1620,15 +1878,15 @@ function Livro({ negocio, onVoltar }) {
       lancamentoLinhas: estado.lancamentoLinhas,
       periodosFechados: estado.periodosFechados
     }
-  )));
+  ), aba === "plano" && /* @__PURE__ */ React16.createElement(PlanoContas, { contas: estado.contas, onAdicionar: adicionarConta, onAlternarAtiva: alternarAtivaConta }), aba === "negocio" && /* @__PURE__ */ React16.createElement(ConfigNegocio, { negocioId: negocio.id })));
 }
 
 // src/app/App.jsx
 function App() {
-  const [authSession, setAuthSession] = useState11(void 0);
-  const [dark] = useState11(true);
-  const [negocioAberto, setNegocioAberto] = useState11(null);
-  useEffect6(() => {
+  const [authSession, setAuthSession] = useState14(void 0);
+  const [dark] = useState14(true);
+  const [negocioAberto, setNegocioAberto] = useState14(null);
+  useEffect8(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
       if (vivo) setAuthSession(data.session);
@@ -1642,14 +1900,14 @@ function App() {
     };
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
-  return /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React15.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React15.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React15.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
+  return /* @__PURE__ */ React17.createElement(React17.Fragment, null, /* @__PURE__ */ React17.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React17.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React17.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React17.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
     /* `key={negocioAberto.id}` desmonta e remonta o Livro inteiro ao
        trocar de negócio — é o que elimina por construção a classe de
        bug H3 do ContLife (doc 26): sem isso, o estado em memória de
        um negócio podia vazar para dentro da chave do próximo por um
        instante, entre trocar o id e a carga nova terminar. */
-    /* @__PURE__ */ React15.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
-  ) : /* @__PURE__ */ React15.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
+    /* @__PURE__ */ React17.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+  ) : /* @__PURE__ */ React17.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
 }
 export {
   App as default

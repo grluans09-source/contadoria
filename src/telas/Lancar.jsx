@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { Plus, Trash2, X } from "lucide-react";
 import { Card, Label, Input, Select, Button, AlertLine } from "../ui/primitivas.jsx";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -7,19 +7,38 @@ const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
 const linhaVazia = () => ({ chave: uid(), contaId: "", tipo: "D", valor: "", descricao: "" });
+const linhaDe = (l) => ({ chave: uid(), contaId: l.contaId, tipo: l.tipo, valor: String(l.valor), descricao: l.descricao || "" });
 
 /* Lançar — o formulário de N linhas. Valida o equilíbrio ANTES de
    mandar pro servidor (a trava do banco, docs/06 §1, ainda é a
    autoridade final — isto só evita a pessoa descobrir o erro depois de
-   preencher tudo). */
-export function Lancar({ contas, onAdicionar }) {
+   preencher tudo).
+
+   TAMBÉM SERVE PARA EDITAR — mesmo padrão do ContLife (LancarView com
+   `editing`/`updateEntry`/`clearEditing`): em vez de um formulário
+   separado duplicando toda a UI de linhas, o Diário manda o lançamento
+   pra cá via `editando`, e o Livro troca de aba sozinho. Um só lugar
+   sabe montar N linhas com validação de equilíbrio — editar não é um
+   formulário diferente, é o MESMO formulário com dado pré-carregado. */
+export function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdicao }) {
   const contasOrdenadas = useMemo(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
   const opcoesContas = contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} — ${c.nome}` }));
 
-  const [data, setData] = useState(hojeISO());
-  const [descricao, setDescricao] = useState("");
-  const [linhas, setLinhas] = useState([linhaVazia(), linhaVazia()]);
+  const [data, setData] = useState(editando?.lancamento.data || hojeISO());
+  const [descricao, setDescricao] = useState(editando?.lancamento.descricao || "");
+  const [linhas, setLinhas] = useState(editando ? editando.linhas.map(linhaDe) : [linhaVazia(), linhaVazia()]);
   const [confirmado, setConfirmado] = useState(false);
+
+  /* `editando` pode trocar com o componente já montado (clicar em
+     "editar" num lançamento diferente sem sair da aba) — useState só
+     lê o valor inicial uma vez, por isso o efeito recarrega o
+     formulário toda vez que o alvo muda. */
+  useEffect(() => {
+    if (!editando) return;
+    setData(editando.lancamento.data);
+    setDescricao(editando.lancamento.descricao);
+    setLinhas(editando.linhas.map(linhaDe));
+  }, [editando]);
 
   const editarLinha = (chave, campo, valor) => setLinhas((ls) => ls.map((l) => (l.chave === chave ? { ...l, [campo]: valor } : l)));
   const removerLinha = (chave) => setLinhas((ls) => ls.filter((l) => l.chave !== chave));
@@ -33,8 +52,28 @@ export function Lancar({ contas, onAdicionar }) {
   const linhasValidas = linhas.filter((l) => l.contaId && numero(l.valor) > 0);
   const podeGravar = descricao.trim() && linhasValidas.length >= 2 && diferenca === 0 && somaD > 0;
 
+  const limpar = () => { setData(hojeISO()); setDescricao(""); setLinhas([linhaVazia(), linhaVazia()]); };
+
   const gravar = () => {
     if (!podeGravar) return;
+
+    if (editando) {
+      const aceito = onEditar({
+        lancamentoId: editando.lancamento.id,
+        lancamento: { id: editando.lancamento.id, data, dataCompetencia: data, descricao: descricao.trim(), origem: editando.lancamento.origem, documento: editando.lancamento.documento },
+        linhas: linhasValidas.map((l) => ({
+          id: uid(), lancamentoId: editando.lancamento.id, contaId: l.contaId, tipo: l.tipo, valor: numero(l.valor),
+          descricao: l.descricao.trim() || null, vencimento: null,
+        })),
+      });
+      if (aceito === false) return;
+      onCancelarEdicao();
+      limpar();
+      setConfirmado(true);
+      setTimeout(() => setConfirmado(false), 2000);
+      return;
+    }
+
     const idLancamento = uid();
     /* `onAdicionar` devolve `false` quando o Livro recusa (ex.: mês
        fechado, docs/04 §8) — achado testando: o formulário limpava como
@@ -49,13 +88,22 @@ export function Lancar({ contas, onAdicionar }) {
       })),
     });
     if (aceito === false) return;
-    setData(hojeISO()); setDescricao(""); setLinhas([linhaVazia(), linhaVazia()]);
+    limpar();
     setConfirmado(true);
     setTimeout(() => setConfirmado(false), 2000);
   };
 
   return (
     <Card>
+      {editando && (
+        <div className="flex items-center justify-between mb-4 pb-3" style={{ borderBottom: "1px solid var(--rule-faint)" }}>
+          <span className="text-xs uppercase tracking-wide" style={{ color: "var(--accent)", fontFamily: "var(--font-mono)" }}>Editando lançamento</span>
+          <button onClick={() => { onCancelarEdicao(); limpar(); }} className="text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }}>
+            <X size={13} /> Cancelar
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div>
           <Label>Data</Label>
@@ -87,7 +135,7 @@ export function Lancar({ contas, onAdicionar }) {
         {diferenca !== 0 && <AlertLine>Diferença de {fmt(Math.abs(diferenca))} — o lançamento precisa fechar antes de gravar</AlertLine>}
       </div>
 
-      <Button onClick={gravar} disabled={!podeGravar}>Lançar</Button>
+      <Button onClick={gravar} disabled={!podeGravar}>{editando ? "Salvar edição" : "Lançar"}</Button>
       {confirmado && <span className="ml-3 text-xs" style={{ color: "var(--credit)" }}>Lançado.</span>}
     </Card>
   );

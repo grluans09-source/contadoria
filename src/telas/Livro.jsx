@@ -12,6 +12,8 @@ import { CaixaEntrada } from "./CaixaEntrada.jsx";
 import { Conciliacao } from "./Conciliacao.jsx";
 import { Revisao } from "./Revisao.jsx";
 import { RetratoDoMes } from "./RetratoDoMes.jsx";
+import { PlanoContas } from "./PlanoContas.jsx";
+import { ConfigNegocio } from "./ConfigNegocio.jsx";
 import { construirLancamentoDeClassificacao } from "../dominio/classificacao.mjs";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -52,6 +54,8 @@ const ABAS = [
   { id: "conciliacao", label: "Conciliação" },
   { id: "revisao", label: "Revisão" },
   { id: "entregas", label: "Entregas" },
+  { id: "plano", label: "Plano de contas" },
+  { id: "negocio", label: "Negócio" },
 ];
 
 export function Livro({ negocio, onVoltar }) {
@@ -61,6 +65,7 @@ export function Livro({ negocio, onVoltar }) {
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
+  const [editandoId, setEditandoId] = useState(null); // id do lançamento em edição, ou null
 
   const fotoRef = useRef(null);       // estado como o SERVIDOR o conhece
   const estadoRef = useRef(null);     // último estado em memória, para o flush de saída
@@ -220,6 +225,74 @@ export function Livro({ negocio, onVoltar }) {
     }));
   }, []);
 
+  const iniciarEdicao = useCallback((lancamentoId) => {
+    setEditandoId(lancamentoId);
+    setAba("lancar");
+  }, []);
+  const cancelarEdicao = useCallback(() => setEditandoId(null), []);
+
+  const adicionarConta = useCallback((conta) => {
+    setEstado((prev) => ({
+      ...prev,
+      contas: [...prev.contas, conta],
+      trilha: [...prev.trilha, { tipo: "conta_nova", descricao: `${conta.codigo} — ${conta.nome}` }],
+    }));
+  }, []);
+
+  const alternarAtivaConta = useCallback((contaId, ativa) => {
+    setEstado((prev) => ({
+      ...prev,
+      contas: prev.contas.map((c) => (c.id === contaId ? { ...c, ativa } : c)),
+    }));
+  }, []);
+
+  /* Editar substitui o cabeçalho e TROCA as linhas inteiras — não tenta
+     casar linha por linha (o dono pode ter mudado quantas são). O motor
+     de sincronização calcula sozinho o que precisa apagar e o que
+     precisa gravar comparando o estado antes/depois; não é preciso
+     montar essa diferença na mão aqui (docs/06 §11). */
+  const editarLancamento = useCallback(({ lancamentoId, lancamento, linhas }) => {
+    const original = estadoRef.current?.lancamentos.find((l) => l.id === lancamentoId);
+    if (mesEstaFechado(original?.data) || mesEstaFechado(lancamento.data)) {
+      setErro(`O mês está fechado — reabra na aba Revisão antes de editar.`);
+      return false;
+    }
+    setEstado((prev) => ({
+      ...prev,
+      lancamentos: prev.lancamentos.map((l) => (l.id === lancamentoId ? lancamento : l)),
+      lancamentoLinhas: [...prev.lancamentoLinhas.filter((l) => l.lancamentoId !== lancamentoId), ...linhas],
+      trilha: [...prev.trilha, { tipo: "editar", descricao: lancamento.descricao }],
+    }));
+    return true;
+  }, [mesEstaFechado]);
+
+  /* Excluir vai para a lixeira, nunca desaparece de vez (docs/06 §10).
+     Se o lançamento veio da Caixa de Entrada, o item de origem volta
+     pra fila de classificação — senão ficaria "classificado" apontando
+     pra um lançamento que não existe mais (a FK entre entrada_itens e
+     lancamentos, docs/06 §7, exige isso). */
+  const excluirLancamento = useCallback((lancamentoId) => {
+    const lancamento = estadoRef.current?.lancamentos.find((l) => l.id === lancamentoId);
+    if (!lancamento) return;
+    if (mesEstaFechado(lancamento.data)) {
+      setErro(`O mês de ${mesDe(lancamento.data)} já está fechado — reabra na aba Revisão antes de excluir.`);
+      return;
+    }
+    const linhas = estadoRef.current.lancamentoLinhas.filter((l) => l.lancamentoId === lancamentoId);
+    setEstado((prev) => ({
+      ...prev,
+      lancamentos: prev.lancamentos.filter((l) => l.id !== lancamentoId),
+      lancamentoLinhas: prev.lancamentoLinhas.filter((l) => l.lancamentoId !== lancamentoId),
+      entradaItens: prev.entradaItens.map((i) => (i.lancamentoId === lancamentoId ? { ...i, situacao: "pendente", lancamentoId: null } : i)),
+      lixeira: [...prev.lixeira, { lancamentoId, conteudo: { lancamento, linhas }, excluidoEm: new Date().toISOString() }],
+      trilha: [...prev.trilha, { tipo: "excluir", descricao: lancamento.descricao }],
+    }));
+  }, [mesEstaFechado]);
+
+  const editando = editandoId && estado
+    ? { lancamento: estado.lancamentos.find((l) => l.id === editandoId), linhas: estado.lancamentoLinhas.filter((l) => l.lancamentoId === editandoId) }
+    : null;
+
   if (!loaded || !estado) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--paper)" }}>
@@ -257,8 +330,24 @@ export function Livro({ negocio, onVoltar }) {
             onDuvida={(item) => marcarSituacao(item, "duvida")}
           />
         )}
-        {aba === "lancar" && <Lancar contas={estado.contas} onAdicionar={adicionarLancamento} />}
-        {aba === "diario" && <Diario contas={estado.contas} lancamentos={estado.lancamentos} lancamentoLinhas={estado.lancamentoLinhas} />}
+        {aba === "lancar" && (
+          <Lancar
+            contas={estado.contas}
+            onAdicionar={adicionarLancamento}
+            editando={editando}
+            onEditar={editarLancamento}
+            onCancelarEdicao={cancelarEdicao}
+          />
+        )}
+        {aba === "diario" && (
+          <Diario
+            contas={estado.contas}
+            lancamentos={estado.lancamentos}
+            lancamentoLinhas={estado.lancamentoLinhas}
+            onEditar={iniciarEdicao}
+            onExcluir={excluirLancamento}
+          />
+        )}
         {aba === "razao" && <Razao contas={estado.contas} lancamentos={estado.lancamentos} lancamentoLinhas={estado.lancamentoLinhas} />}
         {aba === "balancete" && <Balancete contas={estado.contas} lancamentoLinhas={estado.lancamentoLinhas} />}
         {aba === "conciliacao" && (
@@ -289,6 +378,10 @@ export function Livro({ negocio, onVoltar }) {
             periodosFechados={estado.periodosFechados}
           />
         )}
+        {aba === "plano" && (
+          <PlanoContas contas={estado.contas} onAdicionar={adicionarConta} onAlternarAtiva={alternarAtivaConta} />
+        )}
+        {aba === "negocio" && <ConfigNegocio negocioId={negocio.id} />}
       </div>
     </div>
   );

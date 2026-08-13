@@ -1,16 +1,36 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Building2, Plus, X } from "lucide-react";
+import { Building2, Plus, X, LogOut } from "lucide-react";
 import { supabase } from "../dados/supabase.mjs";
+import { resumoDoMesAtual } from "../dados/resumoNegocio.mjs";
 import { Card, Label, Input, Select, Button, Confirmacao } from "../ui/primitivas.jsx";
 
-/* A prateleira (docs/04_MAPA_DO_APP.md §2) — versão inicial do passo 4.
-   As colunas ricas (movimento do mês, faturamento × limite, DAS) chegam
-   no passo 5+, quando existir lançamento de verdade para mostrar; até
-   lá, mostrar "—" seria mentir que há dado onde não há. */
+/* A prateleira (docs/04_MAPA_DO_APP.md §2). */
 
 const TIPO_LABEL = { mei: "MEI", informal: "Informal" };
+const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+
+/* Resumo do mês, carregado por card — só para negócio ativo e já
+   onboarded (docs/04 §2: colunas ricas só fazem sentido quando existe
+   lançamento de verdade para mostrar). */
+function ResumoDoMes({ negocioId }) {
+  const [resumo, setResumo] = useState(null);
+  useEffect(() => {
+    let vivo = true;
+    resumoDoMesAtual(negocioId).then((r) => { if (vivo) setResumo(r); });
+    return () => { vivo = false; };
+  }, [negocioId]);
+
+  if (!resumo) return <span style={{ color: "var(--muted)" }}>…</span>;
+  if (!resumo.temMovimento) return <span style={{ color: "var(--muted)" }}>Nenhum lançamento neste mês</span>;
+  return (
+    <span style={{ color: resumo.resultado >= 0 ? "var(--credit)" : "var(--debit)" }}>
+      {resumo.resultado >= 0 ? "sobrou" : "faltou"} {fmt(Math.abs(resumo.resultado))} este mês
+    </span>
+  );
+}
 
 function CardNegocio({ negocio, recemCriado, onAbrir }) {
+  const onboarded = !!negocio.configuracao?.onboarded;
   return (
     <Card
       elevavel
@@ -33,12 +53,14 @@ function CardNegocio({ negocio, recemCriado, onAbrir }) {
           {TIPO_LABEL[negocio.tipo] || negocio.tipo}
         </span>
       </div>
-      <div className="mt-3 text-xs" style={{ color: "var(--muted)" }}>
-        {negocio.situacao !== "ativo"
-          ? "Encerrado"
-          : negocio.configuracao?.onboarded
-          ? "Nenhum lançamento novo ainda"
-          : "Roteiro do Cliente Novo pendente"}
+      <div className="mt-3 text-xs">
+        {negocio.situacao !== "ativo" ? (
+          <span style={{ color: "var(--muted)" }}>Encerrado</span>
+        ) : !onboarded ? (
+          <span style={{ color: "var(--muted)" }}>Roteiro do Cliente Novo pendente</span>
+        ) : (
+          <ResumoDoMes negocioId={negocio.id} />
+        )}
       </div>
     </Card>
   );
@@ -137,11 +159,22 @@ export function Negocios({ onAbrirNegocio }) {
             <div className="text-xl font-bold" style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}>Seus negócios</div>
             <div className="text-xs mt-1" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>a prateleira</div>
           </div>
-          {!mostrarForm && (
-            <Button onClick={() => setMostrarForm(true)}>
-              <Plus size={15} /> Novo negócio
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {!mostrarForm && (
+              <Button onClick={() => setMostrarForm(true)}>
+                <Plus size={15} /> Novo negócio
+              </Button>
+            )}
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="text-xs inline-flex items-center gap-1.5 px-2 py-2 transition-opacity hover:opacity-70"
+              style={{ color: "var(--muted)" }}
+              aria-label="Sair"
+              title="Sair da conta"
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
         </div>
 
         <div className="mb-4"><Confirmacao texto="Negócio criado." ativa={confirmacao} /></div>
