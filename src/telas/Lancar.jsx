@@ -36,13 +36,19 @@ export function Lancar({ contas, onAdicionar }) {
   const gravar = () => {
     if (!podeGravar) return;
     const idLancamento = uid();
-    onAdicionar({
+    /* `onAdicionar` devolve `false` quando o Livro recusa (ex.: mês
+       fechado, docs/04 §8) — achado testando: o formulário limpava como
+       se tivesse dado certo mesmo quando a mutação era rejeitada, o que
+       esconderia o erro embaixo de um "funcionou" falso. Só reseta no
+       sucesso de verdade. */
+    const aceito = onAdicionar({
       lancamento: { id: idLancamento, data, dataCompetencia: data, descricao: descricao.trim(), origem: "manual", documento: null },
       linhas: linhasValidas.map((l) => ({
         id: uid(), lancamentoId: idLancamento, contaId: l.contaId, tipo: l.tipo, valor: numero(l.valor),
         descricao: l.descricao.trim() || null, vencimento: null,
       })),
     });
+    if (aceito === false) return;
     setData(hojeISO()); setDescricao(""); setLinhas([linhaVazia(), linhaVazia()]);
     setConfirmado(true);
     setTimeout(() => setConfirmado(false), 2000);

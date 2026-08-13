@@ -6,7 +6,7 @@
 
 ---
 
-## Estado atual — 12/ago/2026
+## Estado atual — 13/ago/2026
 
 **O projeto Supabase do Contadoria existe e está provado.** Referência `gmiiuklkhwjpcowvjbwz`,
 mesma organização do ContLife, região São Paulo. As 4 migrações foram aplicadas no banco
@@ -421,17 +421,58 @@ coincidência de string igual. Negócio de teste apagado depois, cascade confirm
 
 ---
 
+## ✅ Fechamento de mês + Revisão — CONCLUÍDO, O CICLO INTEIRO VERIFICADO (13/ago)
+
+Implementa `04_MAPA_DO_APP.md` §7-8. Nenhuma tabela nova — `periodos_fechados`, `trilha` e
+`conciliacoes` já existiam no schema (docs/06 §10) e estavam sem uso; esta etapa é a
+primeira a preenchê-las de verdade.
+
+| Arquivo | O que é |
+|---|---|
+| `src/dominio/revisao.mjs` | `mesaDeRevisao` — 5 checagens, cada uma recomputada DIRETO das linhas, nunca de um resumo (a lição do bug H2 do ContLife) |
+| `src/telas/Conciliacao.jsx` | por LANÇAMENTO, não por linha — é como `conciliacoes` foi desenhada (docs/06 §10) |
+| `src/telas/Revisao.jsx` | Mesa + Fechamento (escolher mês, fechar, reabrir) + as últimas entradas da trilha |
+| `tests/revisao.test.mjs` | 10 testes — inclui a prova de que a checagem da equação NÃO é tautológica: duas linhas D sem nenhum C do outro lado quebra a checagem mesmo com cada lançamento parecendo fechado |
+
+### A trava fica sem dentes se não bloquear escrita — corrigido, centralizado
+
+Fechar um mês só significa algo se ninguém conseguir escrever nele depois. A guarda
+(`mesEstaFechado`) vive DENTRO de `adicionarLancamento` e `classificarItem`, em
+`Livro.jsx` — não em cada tela que lança. Assim qualquer entrada futura herda a proteção
+automaticamente, sem precisar lembrar de repetir a checagem.
+
+### Achado testando, corrigido antes de virar hábito de UI enganoso
+
+`Lancar.jsx` e `CaixaEntrada.jsx` limpavam o formulário como se tivesse dado certo mesmo
+quando o Livro RECUSAVA a mutação (mês fechado) — o erro aparecia, mas escondido embaixo de
+um formulário vazio que sugeria sucesso. Corrigido: os mutadores agora devolvem `false`
+quando recusam, e as telas só resetam no sucesso de verdade.
+
+### Verificado no navegador, o ciclo completo, contra o banco real
+
+Lancei um Corte e escova, conferi contra o extrato na Conciliação (virou "Desmarcar
+conferido"), a Mesa passou tudo, fechei agosto/2026. **Tentei lançar de novo no mesmo mês —
+recusado, formulário preservou os R$ 25,00 digitados** (não fingiu sucesso), e conferido
+direto no banco que nada vazou. Reabri o mês pela Revisão — voltou a aceitar lançamento, e
+a trilha mostrou a sequência inteira em ordem: `lancar` → `fechar_mes` → `reabrir_mes`.
+Negócio de teste apagado depois, cascade confirmado limpando `trilha` e `conciliacoes`
+junto.
+
+---
+
 ## ➡️ Próxima tarefa — o que falta do `04_MAPA_DO_APP.md` §12
 
 O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro,
-Caixa de Entrada. O que falta:
+Caixa de Entrada, Revisão e Fechamento. O que falta:
 
-1. **Fechamento de mês + Revisão** (`04` §7-8) — conciliação, Mesa de Revisão (os
-   invariantes, recalculados da fonte — `razao.mjs` já dá a base), trilha de auditoria
-2. **Entregas** (`04` §9) — o Retrato do Mês (`08` §3), "quanto você pode tirar" (`08` §2)
-3. **Painel do Mês** (`04` §3) — só faz sentido com mais de 1 cliente real usando
-4. **Recorrentes** — peça futura sinalizada no passo 5 (Bloco 4 do Roteiro captura como
+1. **Entregas** (`04` §9) — o Retrato do Mês (`08` §3), "quanto você pode tirar" (`08` §2).
+   Agora tem tudo que precisa: `razao.mjs` para os números, `periodos_fechados` para saber
+   o que já foi selado
+2. **Painel do Mês** (`04` §3) — só faz sentido com mais de 1 cliente real usando
+3. **Recorrentes** — peça futura sinalizada no passo 5 (Bloco 4 do Roteiro captura como
    texto livre por enquanto); sem tabela própria ainda
+4. **Achados/anomalias** (`04` §7) — deliberadamente adiado nesta etapa: exige histórico de
+   meses para ter uma média com que comparar, e ainda não existe cliente real com histórico
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
 semanal (lacuna 1, acima).

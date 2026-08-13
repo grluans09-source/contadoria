@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React12, { useState as useState9, useEffect as useEffect6 } from "react";
+import React14, { useState as useState10, useEffect as useEffect6 } from "react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -675,7 +675,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
 }
 
 // src/telas/Livro.jsx
-import React11, { useState as useState8, useEffect as useEffect5, useRef as useRef2, useCallback as useCallback2 } from "react";
+import React13, { useState as useState9, useEffect as useEffect5, useRef as useRef2, useCallback as useCallback2 } from "react";
 import { ArrowLeft as ArrowLeft2 } from "lucide-react";
 
 // src/dados/sinc.mjs
@@ -993,7 +993,7 @@ function Lancar({ contas, onAdicionar }) {
   const gravar = () => {
     if (!podeGravar) return;
     const idLancamento = uid();
-    onAdicionar({
+    const aceito = onAdicionar({
       lancamento: { id: idLancamento, data, dataCompetencia: data, descricao: descricao.trim(), origem: "manual", documento: null },
       linhas: linhasValidas.map((l) => ({
         id: uid(),
@@ -1005,6 +1005,7 @@ function Lancar({ contas, onAdicionar }) {
         vencimento: null
       }))
     });
+    if (aceito === false) return;
     setData(hojeISO2());
     setDescricao("");
     setLinhas([linhaVazia(), linhaVazia()]);
@@ -1167,8 +1168,8 @@ function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida
   const contasOrdenadas = useMemo4(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
   const confirmar = () => {
     if (!contaId) return;
-    onClassificar({ item, contaCategoriaId: contaId, padrao: padrao.trim() || item.descricaoBruta });
-    setClassificando(false);
+    const aceito = onClassificar({ item, contaCategoriaId: contaId, padrao: padrao.trim() || item.descricaoBruta });
+    if (aceito !== false) setClassificando(false);
   };
   return /* @__PURE__ */ React10.createElement(Card, { pad: "apertado", className: "mb-2" }, /* @__PURE__ */ React10.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React10.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React10.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData3(item.data), " \xB7 ", item.contaOrigemId === "banco" ? "Banco" : "Caixa"), /* @__PURE__ */ React10.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, item.descricaoBruta), sugestao && !classificando && /* @__PURE__ */ React10.createElement("div", { className: "text-[10px] mt-0.5", style: { color: "var(--accent)" } }, "sugest\xE3o: ", contas.find((c) => c.id === sugestao.contaId)?.nome)), /* @__PURE__ */ React10.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: item.valor >= 0 ? "var(--credit)" : "var(--debit)" } }, fmt5(item.valor))), classificando ? /* @__PURE__ */ React10.createElement("div", { className: "mt-3 pt-3 space-y-2", style: { borderTop: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Categoria"), /* @__PURE__ */ React10.createElement(Select, { value: contaId, onChange: setContaId, placeholder: "escolha a conta", options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Padr\xE3o para lembrar da pr\xF3xima vez"), /* @__PURE__ */ React10.createElement(Input, { value: padrao, onChange: (e) => setPadrao(e.target.value) })), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 pt-1" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: confirmar, disabled: !contaId }, "Confirmar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => setClassificando(false) }, "Cancelar"))) : /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 mt-2" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: () => setClassificando(true) }, /* @__PURE__ */ React10.createElement(Check, { size: 12 }), " Classificar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onPessoal(item) }, /* @__PURE__ */ React10.createElement(X2, { size: 12 }), " \xC9 pessoal"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onDuvida(item) }, /* @__PURE__ */ React10.createElement(HelpCircle2, { size: 12 }), " N\xE3o sei")));
 }
@@ -1188,22 +1189,163 @@ function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, o
   )));
 }
 
+// src/telas/Conciliacao.jsx
+import React11, { useMemo as useMemo5 } from "react";
+import { Check as Check2 } from "lucide-react";
+var fmt6 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmtData4 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
+var CONTAS_TRANSITO2 = /* @__PURE__ */ new Set(["caixa", "banco"]);
+function Conciliacao({ lancamentos, lancamentoLinhas, conciliacoes, onAlternar }) {
+  const conferidos = useMemo5(() => new Set(conciliacoes), [conciliacoes]);
+  const linhasPorLancamento = useMemo5(() => {
+    const mapa = /* @__PURE__ */ new Map();
+    for (const l of lancamentoLinhas) {
+      if (!mapa.has(l.lancamentoId)) mapa.set(l.lancamentoId, []);
+      mapa.get(l.lancamentoId).push(l);
+    }
+    return mapa;
+  }, [lancamentoLinhas]);
+  const relevantes = useMemo5(() => {
+    return lancamentos.filter((l) => (linhasPorLancamento.get(l.id) || []).some((linha) => CONTAS_TRANSITO2.has(linha.contaId))).sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+  }, [lancamentos, linhasPorLancamento]);
+  if (relevantes.length === 0) {
+    return /* @__PURE__ */ React11.createElement(Card, { className: "text-center py-10" }, /* @__PURE__ */ React11.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento em Caixa ou Banco ainda."));
+  }
+  return /* @__PURE__ */ React11.createElement("div", null, /* @__PURE__ */ React11.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, "Marque o que voc\xEA j\xE1 conferiu contra o extrato de verdade."), relevantes.map((l) => {
+    const linhaTransito = (linhasPorLancamento.get(l.id) || []).find((x) => CONTAS_TRANSITO2.has(x.contaId));
+    const ok = conferidos.has(l.id);
+    return /* @__PURE__ */ React11.createElement(Card, { key: l.id, pad: "apertado", className: "mb-2" }, /* @__PURE__ */ React11.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React11.createElement(
+      "button",
+      {
+        onClick: () => onAlternar(l.id, !ok),
+        className: "w-6 h-6 rounded-md border shrink-0 flex items-center justify-center transition-all duration-150",
+        style: { borderColor: ok ? "var(--credit)" : "var(--rule-faint)", background: ok ? "var(--credit-soft)" : "transparent" },
+        "aria-label": ok ? "Desmarcar conferido" : "Marcar como conferido"
+      },
+      ok && /* @__PURE__ */ React11.createElement(Check2, { size: 14, style: { color: "var(--credit)" } })
+    ), /* @__PURE__ */ React11.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React11.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData4(l.data)), /* @__PURE__ */ React11.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, l.descricao)), /* @__PURE__ */ React11.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: "var(--ink)" } }, linhaTransito ? fmt6(linhaTransito.valor) : "\u2014")));
+  }));
+}
+
+// src/telas/Revisao.jsx
+import React12, { useMemo as useMemo6, useState as useState8 } from "react";
+import { CheckCircle2, AlertTriangle, Lock, Unlock } from "lucide-react";
+
+// src/dominio/revisao.mjs
+function mesaDeRevisao(contas, lancamentos, lancamentoLinhas) {
+  const checks = [];
+  const push = (nome, ok, detalhe) => checks.push({ nome, ok, detalhe: detalhe || "" });
+  const idsContas = new Set(contas.map((c) => c.id));
+  const idsLancamentos = new Set(lancamentos.map((l) => l.id));
+  const orfas = lancamentoLinhas.filter((l) => !idsContas.has(l.contaId) || !idsLancamentos.has(l.lancamentoId));
+  push(
+    "Toda linha referencia lan\xE7amento e conta existentes",
+    orfas.length === 0,
+    orfas.length ? `${orfas.length} linha(s) \xF3rf\xE3(s)` : "nenhuma linha \xF3rf\xE3"
+  );
+  const datasInvalidas = lancamentos.filter((l) => !/^\d{4}-\d{2}-\d{2}$/.test(l.data || ""));
+  const valoresInvalidos = lancamentoLinhas.filter((l) => !(l.valor > 0));
+  push(
+    "Datas e valores v\xE1lidos",
+    datasInvalidas.length === 0 && valoresInvalidos.length === 0,
+    datasInvalidas.length || valoresInvalidos.length ? `${datasInvalidas.length} data(s) e ${valoresInvalidos.length} valor(es) inv\xE1lido(s)` : "tudo v\xE1lido"
+  );
+  const idsLancVistos = /* @__PURE__ */ new Set();
+  let dupLanc = 0;
+  for (const l of lancamentos) {
+    if (idsLancVistos.has(l.id)) dupLanc++;
+    idsLancVistos.add(l.id);
+  }
+  const idsLinhaVistos = /* @__PURE__ */ new Set();
+  let dupLinha = 0;
+  for (const l of lancamentoLinhas) {
+    if (idsLinhaVistos.has(l.id)) dupLinha++;
+    idsLinhaVistos.add(l.id);
+  }
+  push(
+    "Identificadores \xFAnicos",
+    dupLanc === 0 && dupLinha === 0,
+    dupLanc || dupLinha ? `${dupLanc} lan\xE7amento(s) e ${dupLinha} linha(s) duplicados` : "sem duplicidade"
+  );
+  const porLancamento = /* @__PURE__ */ new Map();
+  for (const l of lancamentoLinhas) {
+    if (!porLancamento.has(l.lancamentoId)) porLancamento.set(l.lancamentoId, { d: 0, c: 0 });
+    const acc = porLancamento.get(l.lancamentoId);
+    if (l.tipo === "D") acc.d += l.valor;
+    else acc.c += l.valor;
+  }
+  const desequilibrados = [...porLancamento.entries()].filter(([, v]) => Math.abs(v.d - v.c) >= 0.01);
+  push(
+    "Todo lan\xE7amento tem d\xE9bito = cr\xE9dito",
+    desequilibrados.length === 0,
+    desequilibrados.length ? `${desequilibrados.length} lan\xE7amento(s) desequilibrado(s) \u2014 n\xE3o deveria ser poss\xEDvel, \xE9 o que a trava do banco existe para impedir` : "todos fecham"
+  );
+  const b = balancete(contas, lancamentoLinhas);
+  const soma = (tipo) => b.linhas.filter((c) => c.tipo === tipo).reduce((s, c) => s + c.saldo, 0);
+  const ativo = soma("ativo"), passivo = soma("passivo"), pl = soma("pl"), receita = soma("receita"), despesa = soma("despesa");
+  const diferenca = ativo - passivo - pl - receita + despesa;
+  push(
+    "Equa\xE7\xE3o patrimonial fecha (A = P + PL + R \u2212 D)",
+    Math.abs(diferenca) < 0.01,
+    Math.abs(diferenca) < 0.01 ? `${fmtSimples(ativo)} = ${fmtSimples(passivo)} + ${fmtSimples(pl)} + ${fmtSimples(receita)} \u2212 ${fmtSimples(despesa)}` : `diferen\xE7a de ${fmtSimples(diferenca)}`
+  );
+  return checks;
+}
+function fmtSimples(v) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+}
+function podeFecharPeriodo(checks) {
+  return checks.every((c) => c.ok);
+}
+
+// src/telas/Revisao.jsx
+var fmtMes = (m) => {
+  const [ano, mes] = m.split("-");
+  return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+};
+function MesaChecks({ checks }) {
+  return /* @__PURE__ */ React12.createElement(Card, { className: "mb-6" }, /* @__PURE__ */ React12.createElement("div", { className: "font-medium mb-3", style: { color: "var(--ink)" } }, "Mesa de Revis\xE3o"), /* @__PURE__ */ React12.createElement("div", { className: "space-y-2" }, checks.map((c, i) => /* @__PURE__ */ React12.createElement("div", { key: i, className: "flex items-start gap-2 text-sm" }, c.ok ? /* @__PURE__ */ React12.createElement(CheckCircle2, { size: 15, style: { color: "var(--credit)", marginTop: 2, flexShrink: 0 } }) : /* @__PURE__ */ React12.createElement(AlertTriangle, { size: 15, style: { color: "var(--debit)", marginTop: 2, flexShrink: 0 } }), /* @__PURE__ */ React12.createElement("div", null, /* @__PURE__ */ React12.createElement("span", { style: { color: "var(--ink)" } }, c.nome), /* @__PURE__ */ React12.createElement("span", { className: "text-xs ml-2", style: { color: c.ok ? "var(--muted)" : "var(--debit)" } }, c.detalhe))))));
+}
+function Fechamento({ lancamentos, periodosFechados, mesaPassa, onFechar, onReabrir }) {
+  const mesesComMovimento = useMemo6(() => {
+    const meses = new Set(lancamentos.map((l) => (l.data || "").slice(0, 7)).filter(Boolean));
+    return [...meses].sort();
+  }, [lancamentos]);
+  const fechados = useMemo6(() => new Set(periodosFechados.filter((p) => p.startsWith("mes:")).map((p) => p.slice(4))), [periodosFechados]);
+  const abertos = mesesComMovimento.filter((m) => !fechados.has(m));
+  const [mesEscolhido, setMesEscolhido] = useState8(abertos[0] || "");
+  return /* @__PURE__ */ React12.createElement(Card, null, /* @__PURE__ */ React12.createElement("div", { className: "font-medium mb-3", style: { color: "var(--ink)" } }, "Fechamento de m\xEAs"), abertos.length === 0 ? /* @__PURE__ */ React12.createElement("div", { className: "text-sm mb-4", style: { color: "var(--muted)" } }, "Nenhum m\xEAs em aberto com movimento para fechar.") : /* @__PURE__ */ React12.createElement("div", { className: "flex items-center gap-3 mb-4" }, /* @__PURE__ */ React12.createElement("div", { className: "w-48" }, /* @__PURE__ */ React12.createElement(Select, { value: mesEscolhido, onChange: setMesEscolhido, options: abertos.map((m) => ({ value: m, label: fmtMes(m) })) })), /* @__PURE__ */ React12.createElement(Button, { onClick: () => onFechar(mesEscolhido), disabled: !mesaPassa || !mesEscolhido }, /* @__PURE__ */ React12.createElement(Lock, { size: 13 }), " Fechar ", mesEscolhido ? fmtMes(mesEscolhido) : "")), !mesaPassa && abertos.length > 0 && /* @__PURE__ */ React12.createElement("div", { className: "text-xs mb-4", style: { color: "var(--debit)" } }, "A Mesa de Revis\xE3o precisa passar em tudo antes de fechar."), fechados.size > 0 && /* @__PURE__ */ React12.createElement("div", null, /* @__PURE__ */ React12.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Meses fechados"), [...fechados].sort().reverse().map((m) => /* @__PURE__ */ React12.createElement("div", { key: m, className: "flex items-center justify-between py-1.5 text-sm", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React12.createElement("span", { style: { color: "var(--ink)" } }, fmtMes(m)), /* @__PURE__ */ React12.createElement("button", { onClick: () => onReabrir(m), className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React12.createElement(Unlock, { size: 12 }), " Reabrir")))));
+}
+function Trilha({ trilha }) {
+  const recentes = [...trilha].slice(-15).reverse();
+  if (recentes.length === 0) return null;
+  return /* @__PURE__ */ React12.createElement(Card, { className: "mt-6" }, /* @__PURE__ */ React12.createElement("div", { className: "font-medium mb-3", style: { color: "var(--ink)" } }, "Trilha \u2014 o que aconteceu por \xFAltimo"), /* @__PURE__ */ React12.createElement("div", { className: "space-y-1.5 text-xs" }, recentes.map((t, i) => /* @__PURE__ */ React12.createElement("div", { key: i, style: { color: "var(--muted)" } }, /* @__PURE__ */ React12.createElement("span", { className: "font-mono uppercase", style: { color: "var(--accent)" } }, t.tipo), " \u2014 ", t.descricao))));
+}
+function Revisao({ contas, lancamentos, lancamentoLinhas, periodosFechados, trilha, onFechar, onReabrir }) {
+  const checks = useMemo6(() => mesaDeRevisao(contas, lancamentos, lancamentoLinhas), [contas, lancamentos, lancamentoLinhas]);
+  const mesaPassa = podeFecharPeriodo(checks);
+  return /* @__PURE__ */ React12.createElement("div", null, /* @__PURE__ */ React12.createElement(MesaChecks, { checks }), /* @__PURE__ */ React12.createElement(Fechamento, { lancamentos, periodosFechados, mesaPassa, onFechar, onReabrir }), /* @__PURE__ */ React12.createElement(Trilha, { trilha }));
+}
+
 // src/telas/Livro.jsx
 var uid3 = () => Math.random().toString(36).slice(2, 10);
+var mesDe = (dataIso) => (dataIso || "").slice(0, 7);
 var ABAS = [
   { id: "caixa", label: "Caixa de Entrada" },
   { id: "lancar", label: "Lan\xE7ar" },
   { id: "diario", label: "Di\xE1rio" },
   { id: "razao", label: "Raz\xE3o" },
-  { id: "balancete", label: "Balancete" }
+  { id: "balancete", label: "Balancete" },
+  { id: "conciliacao", label: "Concilia\xE7\xE3o" },
+  { id: "revisao", label: "Revis\xE3o" }
 ];
 function Livro({ negocio, onVoltar }) {
-  const [aba, setAba] = useState8("caixa");
-  const [estado, setEstado] = useState8(null);
-  const [loaded, setLoaded] = useState8(false);
-  const [erro, setErro] = useState8("");
-  const [salvando, setSalvando] = useState8(false);
-  const [confirmado, setConfirmado] = useState8(false);
+  const [aba, setAba] = useState9("caixa");
+  const [estado, setEstado] = useState9(null);
+  const [loaded, setLoaded] = useState9(false);
+  const [erro, setErro] = useState9("");
+  const [salvando, setSalvando] = useState9(false);
+  const [confirmado, setConfirmado] = useState9(false);
   const fotoRef = useRef2(null);
   const estadoRef = useRef2(null);
   const timerRef = useRef2(null);
@@ -1266,13 +1408,23 @@ function Livro({ negocio, onVoltar }) {
       }
     };
   }, []);
+  const mesEstaFechado = useCallback2(
+    (dataIso) => estadoRef.current?.periodosFechados?.includes(`mes:${mesDe(dataIso)}`),
+    []
+  );
   const adicionarLancamento = useCallback2(({ lancamento, linhas }) => {
+    if (mesEstaFechado(lancamento.data)) {
+      setErro(`O m\xEAs de ${mesDe(lancamento.data)} j\xE1 est\xE1 fechado \u2014 reabra na aba Revis\xE3o antes de lan\xE7ar aqui.`);
+      return false;
+    }
     setEstado((prev) => ({
       ...prev,
       lancamentos: [...prev.lancamentos, lancamento],
-      lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas]
+      lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
+      trilha: [...prev.trilha, { tipo: "lancar", descricao: lancamento.descricao }]
     }));
-  }, []);
+    return true;
+  }, [mesEstaFechado]);
   const importarItens = useCallback2((itens) => {
     setEstado((prev) => ({ ...prev, entradaItens: [...prev.entradaItens, ...itens] }));
   }, []);
@@ -1283,6 +1435,10 @@ function Livro({ negocio, onVoltar }) {
     }));
   }, []);
   const classificarItem = useCallback2(({ item, contaCategoriaId, padrao }) => {
+    if (mesEstaFechado(item.data)) {
+      setErro(`O m\xEAs de ${mesDe(item.data)} j\xE1 est\xE1 fechado \u2014 reabra na aba Revis\xE3o antes de classificar este item.`);
+      return false;
+    }
     setEstado((prev) => {
       const { lancamento, linhas } = construirLancamentoDeClassificacao(item, contaCategoriaId);
       const regraExistente = prev.regrasClassificacao.find(
@@ -1294,14 +1450,36 @@ function Livro({ negocio, onVoltar }) {
         lancamentos: [...prev.lancamentos, lancamento],
         lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
         entradaItens: prev.entradaItens.map((i) => i.id === item.id ? { ...i, situacao: "classificado", lancamentoId: lancamento.id } : i),
-        regrasClassificacao
+        regrasClassificacao,
+        trilha: [...prev.trilha, { tipo: "classificar", descricao: `${item.descricaoBruta} \u2192 ${contaCategoriaId}` }]
       };
     });
+    return true;
+  }, [mesEstaFechado]);
+  const alternarConciliacao = useCallback2((lancamentoId, marcar) => {
+    setEstado((prev) => ({
+      ...prev,
+      conciliacoes: marcar ? [...prev.conciliacoes, lancamentoId] : prev.conciliacoes.filter((id) => id !== lancamentoId)
+    }));
+  }, []);
+  const fecharMes = useCallback2((mes) => {
+    setEstado((prev) => ({
+      ...prev,
+      periodosFechados: [...prev.periodosFechados, `mes:${mes}`],
+      trilha: [...prev.trilha, { tipo: "fechar_mes", descricao: `M\xEAs ${mes} fechado` }]
+    }));
+  }, []);
+  const reabrirMes = useCallback2((mes) => {
+    setEstado((prev) => ({
+      ...prev,
+      periodosFechados: prev.periodosFechados.filter((p) => p !== `mes:${mes}`),
+      trilha: [...prev.trilha, { tipo: "reabrir_mes", descricao: `M\xEAs ${mes} reaberto` }]
+    }));
   }, []);
   if (!loaded || !estado) {
-    return /* @__PURE__ */ React11.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React11.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
+    return /* @__PURE__ */ React13.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React13.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
   }
-  return /* @__PURE__ */ React11.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React11.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React11.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React11.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React11.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React11.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React11.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React11.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React11.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React11.createElement(
+  return /* @__PURE__ */ React13.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React13.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React13.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React13.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React13.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React13.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React13.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React13.createElement(
     CaixaEntrada,
     {
       contas: estado.contas,
@@ -1312,14 +1490,33 @@ function Livro({ negocio, onVoltar }) {
       onPessoal: (item) => marcarSituacao(item, "pessoal"),
       onDuvida: (item) => marcarSituacao(item, "duvida")
     }
-  ), aba === "lancar" && /* @__PURE__ */ React11.createElement(Lancar, { contas: estado.contas, onAdicionar: adicionarLancamento }), aba === "diario" && /* @__PURE__ */ React11.createElement(Diario, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "razao" && /* @__PURE__ */ React11.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React11.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas })));
+  ), aba === "lancar" && /* @__PURE__ */ React13.createElement(Lancar, { contas: estado.contas, onAdicionar: adicionarLancamento }), aba === "diario" && /* @__PURE__ */ React13.createElement(Diario, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "razao" && /* @__PURE__ */ React13.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React13.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React13.createElement(
+    Conciliacao,
+    {
+      lancamentos: estado.lancamentos,
+      lancamentoLinhas: estado.lancamentoLinhas,
+      conciliacoes: estado.conciliacoes,
+      onAlternar: alternarConciliacao
+    }
+  ), aba === "revisao" && /* @__PURE__ */ React13.createElement(
+    Revisao,
+    {
+      contas: estado.contas,
+      lancamentos: estado.lancamentos,
+      lancamentoLinhas: estado.lancamentoLinhas,
+      periodosFechados: estado.periodosFechados,
+      trilha: estado.trilha,
+      onFechar: fecharMes,
+      onReabrir: reabrirMes
+    }
+  )));
 }
 
 // src/app/App.jsx
 function App() {
-  const [authSession, setAuthSession] = useState9(void 0);
-  const [dark] = useState9(true);
-  const [negocioAberto, setNegocioAberto] = useState9(null);
+  const [authSession, setAuthSession] = useState10(void 0);
+  const [dark] = useState10(true);
+  const [negocioAberto, setNegocioAberto] = useState10(null);
   useEffect6(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -1334,14 +1531,14 @@ function App() {
     };
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
-  return /* @__PURE__ */ React12.createElement(React12.Fragment, null, /* @__PURE__ */ React12.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React12.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React12.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React12.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
+  return /* @__PURE__ */ React14.createElement(React14.Fragment, null, /* @__PURE__ */ React14.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React14.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React14.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React14.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
     /* `key={negocioAberto.id}` desmonta e remonta o Livro inteiro ao
        trocar de negócio — é o que elimina por construção a classe de
        bug H3 do ContLife (doc 26): sem isso, o estado em memória de
        um negócio podia vazar para dentro da chave do próximo por um
        instante, entre trocar o id e a carga nova terminar. */
-    /* @__PURE__ */ React12.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
-  ) : /* @__PURE__ */ React12.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
+    /* @__PURE__ */ React14.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+  ) : /* @__PURE__ */ React14.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
 }
 export {
   App as default

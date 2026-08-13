@@ -106,8 +106,10 @@ function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida
 
   const confirmar = () => {
     if (!contaId) return;
-    onClassificar({ item, contaCategoriaId: contaId, padrao: padrao.trim() || item.descricaoBruta });
-    setClassificando(false);
+    /* Só fecha o formulário inline se o Livro aceitou de verdade (ex.:
+       recusaria com mês fechado, docs/04 §8) — mesmo cuidado do Lancar.jsx. */
+    const aceito = onClassificar({ item, contaCategoriaId: contaId, padrao: padrao.trim() || item.descricaoBruta });
+    if (aceito !== false) setClassificando(false);
   };
 
   return (

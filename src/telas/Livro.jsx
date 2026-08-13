@@ -9,9 +9,12 @@ import { Razao } from "./Razao.jsx";
 import { Balancete } from "./Balancete.jsx";
 import { Lancar } from "./Lancar.jsx";
 import { CaixaEntrada } from "./CaixaEntrada.jsx";
+import { Conciliacao } from "./Conciliacao.jsx";
+import { Revisao } from "./Revisao.jsx";
 import { construirLancamentoDeClassificacao } from "../dominio/classificacao.mjs";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+const mesDe = (dataIso) => (dataIso || "").slice(0, 7);
 
 /* O Livro — passo 6 do docs/06_MODELO_DE_DADOS.md §13.
 
@@ -45,6 +48,8 @@ const ABAS = [
   { id: "diario", label: "Diário" },
   { id: "razao", label: "Razão" },
   { id: "balancete", label: "Balancete" },
+  { id: "conciliacao", label: "Conciliação" },
+  { id: "revisao", label: "Revisão" },
 ];
 
 export function Livro({ negocio, onVoltar }) {
@@ -124,13 +129,29 @@ export function Livro({ negocio, onVoltar }) {
     // eslint-disable-next-line
   }, []);
 
+  /* Guarda central contra escrever num mês fechado — vive AQUI, não em
+     cada tela que lança (Lancar, Caixa de Entrada, e qualquer entrada
+     futura). Se o mês está fechado, ninguém grava, sem precisar que
+     cada tela nova lembre de repetir a checagem — a mesma lógica de
+     "corrigir a classe do problema" do resto da sessão. */
+  const mesEstaFechado = useCallback(
+    (dataIso) => estadoRef.current?.periodosFechados?.includes(`mes:${mesDe(dataIso)}`),
+    []
+  );
+
   const adicionarLancamento = useCallback(({ lancamento, linhas }) => {
+    if (mesEstaFechado(lancamento.data)) {
+      setErro(`O mês de ${mesDe(lancamento.data)} já está fechado — reabra na aba Revisão antes de lançar aqui.`);
+      return false;
+    }
     setEstado((prev) => ({
       ...prev,
       lancamentos: [...prev.lancamentos, lancamento],
       lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
+      trilha: [...prev.trilha, { tipo: "lancar", descricao: lancamento.descricao }],
     }));
-  }, []);
+    return true;
+  }, [mesEstaFechado]);
 
   const importarItens = useCallback((itens) => {
     setEstado((prev) => ({ ...prev, entradaItens: [...prev.entradaItens, ...itens] }));
@@ -148,6 +169,10 @@ export function Livro({ negocio, onVoltar }) {
      ensinada (ou reforçada, se já existia). As três entram juntas na
      próxima comparação do loop reativo, então viram UM lote atômico. */
   const classificarItem = useCallback(({ item, contaCategoriaId, padrao }) => {
+    if (mesEstaFechado(item.data)) {
+      setErro(`O mês de ${mesDe(item.data)} já está fechado — reabra na aba Revisão antes de classificar este item.`);
+      return false;
+    }
     setEstado((prev) => {
       const { lancamento, linhas } = construirLancamentoDeClassificacao(item, contaCategoriaId);
 
@@ -164,8 +189,33 @@ export function Livro({ negocio, onVoltar }) {
         lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
         entradaItens: prev.entradaItens.map((i) => (i.id === item.id ? { ...i, situacao: "classificado", lancamentoId: lancamento.id } : i)),
         regrasClassificacao,
+        trilha: [...prev.trilha, { tipo: "classificar", descricao: `${item.descricaoBruta} → ${contaCategoriaId}` }],
       };
     });
+    return true;
+  }, [mesEstaFechado]);
+
+  const alternarConciliacao = useCallback((lancamentoId, marcar) => {
+    setEstado((prev) => ({
+      ...prev,
+      conciliacoes: marcar ? [...prev.conciliacoes, lancamentoId] : prev.conciliacoes.filter((id) => id !== lancamentoId),
+    }));
+  }, []);
+
+  const fecharMes = useCallback((mes) => {
+    setEstado((prev) => ({
+      ...prev,
+      periodosFechados: [...prev.periodosFechados, `mes:${mes}`],
+      trilha: [...prev.trilha, { tipo: "fechar_mes", descricao: `Mês ${mes} fechado` }],
+    }));
+  }, []);
+
+  const reabrirMes = useCallback((mes) => {
+    setEstado((prev) => ({
+      ...prev,
+      periodosFechados: prev.periodosFechados.filter((p) => p !== `mes:${mes}`),
+      trilha: [...prev.trilha, { tipo: "reabrir_mes", descricao: `Mês ${mes} reaberto` }],
+    }));
   }, []);
 
   if (!loaded || !estado) {
@@ -209,6 +259,25 @@ export function Livro({ negocio, onVoltar }) {
         {aba === "diario" && <Diario contas={estado.contas} lancamentos={estado.lancamentos} lancamentoLinhas={estado.lancamentoLinhas} />}
         {aba === "razao" && <Razao contas={estado.contas} lancamentos={estado.lancamentos} lancamentoLinhas={estado.lancamentoLinhas} />}
         {aba === "balancete" && <Balancete contas={estado.contas} lancamentoLinhas={estado.lancamentoLinhas} />}
+        {aba === "conciliacao" && (
+          <Conciliacao
+            lancamentos={estado.lancamentos}
+            lancamentoLinhas={estado.lancamentoLinhas}
+            conciliacoes={estado.conciliacoes}
+            onAlternar={alternarConciliacao}
+          />
+        )}
+        {aba === "revisao" && (
+          <Revisao
+            contas={estado.contas}
+            lancamentos={estado.lancamentos}
+            lancamentoLinhas={estado.lancamentoLinhas}
+            periodosFechados={estado.periodosFechados}
+            trilha={estado.trilha}
+            onFechar={fecharMes}
+            onReabrir={reabrirMes}
+          />
+        )}
       </div>
     </div>
   );
