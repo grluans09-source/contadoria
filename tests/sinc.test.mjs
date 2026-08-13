@@ -39,7 +39,7 @@ function estadoCheio() {
                          descricao: "Saldo inicial do caixa", vencimento: null }],
     entradaItens: [{ id: "e1", origem: "extrato", data: "2026-08-01",
                      descricaoBruta: "PIX RECEBIDO", valor: 150.5, situacao: "classificado",
-                     lancamentoId: "l1" }],
+                     lancamentoId: "l1", contaOrigemId: "c1" }],
     regrasClassificacao: [{ id: "r1", padrao: "POSTO IPIRANGA", contaId: "c1", acertos: 3 }],
     lixeira: [{ lancamentoId: "l9", conteudo: { id: "l9", linhas: [] }, excluidoEm: "2026-08-01T10:00:00.000Z" }],
     trilha: [{ tipo: "criar", descricao: "lançamento l1" }],

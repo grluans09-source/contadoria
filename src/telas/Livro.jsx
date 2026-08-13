@@ -8,6 +8,10 @@ import { Diario } from "./Diario.jsx";
 import { Razao } from "./Razao.jsx";
 import { Balancete } from "./Balancete.jsx";
 import { Lancar } from "./Lancar.jsx";
+import { CaixaEntrada } from "./CaixaEntrada.jsx";
+import { construirLancamentoDeClassificacao } from "../dominio/classificacao.mjs";
+
+const uid = () => Math.random().toString(36).slice(2, 10);
 
 /* O Livro — passo 6 do docs/06_MODELO_DE_DADOS.md §13.
 
@@ -33,7 +37,10 @@ import { Lancar } from "./Lancar.jsx";
    DESMONTA este componente inteiro e monta um novo, do zero. React já
    resolve o problema por construção; não precisa de guarda extra. */
 
+/* "Caixa" vem primeiro — é onde vai 70% do tempo (docs/04 §5), não
+   Lançar. O dono chega aqui, não na tela de formulário solto. */
 const ABAS = [
+  { id: "caixa", label: "Caixa de Entrada" },
   { id: "lancar", label: "Lançar" },
   { id: "diario", label: "Diário" },
   { id: "razao", label: "Razão" },
@@ -41,7 +48,7 @@ const ABAS = [
 ];
 
 export function Livro({ negocio, onVoltar }) {
-  const [aba, setAba] = useState("lancar");
+  const [aba, setAba] = useState("caixa");
   const [estado, setEstado] = useState(null); // null = carregando
   const [loaded, setLoaded] = useState(false);
   const [erro, setErro] = useState("");
@@ -125,6 +132,42 @@ export function Livro({ negocio, onVoltar }) {
     }));
   }, []);
 
+  const importarItens = useCallback((itens) => {
+    setEstado((prev) => ({ ...prev, entradaItens: [...prev.entradaItens, ...itens] }));
+  }, []);
+
+  const marcarSituacao = useCallback((item, situacao) => {
+    setEstado((prev) => ({
+      ...prev,
+      entradaItens: prev.entradaItens.map((i) => (i.id === item.id ? { ...i, situacao } : i)),
+    }));
+  }, []);
+
+  /* Classificar faz TRÊS coisas de uma vez, no mesmo setEstado — o
+     lançamento (2 linhas), o item marcado como resolvido, e a regra
+     ensinada (ou reforçada, se já existia). As três entram juntas na
+     próxima comparação do loop reativo, então viram UM lote atômico. */
+  const classificarItem = useCallback(({ item, contaCategoriaId, padrao }) => {
+    setEstado((prev) => {
+      const { lancamento, linhas } = construirLancamentoDeClassificacao(item, contaCategoriaId);
+
+      const regraExistente = prev.regrasClassificacao.find(
+        (r) => (r.padrao || "").toUpperCase() === padrao.toUpperCase() && r.contaId === contaCategoriaId
+      );
+      const regrasClassificacao = regraExistente
+        ? prev.regrasClassificacao.map((r) => (r === regraExistente ? { ...r, acertos: (r.acertos || 1) + 1 } : r))
+        : [...prev.regrasClassificacao, { id: uid(), padrao, contaId: contaCategoriaId, acertos: 1 }];
+
+      return {
+        ...prev,
+        lancamentos: [...prev.lancamentos, lancamento],
+        lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
+        entradaItens: prev.entradaItens.map((i) => (i.id === item.id ? { ...i, situacao: "classificado", lancamentoId: lancamento.id } : i)),
+        regrasClassificacao,
+      };
+    });
+  }, []);
+
   if (!loaded || !estado) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--paper)" }}>
@@ -151,6 +194,17 @@ export function Livro({ negocio, onVoltar }) {
 
         <Tabs tabs={ABAS} active={aba} onChange={setAba} />
 
+        {aba === "caixa" && (
+          <CaixaEntrada
+            contas={estado.contas}
+            entradaItens={estado.entradaItens}
+            regrasClassificacao={estado.regrasClassificacao}
+            onImportar={importarItens}
+            onClassificar={classificarItem}
+            onPessoal={(item) => marcarSituacao(item, "pessoal")}
+            onDuvida={(item) => marcarSituacao(item, "duvida")}
+          />
+        )}
         {aba === "lancar" && <Lancar contas={estado.contas} onAdicionar={adicionarLancamento} />}
         {aba === "diario" && <Diario contas={estado.contas} lancamentos={estado.lancamentos} lancamentoLinhas={estado.lancamentoLinhas} />}
         {aba === "razao" && <Razao contas={estado.contas} lancamentos={estado.lancamentos} lancamentoLinhas={estado.lancamentoLinhas} />}

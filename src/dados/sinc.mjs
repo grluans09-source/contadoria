@@ -66,7 +66,9 @@ export const COLECOES = {
   entradaItens: {
     tabela: "entrada_itens",
     forma: "lista",
-    campos: ["id", "origem", "data", "descricaoBruta", "valor", "situacao", "lancamentoId"],
+    /* `contaOrigemId` veio em 0007_entrada_conta_origem.sql, depois da
+       0001 — o schema evolui por ALTER (docs/06 §1). */
+    campos: ["id", "origem", "data", "descricaoBruta", "valor", "situacao", "lancamentoId", "contaOrigemId"],
     padroes: { descricaoBruta: "", situacao: "pendente" },
     chave: ["id"],
   },

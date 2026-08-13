@@ -29,7 +29,14 @@ R$ 4.810,00, capital do titular calculado certo (R$ 4.010,00).
 de ponta a ponta** — lançou uma venda de teste pela tela (D Caixa / C Prestação de serviços,
 R$ 500), **sem clicar em nenhum botão de "salvar"**, e o lançamento apareceu no banco de
 verdade sozinho, debounced. Diário, Razão e Balancete todos conferidos mostrando o mesmo
-lançamento certo, com "fecha ✓". Ver a seção própria abaixo.
+lançamento certo, com "fecha ✓".
+
+**A Caixa de Entrada está concluída e o aprendizado provado de verdade:** importei um
+extrato CSV de teste, classifiquei "POSTO IPIRANGA 1234" ensinando o padrão generalizado
+"POSTO IPIRANGA" → Combustível, marquei outro item como pessoal (sem gerar lançamento), e
+ao importar um SEGUNDO extrato com "POSTO IPIRANGA 9999" (loja diferente), **a sugestão
+"Combustível" apareceu sozinha** — o mecanismo de aprendizado funciona de verdade, não só
+no papel. Ver a seção própria abaixo.
 
 | Arquivo | O que é |
 |---|---|
@@ -382,19 +389,49 @@ Negócio de teste apagado depois, cascade confirmado.
 
 ---
 
-## ➡️ Próxima tarefa — o que vem depois do Livro
+## ✅ Caixa de Entrada — CONCLUÍDA E O APRENDIZADO PROVADO (12/ago)
 
-O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro. O
-que falta é o que estava mapeado desde `04_MAPA_DO_APP.md` §12, agora com base sólida para
-construir em cima:
+O gargalo real do serviço (`04` §5, `03` §5). Substituiu a primeira aba do Livro.
 
-1. **Caixa de Entrada** (`04` §5) — o gargalo real do serviço (`03` §5). Importar
-   extrato/CSV, classificar em lote, aprender com `regras_classificacao` (já no schema,
-   ainda sem tela)
-2. **Fechamento de mês + Revisão** (`04` §7-8) — conciliação, Mesa de Revisão (os
+| Arquivo | O que é |
+|---|---|
+| `supabase/migrations/0007_entrada_conta_origem.sql` | buraco achado construindo: faltava saber se o item é do Caixa ou do Banco. `conta_origem_id`, por `ALTER TABLE` |
+| `src/dominio/importarExtrato.mjs` | `parseOFX`/`parseCSVText`/`toISO`, copiados do ContLife quase ao pé da letra — parsing de arquivo não tem domínio |
+| `src/dominio/classificacao.mjs` | `sugerirConta` (casa por substring, o padrão mais ESPECÍFICO vence) e `construirLancamentoDeClassificacao` (2 linhas, direção pelo sinal do valor) |
+| `src/telas/CaixaEntrada.jsx` | importar (CSV/OFX, com prévia antes de confirmar) + fila de classificação (Classificar / É pessoal / Não sei) |
+| `tests/classificacao.test.mjs` | 10 testes |
+
+### Uma decisão de arquitetura: quem generaliza o padrão é o DONO, não uma heurística
+
+`sugerirConta` só procura o que já foi ENSINADO — não tenta extrair um padrão sozinho a
+partir da descrição crua. Inventar um tokenizador para isso seria abstração frágil demais
+para confiar sem supervisão. Em vez disso, ao classificar, o campo "padrão" vem
+pré-preenchido com a descrição inteira, **editável** — o dono decide o quanto generalizar
+("POSTO IPIRANGA 1234" → "POSTO IPIRANGA"). É o "roteiro aprende" (docs/05 §1) aplicado
+aqui: o sistema lembra o que foi dito, não adivinha.
+
+### Verificado no navegador, contra o banco real — inclusive o aprendizado generalizando
+
+Importei um CSV de teste, classifiquei um PIX (vira D Banco/C Prestação de serviços,
+conferido), marquei uma Netflix como pessoal (sem lançamento nenhum, item preservado),
+classifiquei um posto ensinando o padrão **generalizado** "POSTO IPIRANGA". Importei um
+**segundo** extrato com "POSTO IPIRANGA 9999" — loja diferente da ensinada — e **a sugestão
+"Combustível" apareceu sozinha**, provando que o padrão generaliza de verdade, não é
+coincidência de string igual. Negócio de teste apagado depois, cascade confirmado.
+
+---
+
+## ➡️ Próxima tarefa — o que falta do `04_MAPA_DO_APP.md` §12
+
+O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro,
+Caixa de Entrada. O que falta:
+
+1. **Fechamento de mês + Revisão** (`04` §7-8) — conciliação, Mesa de Revisão (os
    invariantes, recalculados da fonte — `razao.mjs` já dá a base), trilha de auditoria
-3. **Entregas** (`04` §9) — o Retrato do Mês (`08` §3), "quanto você pode tirar" (`08` §2)
-4. **Painel do Mês** (`04` §3) — só faz sentido com mais de 1 cliente real usando
+2. **Entregas** (`04` §9) — o Retrato do Mês (`08` §3), "quanto você pode tirar" (`08` §2)
+3. **Painel do Mês** (`04` §3) — só faz sentido com mais de 1 cliente real usando
+4. **Recorrentes** — peça futura sinalizada no passo 5 (Bloco 4 do Roteiro captura como
+   texto livre por enquanto); sem tabela própria ainda
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
 semanal (lacuna 1, acima).

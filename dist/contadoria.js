@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React11, { useState as useState8, useEffect as useEffect6 } from "react";
+import React12, { useState as useState9, useEffect as useEffect6 } from "react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -675,7 +675,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
 }
 
 // src/telas/Livro.jsx
-import React10, { useState as useState7, useEffect as useEffect5, useRef as useRef2, useCallback as useCallback2 } from "react";
+import React11, { useState as useState8, useEffect as useEffect5, useRef as useRef2, useCallback as useCallback2 } from "react";
 import { ArrowLeft as ArrowLeft2 } from "lucide-react";
 
 // src/dados/sinc.mjs
@@ -709,7 +709,9 @@ var COLECOES = {
   entradaItens: {
     tabela: "entrada_itens",
     forma: "lista",
-    campos: ["id", "origem", "data", "descricaoBruta", "valor", "situacao", "lancamentoId"],
+    /* `contaOrigemId` veio em 0007_entrada_conta_origem.sql, depois da
+       0001 — o schema evolui por ALTER (docs/06 §1). */
+    campos: ["id", "origem", "data", "descricaoBruta", "valor", "situacao", "lancamentoId", "contaOrigemId"],
     padroes: { descricaoBruta: "", situacao: "pendente" },
     chave: ["id"]
   },
@@ -1012,20 +1014,196 @@ function Lancar({ contas, onAdicionar }) {
   return /* @__PURE__ */ React9.createElement(Card, null, /* @__PURE__ */ React9.createElement("div", { className: "grid grid-cols-2 gap-3 mb-4" }, /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Data"), /* @__PURE__ */ React9.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React9.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Venda do dia" }))), /* @__PURE__ */ React9.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React9.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React9.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React9.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React9.createElement(Trash22, { size: 15 })))), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React9.createElement(Plus3, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement("span", null, "D\xE9bitos: ", fmt4(somaD), " \xB7 Cr\xE9ditos: ", fmt4(somaC)), diferenca !== 0 && /* @__PURE__ */ React9.createElement(AlertLine, null, "Diferen\xE7a de ", fmt4(Math.abs(diferenca)), " \u2014 o lan\xE7amento precisa fechar antes de gravar")), /* @__PURE__ */ React9.createElement(Button, { onClick: gravar, disabled: !podeGravar }, "Lan\xE7ar"), confirmado && /* @__PURE__ */ React9.createElement("span", { className: "ml-3 text-xs", style: { color: "var(--credit)" } }, "Lan\xE7ado."));
 }
 
+// src/telas/CaixaEntrada.jsx
+import React10, { useState as useState7, useMemo as useMemo4 } from "react";
+import { Upload, Check, X as X2, HelpCircle as HelpCircle2 } from "lucide-react";
+
+// src/dominio/importarExtrato.mjs
+function parseOFX(text) {
+  const rows = [];
+  const blocks = text.split(/<STMTTRN>/i).slice(1);
+  for (const b of blocks) {
+    const g = (tag) => {
+      const m = b.match(new RegExp(`<${tag}>([^<\\r\\n]+)`, "i"));
+      return m ? m[1].trim() : "";
+    };
+    const dt = g("DTPOSTED").slice(0, 8);
+    const date = dt.length === 8 ? `${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)}` : "";
+    const amt = parseFloat(g("TRNAMT").replace(",", "."));
+    const desc = g("MEMO") || g("NAME");
+    if (date && !isNaN(amt)) rows.push({ date, desc, amount: amt });
+  }
+  return rows;
+}
+function parseCSVText(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return { header: [], rows: [] };
+  const sep = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ";" : ",";
+  const split = (l) => l.split(sep).map((c) => c.replace(/^"|"$/g, "").trim());
+  const header = split(lines[0]);
+  return { header, rows: lines.slice(1).map(split) };
+}
+var toISO = (s) => {
+  s = String(s).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+  if (m) {
+    const y = m[3].length === 2 ? "20" + m[3] : m[3];
+    return `${y}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  }
+  return "";
+};
+
+// src/dominio/classificacao.mjs
+var uidPadrao2 = () => Math.random().toString(36).slice(2, 10);
+function sugerirConta(descricaoBruta, regras) {
+  const texto = (descricaoBruta || "").toUpperCase();
+  if (!texto) return null;
+  const candidatas = (regras || []).filter((r) => r.padrao && texto.includes(r.padrao.toUpperCase()));
+  if (!candidatas.length) return null;
+  candidatas.sort((a, b) => b.padrao.length - a.padrao.length || (b.acertos || 0) - (a.acertos || 0));
+  return candidatas[0];
+}
+function construirLancamentoDeClassificacao(item, contaCategoriaId, gerarId = uidPadrao2) {
+  if (!item.contaOrigemId) throw new Error("item sem conta de origem \u2014 n\xE3o d\xE1 para saber qual conta de tr\xE2nsito debitar/creditar");
+  if (!contaCategoriaId) throw new Error("escolha uma conta de categoria antes de classificar");
+  const valorAbs = Math.abs(item.valor);
+  if (!(valorAbs > 0)) throw new Error(`item com valor inv\xE1lido: ${item.valor}`);
+  const entrou = item.valor > 0;
+  const idLancamento = gerarId();
+  return {
+    lancamento: {
+      id: idLancamento,
+      data: item.data,
+      dataCompetencia: item.data,
+      descricao: item.descricaoBruta,
+      origem: item.origem === "extrato" ? "extrato" : "manual",
+      documento: null
+    },
+    linhas: [
+      { id: gerarId(), lancamentoId: idLancamento, contaId: item.contaOrigemId, tipo: entrou ? "D" : "C", valor: valorAbs, descricao: item.descricaoBruta, vencimento: null },
+      { id: gerarId(), lancamentoId: idLancamento, contaId: contaCategoriaId, tipo: entrou ? "C" : "D", valor: valorAbs, descricao: null, vencimento: null }
+    ]
+  };
+}
+
+// src/telas/CaixaEntrada.jsx
+var uid2 = () => Math.random().toString(36).slice(2, 10);
+var fmt5 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmtData3 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
+var CONTAS_TRANSITO = [{ value: "caixa", label: "Caixa (dinheiro)" }, { value: "banco", label: "Banco" }];
+function ImportarExtrato({ onImportar }) {
+  const [texto, setTexto] = useState7("");
+  const [contaOrigem, setContaOrigem] = useState7("banco");
+  const [linhas, setLinhas] = useState7(null);
+  const [erro, setErro] = useState7("");
+  const processar = () => {
+    setErro("");
+    const bruto = texto.trim();
+    if (!bruto) {
+      setErro("Cole o conte\xFAdo do extrato (CSV ou OFX) primeiro.");
+      return;
+    }
+    if (bruto.includes("<STMTTRN>") || bruto.includes("<OFX>")) {
+      const linhasOfx = parseOFX(bruto);
+      if (!linhasOfx.length) {
+        setErro("N\xE3o achei nenhuma transa\xE7\xE3o no OFX \u2014 confira o arquivo.");
+        return;
+      }
+      setLinhas(linhasOfx.map((l) => ({ data: l.date, descricaoBruta: l.desc, valor: l.amount })));
+      return;
+    }
+    const { header, rows } = parseCSVText(bruto);
+    if (!rows.length) {
+      setErro("N\xE3o achei nenhuma linha no CSV.");
+      return;
+    }
+    const idx = (nomes) => header.findIndex((h) => nomes.some((n) => h.toLowerCase().includes(n)));
+    const iData = idx(["data", "date"]);
+    const iDesc = idx(["descri", "histor", "memo"]);
+    const iValor = idx(["valor", "amount"]);
+    const linhasCsv = rows.map((r) => ({
+      data: toISO(r[iData >= 0 ? iData : 0] || ""),
+      descricaoBruta: (r[iDesc >= 0 ? iDesc : 1] || "").trim(),
+      valor: parseFloat((r[iValor >= 0 ? iValor : 2] || "0").replace(/\./g, "").replace(",", ".")) || parseFloat(r[iValor >= 0 ? iValor : 2] || "0") || 0
+    })).filter((l) => l.data && l.valor);
+    if (!linhasCsv.length) {
+      setErro("N\xE3o consegui reconhecer as colunas de data/descri\xE7\xE3o/valor \u2014 confira o CSV.");
+      return;
+    }
+    setLinhas(linhasCsv);
+  };
+  const confirmar = () => {
+    onImportar(linhas.map((l) => ({
+      id: uid2(),
+      origem: "extrato",
+      data: l.data,
+      descricaoBruta: l.descricaoBruta,
+      valor: l.valor,
+      situacao: "pendente",
+      lancamentoId: null,
+      contaOrigemId: contaOrigem
+    })));
+    setTexto("");
+    setLinhas(null);
+  };
+  return /* @__PURE__ */ React10.createElement(Card, { className: "mb-6" }, /* @__PURE__ */ React10.createElement("div", { className: "flex items-center gap-2 mb-3" }, /* @__PURE__ */ React10.createElement(Upload, { size: 15, style: { color: "var(--accent)" } }), /* @__PURE__ */ React10.createElement("span", { className: "font-medium", style: { color: "var(--ink)" } }, "Importar extrato")), linhas === null ? /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement("div", { className: "mb-3 max-w-xs" }, /* @__PURE__ */ React10.createElement(Label, null, "Esta \xE9 a conta de"), /* @__PURE__ */ React10.createElement(Select, { value: contaOrigem, onChange: setContaOrigem, options: CONTAS_TRANSITO })), /* @__PURE__ */ React10.createElement(
+    "textarea",
+    {
+      rows: 4,
+      value: texto,
+      onChange: (e) => setTexto(e.target.value),
+      placeholder: "Cole aqui o conte\xFAdo do arquivo CSV ou OFX exportado do banco\u2026",
+      className: "w-full rounded-md border px-3 py-2 text-xs font-mono mb-3 transition-colors duration-150",
+      style: { borderColor: "var(--rule-faint)", background: "var(--paper)", color: "var(--ink)" }
+    }
+  ), erro && /* @__PURE__ */ React10.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React10.createElement(Button, { onClick: processar }, "Processar")) : /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, linhas.length, " linha(s) encontrada(s) \u2014 confira antes de importar:"), /* @__PURE__ */ React10.createElement("div", { className: "max-h-56 overflow-y-auto mb-3 text-xs" }, linhas.map((l, i) => /* @__PURE__ */ React10.createElement("div", { key: i, className: "flex justify-between py-1", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("span", { style: { color: "var(--muted)" } }, fmtData3(l.data)), /* @__PURE__ */ React10.createElement("span", { className: "flex-1 mx-2 truncate" }, l.descricaoBruta), /* @__PURE__ */ React10.createElement("span", { className: "tabular-nums" }, fmt5(l.valor))))), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React10.createElement(Button, { onClick: confirmar }, "Importar ", linhas.length, " linha(s)"), /* @__PURE__ */ React10.createElement(Button, { variant: "ghost", onClick: () => setLinhas(null) }, "Cancelar"))));
+}
+function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida }) {
+  const [classificando, setClassificando] = useState7(false);
+  const sugestao = useMemo4(() => sugerirConta(item.descricaoBruta, regras), [item.descricaoBruta, regras]);
+  const [contaId, setContaId] = useState7(sugestao?.contaId || "");
+  const [padrao, setPadrao] = useState7(sugestao?.padrao || item.descricaoBruta);
+  const contasOrdenadas = useMemo4(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
+  const confirmar = () => {
+    if (!contaId) return;
+    onClassificar({ item, contaCategoriaId: contaId, padrao: padrao.trim() || item.descricaoBruta });
+    setClassificando(false);
+  };
+  return /* @__PURE__ */ React10.createElement(Card, { pad: "apertado", className: "mb-2" }, /* @__PURE__ */ React10.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React10.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React10.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData3(item.data), " \xB7 ", item.contaOrigemId === "banco" ? "Banco" : "Caixa"), /* @__PURE__ */ React10.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, item.descricaoBruta), sugestao && !classificando && /* @__PURE__ */ React10.createElement("div", { className: "text-[10px] mt-0.5", style: { color: "var(--accent)" } }, "sugest\xE3o: ", contas.find((c) => c.id === sugestao.contaId)?.nome)), /* @__PURE__ */ React10.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: item.valor >= 0 ? "var(--credit)" : "var(--debit)" } }, fmt5(item.valor))), classificando ? /* @__PURE__ */ React10.createElement("div", { className: "mt-3 pt-3 space-y-2", style: { borderTop: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Categoria"), /* @__PURE__ */ React10.createElement(Select, { value: contaId, onChange: setContaId, placeholder: "escolha a conta", options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Padr\xE3o para lembrar da pr\xF3xima vez"), /* @__PURE__ */ React10.createElement(Input, { value: padrao, onChange: (e) => setPadrao(e.target.value) })), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 pt-1" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: confirmar, disabled: !contaId }, "Confirmar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => setClassificando(false) }, "Cancelar"))) : /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 mt-2" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: () => setClassificando(true) }, /* @__PURE__ */ React10.createElement(Check, { size: 12 }), " Classificar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onPessoal(item) }, /* @__PURE__ */ React10.createElement(X2, { size: 12 }), " \xC9 pessoal"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onDuvida(item) }, /* @__PURE__ */ React10.createElement(HelpCircle2, { size: 12 }), " N\xE3o sei")));
+}
+function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, onClassificar, onPessoal, onDuvida }) {
+  const pendentes = entradaItens.filter((i) => i.situacao === "pendente" || i.situacao === "duvida");
+  return /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(ImportarExtrato, { onImportar }), /* @__PURE__ */ React10.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, pendentes.length, " item(ns) esperando classifica\xE7\xE3o"), pendentes.length === 0 ? /* @__PURE__ */ React10.createElement(Card, { className: "text-center py-10" }, /* @__PURE__ */ React10.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nada esperando \u2014 importe um extrato acima.")) : pendentes.map((item) => /* @__PURE__ */ React10.createElement(
+    ItemPendente,
+    {
+      key: item.id,
+      item,
+      contas,
+      regras: regrasClassificacao,
+      onClassificar,
+      onPessoal,
+      onDuvida
+    }
+  )));
+}
+
 // src/telas/Livro.jsx
+var uid3 = () => Math.random().toString(36).slice(2, 10);
 var ABAS = [
+  { id: "caixa", label: "Caixa de Entrada" },
   { id: "lancar", label: "Lan\xE7ar" },
   { id: "diario", label: "Di\xE1rio" },
   { id: "razao", label: "Raz\xE3o" },
   { id: "balancete", label: "Balancete" }
 ];
 function Livro({ negocio, onVoltar }) {
-  const [aba, setAba] = useState7("lancar");
-  const [estado, setEstado] = useState7(null);
-  const [loaded, setLoaded] = useState7(false);
-  const [erro, setErro] = useState7("");
-  const [salvando, setSalvando] = useState7(false);
-  const [confirmado, setConfirmado] = useState7(false);
+  const [aba, setAba] = useState8("caixa");
+  const [estado, setEstado] = useState8(null);
+  const [loaded, setLoaded] = useState8(false);
+  const [erro, setErro] = useState8("");
+  const [salvando, setSalvando] = useState8(false);
+  const [confirmado, setConfirmado] = useState8(false);
   const fotoRef = useRef2(null);
   const estadoRef = useRef2(null);
   const timerRef = useRef2(null);
@@ -1095,17 +1273,53 @@ function Livro({ negocio, onVoltar }) {
       lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas]
     }));
   }, []);
+  const importarItens = useCallback2((itens) => {
+    setEstado((prev) => ({ ...prev, entradaItens: [...prev.entradaItens, ...itens] }));
+  }, []);
+  const marcarSituacao = useCallback2((item, situacao) => {
+    setEstado((prev) => ({
+      ...prev,
+      entradaItens: prev.entradaItens.map((i) => i.id === item.id ? { ...i, situacao } : i)
+    }));
+  }, []);
+  const classificarItem = useCallback2(({ item, contaCategoriaId, padrao }) => {
+    setEstado((prev) => {
+      const { lancamento, linhas } = construirLancamentoDeClassificacao(item, contaCategoriaId);
+      const regraExistente = prev.regrasClassificacao.find(
+        (r) => (r.padrao || "").toUpperCase() === padrao.toUpperCase() && r.contaId === contaCategoriaId
+      );
+      const regrasClassificacao = regraExistente ? prev.regrasClassificacao.map((r) => r === regraExistente ? { ...r, acertos: (r.acertos || 1) + 1 } : r) : [...prev.regrasClassificacao, { id: uid3(), padrao, contaId: contaCategoriaId, acertos: 1 }];
+      return {
+        ...prev,
+        lancamentos: [...prev.lancamentos, lancamento],
+        lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
+        entradaItens: prev.entradaItens.map((i) => i.id === item.id ? { ...i, situacao: "classificado", lancamentoId: lancamento.id } : i),
+        regrasClassificacao
+      };
+    });
+  }, []);
   if (!loaded || !estado) {
-    return /* @__PURE__ */ React10.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React10.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
+    return /* @__PURE__ */ React11.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React11.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
   }
-  return /* @__PURE__ */ React10.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React10.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React10.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React10.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React10.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React10.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React10.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React10.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React10.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "lancar" && /* @__PURE__ */ React10.createElement(Lancar, { contas: estado.contas, onAdicionar: adicionarLancamento }), aba === "diario" && /* @__PURE__ */ React10.createElement(Diario, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "razao" && /* @__PURE__ */ React10.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React10.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas })));
+  return /* @__PURE__ */ React11.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React11.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React11.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React11.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React11.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React11.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React11.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React11.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React11.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React11.createElement(
+    CaixaEntrada,
+    {
+      contas: estado.contas,
+      entradaItens: estado.entradaItens,
+      regrasClassificacao: estado.regrasClassificacao,
+      onImportar: importarItens,
+      onClassificar: classificarItem,
+      onPessoal: (item) => marcarSituacao(item, "pessoal"),
+      onDuvida: (item) => marcarSituacao(item, "duvida")
+    }
+  ), aba === "lancar" && /* @__PURE__ */ React11.createElement(Lancar, { contas: estado.contas, onAdicionar: adicionarLancamento }), aba === "diario" && /* @__PURE__ */ React11.createElement(Diario, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "razao" && /* @__PURE__ */ React11.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React11.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas })));
 }
 
 // src/app/App.jsx
 function App() {
-  const [authSession, setAuthSession] = useState8(void 0);
-  const [dark] = useState8(true);
-  const [negocioAberto, setNegocioAberto] = useState8(null);
+  const [authSession, setAuthSession] = useState9(void 0);
+  const [dark] = useState9(true);
+  const [negocioAberto, setNegocioAberto] = useState9(null);
   useEffect6(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -1120,14 +1334,14 @@ function App() {
     };
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
-  return /* @__PURE__ */ React11.createElement(React11.Fragment, null, /* @__PURE__ */ React11.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React11.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React11.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React11.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
+  return /* @__PURE__ */ React12.createElement(React12.Fragment, null, /* @__PURE__ */ React12.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React12.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React12.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React12.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
     /* `key={negocioAberto.id}` desmonta e remonta o Livro inteiro ao
        trocar de negócio — é o que elimina por construção a classe de
        bug H3 do ContLife (doc 26): sem isso, o estado em memória de
        um negócio podia vazar para dentro da chave do próximo por um
        instante, entre trocar o id e a carga nova terminar. */
-    /* @__PURE__ */ React11.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
-  ) : /* @__PURE__ */ React11.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
+    /* @__PURE__ */ React12.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+  ) : /* @__PURE__ */ React12.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
 }
 export {
   App as default
