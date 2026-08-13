@@ -1,12 +1,46 @@
 import React, { useMemo, useState } from "react";
-import { CheckCircle2, AlertTriangle, Lock, Unlock } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Lock, Unlock, Search } from "lucide-react";
 import { Card, Select, Button } from "../ui/primitivas.jsx";
 import { mesaDeRevisao, podeFecharPeriodo } from "../dominio/revisao.mjs";
+import { encontrarAchados } from "../dominio/achados.mjs";
+
+const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
 const fmtMes = (m) => {
   const [ano, mes] = m.split("-");
   return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 };
+
+const fmtData = (d) => (d ? d.split("-").reverse().join("/") : "—");
+
+function textoAchado(a) {
+  if (a.tipo === "mes_sem_movimento") return `${fmtMes(a.mes)} não tem nenhum lançamento — mês pulado no meio da história`;
+  if (a.tipo === "despesa_fora_padrao") return `${a.contaNome} em ${fmtMes(a.mes)}: ${fmt(a.valor)} — bem acima da média de meses fechados (${fmt(a.media)})`;
+  if (a.tipo === "receita_sem_dinheiro") return `"${a.descricao}" (${fmtData(a.data)}) — receita registrada sem dinheiro nem a receber em lugar nenhum`;
+  return "";
+}
+
+function Achados({ achados }) {
+  return (
+    <Card className="mb-6">
+      <div className="font-medium mb-3 flex items-center gap-2" style={{ color: "var(--ink)" }}>
+        <Search size={15} /> Achados
+      </div>
+      {achados.length === 0 ? (
+        <div className="text-sm" style={{ color: "var(--muted)" }}>Nada fora do padrão encontrado.</div>
+      ) : (
+        <div className="space-y-2">
+          {achados.map((a, i) => (
+            <div key={i} className="flex items-start gap-2 text-sm">
+              <AlertTriangle size={15} style={{ color: "var(--debit)", marginTop: 2, flexShrink: 0 }} />
+              <span style={{ color: "var(--ink)" }}>{textoAchado(a)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 function MesaChecks({ checks }) {
   return (
@@ -94,10 +128,15 @@ function Trilha({ trilha }) {
 export function Revisao({ contas, lancamentos, lancamentoLinhas, periodosFechados, trilha, onFechar, onReabrir }) {
   const checks = useMemo(() => mesaDeRevisao(contas, lancamentos, lancamentoLinhas), [contas, lancamentos, lancamentoLinhas]);
   const mesaPassa = podeFecharPeriodo(checks);
+  const achados = useMemo(
+    () => encontrarAchados(contas, lancamentos, lancamentoLinhas, periodosFechados),
+    [contas, lancamentos, lancamentoLinhas, periodosFechados]
+  );
 
   return (
     <div>
       <MesaChecks checks={checks} />
+      <Achados achados={achados} />
       <Fechamento lancamentos={lancamentos} periodosFechados={periodosFechados} mesaPassa={mesaPassa} onFechar={onFechar} onReabrir={onReabrir} />
       <Trilha trilha={trilha} />
     </div>

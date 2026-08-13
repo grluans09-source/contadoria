@@ -619,18 +619,57 @@ depois, zero linhas órfãs. `npm test`: 77/77 passando.
 
 ---
 
+## ✅ Achados — anomalias na Revisão (13/ago)
+
+Implementa docs/04_MAPA_DO_APP.md §7: "o sistema aponta o que destoa: despesa muito fora do
+padrão do cliente, mês sem nenhum movimento, receita registrada sem dinheiro entrando em
+lugar nenhum". Três checagens, todas recalculadas da fonte (mesma disciplina da Mesa de
+Revisão, docs/dominio/revisao.mjs — nunca de um resumo pronto).
+
+| Arquivo | O que é |
+|---|---|
+| `src/dominio/achados.mjs` (novo) | `mesesSemMovimento`, `despesasForaDoPadrao`, `receitasSemDinheiro`, `encontrarAchados` — tudo função pura |
+| `tests/achados.test.mjs` (novo) | 11 testes |
+| `src/telas/Revisao.jsx` | seção "Achados" nova, entre a Mesa e o Fechamento — avisa, mas não bloqueia fechar o mês (é achado, não checklist de integridade) |
+
+### Por que não tem a granularidade do mockup do doc — e por que isso é honesto, não incompleto
+
+O mockup mostra "extrato de julho, notas da semana 3" — exigiria uma lista de "o que se
+espera receber" que não existe no modelo (docs/06). Em vez de inventar essa granularidade,
+cada checagem usa só o que o banco garante de verdade:
+- **mês sem movimento**: gap real entre o primeiro e o último mês com lançamento (não o mês
+  corrente em aberto — isso já é o Painel do Mês)
+- **despesa fora do padrão**: só roda se existir ao menos 1 mês FECHADO pra comparar (sem
+  histórico, lista vazia — silêncio aqui é a resposta certa); compara o mês aberto contra a
+  média dos fechados, mesma conta, só quando essa conta já teve gasto histórico
+- **receita sem dinheiro**: lançamento com linha de receita cuja contrapartida não é
+  caixa/banco/a-receber (maquininha/clientes) — a lista de contas "dinheiro" é fechada
+  (baseada no plano de fábrica, docs/06 §7), não adivinha conta customizada que o dono possa
+  criar depois no Plano de Contas
+
+### Verificado no navegador contra o banco real
+
+Negócio de teste "Comercio Teste Achados": junho fechado (aluguel R$400, venda R$900), julho
+sem NADA lançado de propósito, agosto aberto com aluguel de R$2.000 (5x a média) e um
+lançamento estranho creditando venda com contrapartida em Capital do titular (não em
+dinheiro). A Revisão acusou os três: "julho de 2026 não tem nenhum lançamento", "Aluguel em
+agosto de 2026: R$2.000,00 — bem acima da média de meses fechados (R$400,00)", e a receita
+sem dinheiro com a descrição e data certas. A Mesa de Revisão continuou passando em tudo
+(equação fecha) — achado é aviso, não bloqueio. Negócio de teste apagado depois, zero linhas
+órfãs. `npm test`: 88/88 passando.
+
+---
+
 ## ➡️ Próxima tarefa — o que falta do `04_MAPA_DO_APP.md` §12
 
 O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro,
-Caixa de Entrada, Revisão, Fechamento, Entregas, edição/exclusão de lançamento, cadastro e
-plano de contas editáveis, logout, prateleira com resumo do mês, recorrentes e Painel do Mês.
-O que falta:
+Caixa de Entrada, Revisão (com Achados), Fechamento, Entregas, edição/exclusão de lançamento,
+cadastro e plano de contas editáveis, logout, prateleira com resumo do mês, recorrentes e
+Painel do Mês. O que falta:
 
-1. **Achados/anomalias** (`04` §7) — deliberadamente adiado: exige histórico de meses para
-   ter uma média com que comparar, e ainda não existe cliente real com histórico
-2. **Baixa de recebível/pagável** — ligar um pagamento à origem específica (docs/08
+1. **Baixa de recebível/pagável** — ligar um pagamento à origem específica (docs/08
    §2, registrado como próximo ganho de precisão do "quanto você pode tirar")
-3. **Carta de recomendações** (`04` §9) — texto livre por enquanto; a UI de captura ainda
+2. **Carta de recomendações** (`04` §9) — texto livre por enquanto; a UI de captura ainda
    não existe
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
