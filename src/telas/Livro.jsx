@@ -270,6 +270,30 @@ export function Livro({ negocio, onVoltar }) {
      `gerarLancamentosDoMes` (dominio puro) já filtra as inativas e as
      que já foram geradas este mês; aqui só aplica ao estado, dentro do
      mesmo loop reativo de tudo o mais. */
+  /* Carta de recomendações — texto livre por mês, fora da trava de mês
+     fechado de propósito (docs/04 §9: escreve DEPOIS de fechar, na
+     etapa de Entregas, não é um fato contábil). */
+  const salvarCarta = useCallback((mes, texto) => {
+    setEstado((prev) => {
+      const existe = prev.cartas.some((c) => c.mes === mes);
+      return {
+        ...prev,
+        cartas: existe
+          ? prev.cartas.map((c) => (c.mes === mes ? { ...c, texto } : c))
+          : [...prev.cartas, { mes, texto, seguida: null }],
+        trilha: [...prev.trilha, { tipo: "carta", descricao: `Carta de ${mes}` }],
+      };
+    });
+  }, []);
+
+  const avaliarCartaSeguida = useCallback((mes, seguida) => {
+    setEstado((prev) => ({
+      ...prev,
+      cartas: prev.cartas.map((c) => (c.mes === mes ? { ...c, seguida } : c)),
+      trilha: [...prev.trilha, { tipo: "carta_avaliada", descricao: `Carta de ${mes}: ${seguida ? "seguida" : "não seguida"}` }],
+    }));
+  }, []);
+
   const gerarRecorrentesDoMes = useCallback(() => {
     const mes = new Date().toISOString().slice(0, 7);
     const dataDoMes = `${mes}-01`;
@@ -421,6 +445,9 @@ export function Livro({ negocio, onVoltar }) {
             lancamentos={estado.lancamentos}
             lancamentoLinhas={estado.lancamentoLinhas}
             periodosFechados={estado.periodosFechados}
+            cartas={estado.cartas}
+            onSalvarCarta={salvarCarta}
+            onAvaliarCartaSeguida={avaliarCartaSeguida}
           />
         )}
         {aba === "plano" && (

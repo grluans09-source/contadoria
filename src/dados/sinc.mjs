@@ -116,6 +116,18 @@ export const COLECOES = {
     chave: ["id"],
   },
 
+  /* Carta de recomendações — uma por mês, chave é o próprio mês (texto
+     "AAAA-MM"), mesmo raciocínio de `periodosFechados`: não precisa de
+     id sintético quando a chave de domínio já é única (docs/08 §4). */
+  cartas: {
+    tabela: "cartas",
+    forma: "lista",
+    chaveCampo: "mes",
+    campos: ["mes", "texto", "seguida"],
+    padroes: { texto: "" },
+    chave: ["mes"],
+  },
+
   /* Array de "mes:AAAA-MM" ou "ano:AAAA" (docs/06 §5). */
   periodosFechados: {
     tabela: "periodos_fechados",

@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from "react";
-import { Card, Select } from "../ui/primitivas.jsx";
+import React, { useState, useMemo, useEffect } from "react";
+import { Card, Select, Button } from "../ui/primitivas.jsx";
 import { resultadoDoMes } from "../dominio/razao.mjs";
 import { quantoPodeTirar } from "../dominio/disponivel.mjs";
+import { cartaPendenteDeAvaliacao } from "../dominio/cartas.mjs";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const fmtMes = (m) => {
@@ -10,12 +11,64 @@ const fmtMes = (m) => {
 };
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 
+/* Carta de recomendações (docs/04 §9, docs/08 §4) — texto livre por
+   mês + a pergunta "foi seguida?" sobre a carta anterior. Estado local
+   de digitação (mesmo padrão de ConfigNegocio/PlanoContas: só entra no
+   loop reativo do Livro no "Salvar"), recarregado sempre que o mês
+   escolhido muda. */
+function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
+  const cartaDoMes = cartas.find((c) => c.mes === mes);
+  const [texto, setTexto] = useState(cartaDoMes?.texto || "");
+  const [confirmado, setConfirmado] = useState(false);
+
+  useEffect(() => { setTexto(cartaDoMes?.texto || ""); }, [mes]); // eslint-disable-line
+
+  const pendente = useMemo(() => cartaPendenteDeAvaliacao(cartas, mes), [cartas, mes]);
+
+  const salvar = () => {
+    onSalvar(mes, texto.trim());
+    setConfirmado(true);
+    setTimeout(() => setConfirmado(false), 2000);
+  };
+
+  return (
+    <Card className="mb-4">
+      <div className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+        Carta de recomendações
+      </div>
+
+      {pendente && (
+        <div className="text-xs rounded-md px-3 py-2 mb-3" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+          <div className="mb-2">A recomendação de {fmtMes(pendente.mes)} foi seguida? <em>"{pendente.texto}"</em></div>
+          <div className="flex gap-2">
+            <button onClick={() => onAvaliarSeguida(pendente.mes, true)} className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-70" style={{ background: "var(--credit-soft)", color: "var(--credit)" }}>Sim</button>
+            <button onClick={() => onAvaliarSeguida(pendente.mes, false)} className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-70" style={{ background: "var(--debit-soft)", color: "var(--debit)" }}>Não</button>
+          </div>
+        </div>
+      )}
+
+      <textarea
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        placeholder="O que você viu este mês, e o que ele deveria fazer…"
+        rows={3}
+        className="w-full rounded-md border px-3 py-2 text-sm mb-2"
+        style={{ borderColor: "var(--rule-faint)", background: "var(--paper)", color: "var(--ink)" }}
+      />
+      <div className="flex items-center gap-3">
+        <Button small onClick={salvar}>Salvar carta</Button>
+        {confirmado && <span className="text-xs" style={{ color: "var(--credit)" }}>Salvo.</span>}
+      </div>
+    </Card>
+  );
+}
+
 /* O Retrato do Mês — UMA página, não um relatório (docs/08 §3). O
    artefato é parte do produto: número grande, poucas frases, a
    pergunta que ninguém mais responde ("quanto você pode tirar",
    docs/08 §2), e o rodapé que protege o limite profissional (docs/02
    §4.3). Nada de tabela de 30 linhas — o Balancete existe pra isso. */
-export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados }) {
+export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, onSalvarCarta, onAvaliarCartaSeguida }) {
   const mesesComMovimento = useMemo(() => {
     const meses = new Set(lancamentos.map((l) => (l.data || "").slice(0, 7)).filter(Boolean));
     return [...meses].sort().reverse();
@@ -84,6 +137,8 @@ export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, p
           É uma recomendação com base no que foi lançado, não uma garantia.
         </div>
       </Card>
+
+      <CartaDeRecomendacoes mes={mes} cartas={cartas} onSalvar={onSalvarCarta} onAvaliarSeguida={onAvaliarCartaSeguida} />
 
       <div className="text-[10px] text-center" style={{ color: "var(--muted)" }}>
         Relatório gerencial — não é peça contábil oficial assinada.

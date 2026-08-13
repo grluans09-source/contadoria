@@ -26,7 +26,7 @@ const arquivosMigracao = () => readdirSync(MIGRACOES_DIR).filter((f) => f.endsWi
 const vazio = {
   contas: [], lancamentos: [], lancamentoLinhas: [], entradaItens: [],
   regrasClassificacao: [], lixeira: [], trilha: [],
-  recorrentes: [], recorrenteLinhas: [],
+  recorrentes: [], recorrenteLinhas: [], cartas: [],
   periodosFechados: [], conciliacoes: [],
 };
 
@@ -46,6 +46,7 @@ function estadoCheio() {
     trilha: [{ tipo: "criar", descricao: "lançamento l1" }],
     recorrentes: [{ id: "rec1", descricao: "Aluguel", ativa: true }],
     recorrenteLinhas: [{ id: "rl1", recorrenteId: "rec1", contaId: "c1", tipo: "D", valor: 400 }],
+    cartas: [{ mes: "2026-07", texto: "Trocar de fornecedor", seguida: true }],
     periodosFechados: ["mes:2026-07"],
     conciliacoes: ["l1"],
   };
@@ -96,6 +97,7 @@ const SERVIDOR_CUIDA = {
   trilha: ["id", "criado_em"],
   conciliacoes: ["conferido_em"],
   recorrentes: ["criado_em"],
+  cartas: ["atualizado_em"],
 };
 
 /* ============================================================
@@ -165,6 +167,7 @@ test("nenhuma coluna `not null` com padrão recebe null quando o campo falta", (
     trilha: [{ tipo: "a", descricao: "d" }],
     recorrentes: [{ id: "x", descricao: "d" }],
     recorrenteLinhas: [{ id: "x", recorrenteId: "rec1", contaId: "c1", tipo: "D", valor: 1 }],
+    cartas: [{ mes: "2026-07" }],
     periodosFechados: ["mes:2026-07"],
     conciliacoes: ["l1"],
   };
@@ -200,6 +203,7 @@ test("um estado cheio sobrevive a ir para o banco e voltar", () => {
   assert.deepEqual(reconstruido.lancamentoLinhas, cheio.lancamentoLinhas);
   assert.deepEqual(reconstruido.recorrentes, cheio.recorrentes);
   assert.deepEqual(reconstruido.recorrenteLinhas, cheio.recorrenteLinhas);
+  assert.deepEqual(reconstruido.cartas, cheio.cartas);
   assert.deepEqual(reconstruido.periodosFechados, cheio.periodosFechados);
   assert.deepEqual(reconstruido.conciliacoes, cheio.conciliacoes);
 });

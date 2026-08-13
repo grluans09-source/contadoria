@@ -660,17 +660,43 @@ sem dinheiro com a descrição e data certas. A Mesa de Revisão continuou passa
 
 ---
 
+## ✅ Carta de recomendações (13/ago)
+
+Implementa docs/04_MAPA_DO_APP.md §9 e docs/08_DIFERENCIAL.md §4 — inclusive o campo
+"recomendação seguida?" desde já, porque §4 é explícito: "histórico não se cria
+retroativamente — ou se guarda desde o primeiro mês, ou aquela conversa do ano 2 nunca vai
+existir". Vive dentro da aba Entregas (RetratoDoMes), por mês.
+
+| Arquivo | O que é |
+|---|---|
+| `supabase/migrations/0009_cartas.sql` | tabela `cartas` (negocio_id, mes, texto, seguida) — chave é o próprio `mes`, sem id sintético, mesmo raciocínio de `periodos_fechados`; `aplicar_lote` reescrito de novo com a tabela na lista branca |
+| `src/dados/sinc.mjs` | coleção `cartas` com `chaveCampo: "mes"` |
+| `src/dominio/cartas.mjs` (novo) | `cartaPendenteDeAvaliacao` — acha a carta mais recente antes do mês atual que tem texto e ainda não foi avaliada |
+| `tests/cartas.test.mjs` (novo) | 6 testes |
+| `src/telas/RetratoDoMes.jsx` | seção nova: textarea da carta do mês em vista + prompt "foi seguida?" (Sim/Não) sobre a carta pendente, quando existe |
+| `src/telas/Livro.jsx` | `salvarCarta`/`avaliarCartaSeguida` — **fora** da trava de mês fechado de propósito: carta é escrita DEPOIS de fechar, na etapa de Entregas, não é fato contábil |
+
+### Verificado no navegador contra o banco real
+
+Negócio de teste "Loja Teste Cartas": julho fechado com uma carta já escrita ("Trocar de
+fornecedor para baixar o CMV", `seguida: null`), agosto aberto com movimento. Abrindo agosto,
+o prompt apareceu certo ("A recomendação de julho de 2026 foi seguida?" com o texto entre
+aspas) — cliquei "Sim", prompt sumiu, confirmado por SQL que `seguida` virou `true` sem tocar
+no texto. Escrevi e salvei uma carta nova pra agosto — persistiu com `seguida: null` (ainda
+não é hora de avaliar essa). Negócio de teste apagado depois, zero linhas órfãs (incluindo a
+tabela `cartas`). `npm test`: 94/94 passando.
+
+---
+
 ## ➡️ Próxima tarefa — o que falta do `04_MAPA_DO_APP.md` §12
 
 O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro,
-Caixa de Entrada, Revisão (com Achados), Fechamento, Entregas, edição/exclusão de lançamento,
-cadastro e plano de contas editáveis, logout, prateleira com resumo do mês, recorrentes e
-Painel do Mês. O que falta:
+Caixa de Entrada, Revisão (com Achados), Fechamento, Entregas (com Carta de recomendações),
+edição/exclusão de lançamento, cadastro e plano de contas editáveis, logout, prateleira com
+resumo do mês, recorrentes e Painel do Mês. O que falta:
 
 1. **Baixa de recebível/pagável** — ligar um pagamento à origem específica (docs/08
-   §2, registrado como próximo ganho de precisão do "quanto você pode tirar")
-2. **Carta de recomendações** (`04` §9) — texto livre por enquanto; a UI de captura ainda
-   não existe
+   §2, o último item da lista original do "O QUE FALTA")
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
 semanal (lacuna 1, acima).
