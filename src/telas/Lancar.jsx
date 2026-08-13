@@ -1,13 +1,16 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { Card, Label, Input, Select, Button, AlertLine } from "../ui/primitivas.jsx";
+import { CONTA_A_RECEBER, CONTAS_COMPROMISSO } from "../dominio/disponivel.mjs";
+
+const CONTAS_COM_VENCIMENTO = new Set([CONTA_A_RECEBER, ...CONTAS_COMPROMISSO]);
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-const linhaVazia = () => ({ chave: uid(), contaId: "", tipo: "D", valor: "", descricao: "" });
-const linhaDe = (l) => ({ chave: uid(), contaId: l.contaId, tipo: l.tipo, valor: String(l.valor), descricao: l.descricao || "" });
+const linhaVazia = () => ({ chave: uid(), contaId: "", tipo: "D", valor: "", descricao: "", vencimento: "" });
+const linhaDe = (l) => ({ chave: uid(), contaId: l.contaId, tipo: l.tipo, valor: String(l.valor), descricao: l.descricao || "", vencimento: l.vencimento || "" });
 
 /* Lançar — o formulário de N linhas. Valida o equilíbrio ANTES de
    mandar pro servidor (a trava do banco, docs/06 §1, ainda é a
@@ -63,7 +66,7 @@ export function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdic
         lancamento: { id: editando.lancamento.id, data, dataCompetencia: data, descricao: descricao.trim(), origem: editando.lancamento.origem, documento: editando.lancamento.documento },
         linhas: linhasValidas.map((l) => ({
           id: uid(), lancamentoId: editando.lancamento.id, contaId: l.contaId, tipo: l.tipo, valor: numero(l.valor),
-          descricao: l.descricao.trim() || null, vencimento: null,
+          descricao: l.descricao.trim() || null, vencimento: l.vencimento || null,
         })),
       });
       if (aceito === false) return;
@@ -117,10 +120,13 @@ export function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdic
 
       <Label>Linhas</Label>
       {linhas.map((l) => (
-        <div key={l.chave} className="flex gap-2 mb-2 items-center animate-[surgir_.2s_ease-out]">
+        <div key={l.chave} className="flex gap-2 mb-2 items-center flex-wrap animate-[surgir_.2s_ease-out]">
           <Select value={l.tipo} onChange={(v) => editarLinha(l.chave, "tipo", v)} options={[{ value: "D", label: "D" }, { value: "C", label: "C" }]} />
           <div className="flex-[2]"><Select value={l.contaId} onChange={(v) => editarLinha(l.chave, "contaId", v)} placeholder="conta" options={opcoesContas} /></div>
           <Input money placeholder="valor" value={l.valor} onChange={(e) => editarLinha(l.chave, "valor", e.target.value)} className="flex-1" />
+          {CONTAS_COM_VENCIMENTO.has(l.contaId) && (
+            <Input type="date" value={l.vencimento} onChange={(e) => editarLinha(l.chave, "vencimento", e.target.value)} className="w-36" title="Vencimento (opcional) — pra aparecer em 'A receber/pagar'" />
+          )}
           <button type="button" onClick={() => removerLinha(l.chave)} disabled={linhas.length <= 2} className="transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0" style={{ color: "var(--debit)" }} aria-label="Remover">
             <Trash2 size={15} />
           </button>

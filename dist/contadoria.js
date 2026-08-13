@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React19, { useState as useState16, useEffect as useEffect10 } from "react";
+import React20, { useState as useState17, useEffect as useEffect10 } from "react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -767,7 +767,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
 }
 
 // src/telas/Livro.jsx
-import React17, { useState as useState14, useEffect as useEffect8, useRef as useRef2, useCallback as useCallback2 } from "react";
+import React18, { useState as useState15, useEffect as useEffect8, useRef as useRef2, useCallback as useCallback2 } from "react";
 import { ArrowLeft as ArrowLeft2 } from "lucide-react";
 
 // src/dados/sinc.mjs
@@ -793,9 +793,9 @@ var COLECOES = {
     tabela: "lancamento_linhas",
     forma: "lista",
     /* `descricao`/`vencimento` vieram em 0006_linha_descricao.sql,
-       depois da 0001 — o schema evolui por ALTER, nunca editando
-       migração já aplicada (docs/06 §1). */
-    campos: ["id", "lancamentoId", "contaId", "tipo", "valor", "descricao", "vencimento"],
+       `baixaDe` em 0010_baixa_de.sql — o schema evolui por ALTER, nunca
+       editando migração já aplicada (docs/06 §1). */
+    campos: ["id", "lancamentoId", "contaId", "tipo", "valor", "descricao", "vencimento", "baixaDe"],
     chave: ["id"]
   },
   entradaItens: {
@@ -1067,11 +1067,64 @@ function Balancete({ contas, lancamentoLinhas }) {
 // src/telas/Lancar.jsx
 import React9, { useState as useState7, useMemo as useMemo3, useEffect as useEffect5 } from "react";
 import { Plus as Plus3, Trash2 as Trash23, X as X3 } from "lucide-react";
+
+// src/dominio/disponivel.mjs
+var DIAS_JANELA = 30;
+var CONTA_A_RECEBER = "clientes";
+var CONTAS_COMPROMISSO = ["fornecedores", "das_a_pagar", "emprestimos", "salarios_a_pagar"];
+function addDias(iso, n) {
+  const d = /* @__PURE__ */ new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function somaComVencimentoEmJanela(linhas, contaId, tipo, hoje, dias, baixadas) {
+  const limite = addDias(hoje, dias);
+  return linhas.filter((l) => l.contaId === contaId && l.tipo === tipo && l.vencimento && l.vencimento >= hoje && l.vencimento <= limite && !baixadas.has(l.id)).reduce((s, l) => s + l.valor, 0);
+}
+function capadoNoSaldo(valorBruto, contas, contaId, linhas) {
+  const conta = contas.find((c) => c.id === contaId);
+  if (!conta) return 0;
+  const saldoAberto = Math.max(0, saldoDeConta(conta, linhas));
+  return Math.min(valorBruto, saldoAberto);
+}
+function reservaMinima({ contas, lancamentos, lancamentoLinhas, periodosFechados }) {
+  const mesesFechados = (periodosFechados || []).filter((p) => p.startsWith("mes:")).map((p) => p.slice(4)).sort().slice(-3);
+  if (!mesesFechados.length) return 0;
+  const idsDespesa = new Set(contas.filter((c) => c.tipo === "despesa").map((c) => c.id));
+  const porLancamento = new Map(lancamentos.map((l) => [l.id, l]));
+  const despesaPorMes = /* @__PURE__ */ new Map();
+  for (const linha of lancamentoLinhas) {
+    if (!idsDespesa.has(linha.contaId) || linha.tipo !== "D") continue;
+    const mes = (porLancamento.get(linha.lancamentoId)?.data || "").slice(0, 7);
+    if (!mesesFechados.includes(mes)) continue;
+    despesaPorMes.set(mes, (despesaPorMes.get(mes) || 0) + linha.valor);
+  }
+  return despesaPorMes.size ? Math.max(...despesaPorMes.values()) : 0;
+}
+function quantoPodeTirar({ contas, lancamentos, lancamentoLinhas, periodosFechados, hoje }) {
+  const caixaConta = contas.find((c) => c.id === "caixa");
+  const bancoConta = contas.find((c) => c.id === "banco");
+  const disponivelHoje = (caixaConta ? saldoDeConta(caixaConta, lancamentoLinhas) : 0) + (bancoConta ? saldoDeConta(bancoConta, lancamentoLinhas) : 0);
+  const baixadas = new Set(lancamentoLinhas.filter((l) => l.baixaDe).map((l) => l.baixaDe));
+  const aReceberBruto = somaComVencimentoEmJanela(lancamentoLinhas, CONTA_A_RECEBER, "D", hoje, DIAS_JANELA, baixadas);
+  const aReceber = capadoNoSaldo(aReceberBruto, contas, CONTA_A_RECEBER, lancamentoLinhas);
+  let compromissos = 0;
+  for (const contaId of CONTAS_COMPROMISSO) {
+    const bruto = somaComVencimentoEmJanela(lancamentoLinhas, contaId, "C", hoje, DIAS_JANELA, baixadas);
+    compromissos += capadoNoSaldo(bruto, contas, contaId, lancamentoLinhas);
+  }
+  const reserva = reservaMinima({ contas, lancamentos, lancamentoLinhas, periodosFechados });
+  const podeTirar = Math.max(0, disponivelHoje + aReceber - compromissos - reserva);
+  return { podeTirar, disponivelHoje, aReceber, compromissos, reserva };
+}
+
+// src/telas/Lancar.jsx
+var CONTAS_COM_VENCIMENTO = /* @__PURE__ */ new Set([CONTA_A_RECEBER, ...CONTAS_COMPROMISSO]);
 var uid = () => Math.random().toString(36).slice(2, 10);
 var hojeISO2 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 var fmt5 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
-var linhaVazia = () => ({ chave: uid(), contaId: "", tipo: "D", valor: "", descricao: "" });
-var linhaDe = (l) => ({ chave: uid(), contaId: l.contaId, tipo: l.tipo, valor: String(l.valor), descricao: l.descricao || "" });
+var linhaVazia = () => ({ chave: uid(), contaId: "", tipo: "D", valor: "", descricao: "", vencimento: "" });
+var linhaDe = (l) => ({ chave: uid(), contaId: l.contaId, tipo: l.tipo, valor: String(l.valor), descricao: l.descricao || "", vencimento: l.vencimento || "" });
 function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdicao }) {
   const contasOrdenadas = useMemo3(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
   const opcoesContas = contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` }));
@@ -1115,7 +1168,7 @@ function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdicao }) {
           tipo: l.tipo,
           valor: numero(l.valor),
           descricao: l.descricao.trim() || null,
-          vencimento: null
+          vencimento: l.vencimento || null
         }))
       });
       if (aceito2 === false) return;
@@ -1146,7 +1199,7 @@ function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdicao }) {
   return /* @__PURE__ */ React9.createElement(Card, null, editando && /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 pb-3", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React9.createElement("span", { className: "text-xs uppercase tracking-wide", style: { color: "var(--accent)", fontFamily: "var(--font-mono)" } }, "Editando lan\xE7amento"), /* @__PURE__ */ React9.createElement("button", { onClick: () => {
     onCancelarEdicao();
     limpar();
-  }, className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement(X3, { size: 13 }), " Cancelar")), /* @__PURE__ */ React9.createElement("div", { className: "grid grid-cols-2 gap-3 mb-4" }, /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Data"), /* @__PURE__ */ React9.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React9.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Venda do dia" }))), /* @__PURE__ */ React9.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React9.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React9.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React9.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React9.createElement(Trash23, { size: 15 })))), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React9.createElement(Plus3, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement("span", null, "D\xE9bitos: ", fmt5(somaD), " \xB7 Cr\xE9ditos: ", fmt5(somaC)), diferenca !== 0 && /* @__PURE__ */ React9.createElement(AlertLine, null, "Diferen\xE7a de ", fmt5(Math.abs(diferenca)), " \u2014 o lan\xE7amento precisa fechar antes de gravar")), /* @__PURE__ */ React9.createElement(Button, { onClick: gravar, disabled: !podeGravar }, editando ? "Salvar edi\xE7\xE3o" : "Lan\xE7ar"), confirmado && /* @__PURE__ */ React9.createElement("span", { className: "ml-3 text-xs", style: { color: "var(--credit)" } }, "Lan\xE7ado."));
+  }, className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement(X3, { size: 13 }), " Cancelar")), /* @__PURE__ */ React9.createElement("div", { className: "grid grid-cols-2 gap-3 mb-4" }, /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Data"), /* @__PURE__ */ React9.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React9.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Venda do dia" }))), /* @__PURE__ */ React9.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React9.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center flex-wrap animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React9.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React9.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), CONTAS_COM_VENCIMENTO.has(l.contaId) && /* @__PURE__ */ React9.createElement(Input, { type: "date", value: l.vencimento, onChange: (e) => editarLinha(l.chave, "vencimento", e.target.value), className: "w-36", title: "Vencimento (opcional) \u2014 pra aparecer em 'A receber/pagar'" }), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React9.createElement(Trash23, { size: 15 })))), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React9.createElement(Plus3, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement("span", null, "D\xE9bitos: ", fmt5(somaD), " \xB7 Cr\xE9ditos: ", fmt5(somaC)), diferenca !== 0 && /* @__PURE__ */ React9.createElement(AlertLine, null, "Diferen\xE7a de ", fmt5(Math.abs(diferenca)), " \u2014 o lan\xE7amento precisa fechar antes de gravar")), /* @__PURE__ */ React9.createElement(Button, { onClick: gravar, disabled: !podeGravar }, editando ? "Salvar edi\xE7\xE3o" : "Lan\xE7ar"), confirmado && /* @__PURE__ */ React9.createElement("span", { className: "ml-3 text-xs", style: { color: "var(--credit)" } }, "Lan\xE7ado."));
 }
 
 // src/telas/CaixaEntrada.jsx
@@ -1558,54 +1611,6 @@ function Revisao({ contas, lancamentos, lancamentoLinhas, periodosFechados, tril
 // src/telas/RetratoDoMes.jsx
 import React13, { useState as useState10, useMemo as useMemo7, useEffect as useEffect6 } from "react";
 
-// src/dominio/disponivel.mjs
-var DIAS_JANELA = 30;
-var CONTAS_COMPROMISSO = ["fornecedores", "das_a_pagar", "emprestimos", "salarios_a_pagar"];
-function addDias(iso, n) {
-  const d = /* @__PURE__ */ new Date(iso + "T12:00:00");
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-function somaComVencimentoEmJanela(linhas, contaId, tipo, hoje, dias) {
-  const limite = addDias(hoje, dias);
-  return linhas.filter((l) => l.contaId === contaId && l.tipo === tipo && l.vencimento && l.vencimento >= hoje && l.vencimento <= limite).reduce((s, l) => s + l.valor, 0);
-}
-function capadoNoSaldo(valorBruto, contas, contaId, linhas) {
-  const conta = contas.find((c) => c.id === contaId);
-  if (!conta) return 0;
-  const saldoAberto = Math.max(0, saldoDeConta(conta, linhas));
-  return Math.min(valorBruto, saldoAberto);
-}
-function reservaMinima({ contas, lancamentos, lancamentoLinhas, periodosFechados }) {
-  const mesesFechados = (periodosFechados || []).filter((p) => p.startsWith("mes:")).map((p) => p.slice(4)).sort().slice(-3);
-  if (!mesesFechados.length) return 0;
-  const idsDespesa = new Set(contas.filter((c) => c.tipo === "despesa").map((c) => c.id));
-  const porLancamento = new Map(lancamentos.map((l) => [l.id, l]));
-  const despesaPorMes = /* @__PURE__ */ new Map();
-  for (const linha of lancamentoLinhas) {
-    if (!idsDespesa.has(linha.contaId) || linha.tipo !== "D") continue;
-    const mes = (porLancamento.get(linha.lancamentoId)?.data || "").slice(0, 7);
-    if (!mesesFechados.includes(mes)) continue;
-    despesaPorMes.set(mes, (despesaPorMes.get(mes) || 0) + linha.valor);
-  }
-  return despesaPorMes.size ? Math.max(...despesaPorMes.values()) : 0;
-}
-function quantoPodeTirar({ contas, lancamentos, lancamentoLinhas, periodosFechados, hoje }) {
-  const caixaConta = contas.find((c) => c.id === "caixa");
-  const bancoConta = contas.find((c) => c.id === "banco");
-  const disponivelHoje = (caixaConta ? saldoDeConta(caixaConta, lancamentoLinhas) : 0) + (bancoConta ? saldoDeConta(bancoConta, lancamentoLinhas) : 0);
-  const aReceberBruto = somaComVencimentoEmJanela(lancamentoLinhas, "clientes", "D", hoje, DIAS_JANELA);
-  const aReceber = capadoNoSaldo(aReceberBruto, contas, "clientes", lancamentoLinhas);
-  let compromissos = 0;
-  for (const contaId of CONTAS_COMPROMISSO) {
-    const bruto = somaComVencimentoEmJanela(lancamentoLinhas, contaId, "C", hoje, DIAS_JANELA);
-    compromissos += capadoNoSaldo(bruto, contas, contaId, lancamentoLinhas);
-  }
-  const reserva = reservaMinima({ contas, lancamentos, lancamentoLinhas, periodosFechados });
-  const podeTirar = Math.max(0, disponivelHoje + aReceber - compromissos - reserva);
-  return { podeTirar, disponivelHoje, aReceber, compromissos, reserva };
-}
-
 // src/dominio/cartas.mjs
 function cartaPendenteDeAvaliacao(cartas, mesAtual) {
   const candidatas = (cartas || []).filter((c) => c.mes < mesAtual && (c.texto || "").trim() && (c.seguida === null || c.seguida === void 0)).sort((a, b) => b.mes.localeCompare(a.mes));
@@ -1815,9 +1820,65 @@ function Recorrentes({ contas, recorrentes, recorrenteLinhas, onAdicionar, onAlt
   return /* @__PURE__ */ React16.createElement("div", null, /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-4 flex-wrap gap-2" }, /* @__PURE__ */ React16.createElement(Button, { onClick: gerar, disabled: !recorrentes.some((r) => r.ativa) }, /* @__PURE__ */ React16.createElement(RefreshCw, { size: 14 }), " Gerar lan\xE7amentos do m\xEAs"), !mostrarForm && /* @__PURE__ */ React16.createElement(Button, { variant: "ghost", onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React16.createElement(Plus5, { size: 14 }), " Novo recorrente")), resultado !== null && /* @__PURE__ */ React16.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--credit-soft)", color: "var(--credit)" } }, resultado > 0 ? `${resultado} lan\xE7amento(s) gerado(s) \u2014 confira no Di\xE1rio.` : "Nada para gerar: j\xE1 foi feito este m\xEAs, ou n\xE3o h\xE1 recorrente ativa."), mostrarForm && /* @__PURE__ */ React16.createElement(FormularioNovoRecorrente, { opcoesContas, onAdicionar, onFechar: () => setMostrarForm(false) }), recorrentes.length === 0 && !mostrarForm && /* @__PURE__ */ React16.createElement(Card, { className: "text-center py-10" }, /* @__PURE__ */ React16.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum recorrente cadastrado ainda."), /* @__PURE__ */ React16.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)" } }, "Aluguel, internet, mensalidade \u2014 o que se repete todo m\xEAs.")), /* @__PURE__ */ React16.createElement("div", { className: "space-y-3" }, recorrentes.map((r) => /* @__PURE__ */ React16.createElement(Card, { key: r.id, pad: "apertado", style: { opacity: r.ativa ? 1 : 0.45 } }, /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-2" }, /* @__PURE__ */ React16.createElement("span", { className: "text-sm font-medium", style: { color: "var(--ink)" } }, r.descricao), /* @__PURE__ */ React16.createElement("button", { onClick: () => onAlternarAtiva(r.id, !r.ativa), className: "text-xs transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, r.ativa ? "desativar" : "ativar")), linhasDe(r.id).map((l) => /* @__PURE__ */ React16.createElement("div", { key: l.id, className: "flex justify-between text-xs py-0.5", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, /* @__PURE__ */ React16.createElement("span", null, l.tipo, " \xB7 ", contasPorId.get(l.contaId)?.nome || l.contaId), /* @__PURE__ */ React16.createElement("span", null, fmt10(l.valor))))))));
 }
 
-// src/dominio/recorrentes.mjs
+// src/telas/Baixas.jsx
+import React17, { useMemo as useMemo10, useState as useState14 } from "react";
+import { CheckCircle2 as CheckCircle22, X as X6 } from "lucide-react";
+
+// src/dominio/baixas.mjs
+function itensEmAberto(lancamentoLinhas, contasAlvo, tipo) {
+  const baixadas = new Set((lancamentoLinhas || []).filter((l) => l.baixaDe).map((l) => l.baixaDe));
+  return (lancamentoLinhas || []).filter((l) => contasAlvo.includes(l.contaId) && l.tipo === tipo && !baixadas.has(l.id)).sort((a, b) => (a.vencimento || "9999-99").localeCompare(b.vencimento || "9999-99"));
+}
+function recebiveisEmAberto(lancamentoLinhas) {
+  return itensEmAberto(lancamentoLinhas, [CONTA_A_RECEBER], "D");
+}
+function pagaveisEmAberto(lancamentoLinhas) {
+  return itensEmAberto(lancamentoLinhas, CONTAS_COMPROMISSO, "C");
+}
 var uidPadrao3 = () => Math.random().toString(36).slice(2, 10);
-function gerarLancamentosDoMes(recorrentes, recorrenteLinhas, lancamentos, mes, dataDoMes, gerarId = uidPadrao3) {
+function construirBaixa(linhaOriginal, contaTransitoId, data, gerarId = uidPadrao3) {
+  if (!linhaOriginal) throw new Error("selecione um item em aberto para dar baixa");
+  if (!contaTransitoId) throw new Error("escolha caixa ou banco");
+  const ehReceber = linhaOriginal.tipo === "D";
+  const idLancamento = gerarId();
+  const descricaoBase = linhaOriginal.descricao ? `Baixa: ${linhaOriginal.descricao}` : "Baixa";
+  return {
+    lancamento: { id: idLancamento, data, dataCompetencia: data, descricao: descricaoBase, origem: "manual", documento: null },
+    linhas: [
+      { id: gerarId(), lancamentoId: idLancamento, contaId: contaTransitoId, tipo: ehReceber ? "D" : "C", valor: linhaOriginal.valor, descricao: null, vencimento: null, baixaDe: null },
+      { id: gerarId(), lancamentoId: idLancamento, contaId: linhaOriginal.contaId, tipo: ehReceber ? "C" : "D", valor: linhaOriginal.valor, descricao: null, vencimento: null, baixaDe: linhaOriginal.id }
+    ]
+  };
+}
+
+// src/telas/Baixas.jsx
+var fmt11 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmtData6 = (d) => d ? d.split("-").reverse().join("/") : "sem vencimento";
+var hojeISO4 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+var OPCOES_TRANSITO = [{ value: "caixa", label: "Caixa" }, { value: "banco", label: "Banco" }];
+function LinhaItem({ item, nomeConta, onDarBaixa }) {
+  const [abrindo, setAbrindo] = useState14(false);
+  const [data, setData] = useState14(hojeISO4());
+  const [contaTransito, setContaTransito] = useState14("caixa");
+  const confirmar = () => {
+    onDarBaixa(item, contaTransito, data);
+    setAbrindo(false);
+  };
+  return /* @__PURE__ */ React17.createElement("div", { className: "py-2", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React17.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React17.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React17.createElement("div", { className: "text-sm truncate", style: { color: "var(--ink)" } }, item.descricao || nomeConta(item.contaId)), /* @__PURE__ */ React17.createElement("div", { className: "text-xs", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, fmtData6(item.vencimento))), /* @__PURE__ */ React17.createElement("div", { className: "flex items-center gap-2 shrink-0" }, /* @__PURE__ */ React17.createElement("span", { className: "text-sm tabular-nums", style: { color: "var(--ink)" } }, fmt11(item.valor)), !abrindo && /* @__PURE__ */ React17.createElement("button", { onClick: () => setAbrindo(true), className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React17.createElement(CheckCircle22, { size: 13 }), " Dar baixa"))), abrindo && /* @__PURE__ */ React17.createElement("div", { className: "flex items-end gap-2 mt-2 flex-wrap" }, /* @__PURE__ */ React17.createElement("div", null, /* @__PURE__ */ React17.createElement("div", { className: "text-[10px] uppercase mb-1", style: { color: "var(--muted)" } }, "Data"), /* @__PURE__ */ React17.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React17.createElement("div", { className: "w-28" }, /* @__PURE__ */ React17.createElement("div", { className: "text-[10px] uppercase mb-1", style: { color: "var(--muted)" } }, "Onde"), /* @__PURE__ */ React17.createElement(Select, { value: contaTransito, onChange: setContaTransito, options: OPCOES_TRANSITO })), /* @__PURE__ */ React17.createElement(Button, { small: true, onClick: confirmar }, "Confirmar"), /* @__PURE__ */ React17.createElement("button", { onClick: () => setAbrindo(false), className: "transition-opacity hover:opacity-70", style: { color: "var(--muted)" }, "aria-label": "Cancelar" }, /* @__PURE__ */ React17.createElement(X6, { size: 15 }))));
+}
+function Baixas({ contas, lancamentoLinhas, onDarBaixa }) {
+  const nomeConta = useMemo10(() => {
+    const mapa = new Map(contas.map((c) => [c.id, c.nome]));
+    return (id) => mapa.get(id) || id;
+  }, [contas]);
+  const recebiveis = useMemo10(() => recebiveisEmAberto(lancamentoLinhas), [lancamentoLinhas]);
+  const pagaveis = useMemo10(() => pagaveisEmAberto(lancamentoLinhas), [lancamentoLinhas]);
+  return /* @__PURE__ */ React17.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ React17.createElement(Card, null, /* @__PURE__ */ React17.createElement("div", { className: "font-medium mb-2", style: { color: "var(--ink)" } }, "A receber em aberto"), recebiveis.length === 0 ? /* @__PURE__ */ React17.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nada em aberto \u2014 nenhuma venda a prazo esperando pagamento.") : recebiveis.map((item) => /* @__PURE__ */ React17.createElement(LinhaItem, { key: item.id, item, nomeConta, onDarBaixa }))), /* @__PURE__ */ React17.createElement(Card, null, /* @__PURE__ */ React17.createElement("div", { className: "font-medium mb-2", style: { color: "var(--ink)" } }, "A pagar em aberto"), pagaveis.length === 0 ? /* @__PURE__ */ React17.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nada em aberto \u2014 nenhum compromisso esperando pagamento.") : pagaveis.map((item) => /* @__PURE__ */ React17.createElement(LinhaItem, { key: item.id, item, nomeConta, onDarBaixa }))), /* @__PURE__ */ React17.createElement("div", { className: "text-[11px]", style: { color: "var(--muted)" } }, 'Dar baixa aqui liga o recebimento/pagamento a este item espec\xEDfico \u2014 \xE9 o que deixa "quanto voc\xEA pode tirar" mais preciso (docs/08 \xA72). Baixa \xE9 sempre do valor cheio; pagamento parcial ainda n\xE3o tem uma tela pr\xF3pria.'));
+}
+
+// src/dominio/recorrentes.mjs
+var uidPadrao4 = () => Math.random().toString(36).slice(2, 10);
+function gerarLancamentosDoMes(recorrentes, recorrenteLinhas, lancamentos, mes, dataDoMes, gerarId = uidPadrao4) {
   const jaGeradas = new Set(
     (lancamentos || []).filter((l) => l.origem === "recorrente" && (l.data || "").slice(0, 7) === mes).map((l) => l.documento)
   );
@@ -1853,6 +1914,7 @@ var ABAS = [
   { id: "razao", label: "Raz\xE3o" },
   { id: "balancete", label: "Balancete" },
   { id: "conciliacao", label: "Concilia\xE7\xE3o" },
+  { id: "baixas", label: "A receber/pagar" },
   { id: "revisao", label: "Revis\xE3o" },
   { id: "entregas", label: "Entregas" },
   { id: "plano", label: "Plano de contas" },
@@ -1860,13 +1922,13 @@ var ABAS = [
   { id: "negocio", label: "Neg\xF3cio" }
 ];
 function Livro({ negocio, onVoltar }) {
-  const [aba, setAba] = useState14("caixa");
-  const [estado, setEstado] = useState14(null);
-  const [loaded, setLoaded] = useState14(false);
-  const [erro, setErro] = useState14("");
-  const [salvando, setSalvando] = useState14(false);
-  const [confirmado, setConfirmado] = useState14(false);
-  const [editandoId, setEditandoId] = useState14(null);
+  const [aba, setAba] = useState15("caixa");
+  const [estado, setEstado] = useState15(null);
+  const [loaded, setLoaded] = useState15(false);
+  const [erro, setErro] = useState15("");
+  const [salvando, setSalvando] = useState15(false);
+  const [confirmado, setConfirmado] = useState15(false);
+  const [editandoId, setEditandoId] = useState15(null);
   const fotoRef = useRef2(null);
   const estadoRef = useRef2(null);
   const timerRef = useRef2(null);
@@ -2046,6 +2108,20 @@ function Livro({ negocio, onVoltar }) {
       trilha: [...prev.trilha, { tipo: "carta_avaliada", descricao: `Carta de ${mes}: ${seguida ? "seguida" : "n\xE3o seguida"}` }]
     }));
   }, []);
+  const darBaixa = useCallback2((linhaOriginal, contaTransitoId, data) => {
+    if (mesEstaFechado(data)) {
+      setErro(`O m\xEAs de ${mesDe(data)} j\xE1 est\xE1 fechado \u2014 reabra na aba Revis\xE3o antes de dar baixa.`);
+      return false;
+    }
+    const { lancamento, linhas } = construirBaixa(linhaOriginal, contaTransitoId, data);
+    setEstado((prev) => ({
+      ...prev,
+      lancamentos: [...prev.lancamentos, lancamento],
+      lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
+      trilha: [...prev.trilha, { tipo: "baixa", descricao: lancamento.descricao }]
+    }));
+    return true;
+  }, [mesEstaFechado]);
   const gerarRecorrentesDoMes = useCallback2(() => {
     const mes = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
     const dataDoMes = `${mes}-01`;
@@ -2103,9 +2179,9 @@ function Livro({ negocio, onVoltar }) {
   }, [mesEstaFechado]);
   const editando = editandoId && estado ? { lancamento: estado.lancamentos.find((l) => l.id === editandoId), linhas: estado.lancamentoLinhas.filter((l) => l.lancamentoId === editandoId) } : null;
   if (!loaded || !estado) {
-    return /* @__PURE__ */ React17.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React17.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
+    return /* @__PURE__ */ React18.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React18.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
   }
-  return /* @__PURE__ */ React17.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React17.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React17.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React17.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React17.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React17.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React17.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React17.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React17.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React17.createElement(
+  return /* @__PURE__ */ React18.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React18.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React18.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React18.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React18.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React18.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React18.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React18.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React18.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React18.createElement(
     CaixaEntrada,
     {
       contas: estado.contas,
@@ -2116,7 +2192,7 @@ function Livro({ negocio, onVoltar }) {
       onPessoal: (item) => marcarSituacao(item, "pessoal"),
       onDuvida: (item) => marcarSituacao(item, "duvida")
     }
-  ), aba === "lancar" && /* @__PURE__ */ React17.createElement(
+  ), aba === "lancar" && /* @__PURE__ */ React18.createElement(
     Lancar,
     {
       contas: estado.contas,
@@ -2125,7 +2201,7 @@ function Livro({ negocio, onVoltar }) {
       onEditar: editarLancamento,
       onCancelarEdicao: cancelarEdicao
     }
-  ), aba === "diario" && /* @__PURE__ */ React17.createElement(
+  ), aba === "diario" && /* @__PURE__ */ React18.createElement(
     Diario,
     {
       contas: estado.contas,
@@ -2134,7 +2210,7 @@ function Livro({ negocio, onVoltar }) {
       onEditar: iniciarEdicao,
       onExcluir: excluirLancamento
     }
-  ), aba === "razao" && /* @__PURE__ */ React17.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React17.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React17.createElement(
+  ), aba === "razao" && /* @__PURE__ */ React18.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React18.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React18.createElement(
     Conciliacao,
     {
       lancamentos: estado.lancamentos,
@@ -2142,7 +2218,7 @@ function Livro({ negocio, onVoltar }) {
       conciliacoes: estado.conciliacoes,
       onAlternar: alternarConciliacao
     }
-  ), aba === "revisao" && /* @__PURE__ */ React17.createElement(
+  ), aba === "baixas" && /* @__PURE__ */ React18.createElement(Baixas, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas, onDarBaixa: darBaixa }), aba === "revisao" && /* @__PURE__ */ React18.createElement(
     Revisao,
     {
       contas: estado.contas,
@@ -2153,7 +2229,7 @@ function Livro({ negocio, onVoltar }) {
       onFechar: fecharMes,
       onReabrir: reabrirMes
     }
-  ), aba === "entregas" && /* @__PURE__ */ React17.createElement(
+  ), aba === "entregas" && /* @__PURE__ */ React18.createElement(
     RetratoDoMes,
     {
       negocio,
@@ -2165,7 +2241,7 @@ function Livro({ negocio, onVoltar }) {
       onSalvarCarta: salvarCarta,
       onAvaliarCartaSeguida: avaliarCartaSeguida
     }
-  ), aba === "plano" && /* @__PURE__ */ React17.createElement(PlanoContas, { contas: estado.contas, onAdicionar: adicionarConta, onAlternarAtiva: alternarAtivaConta }), aba === "recorrentes" && /* @__PURE__ */ React17.createElement(
+  ), aba === "plano" && /* @__PURE__ */ React18.createElement(PlanoContas, { contas: estado.contas, onAdicionar: adicionarConta, onAlternarAtiva: alternarAtivaConta }), aba === "recorrentes" && /* @__PURE__ */ React18.createElement(
     Recorrentes,
     {
       contas: estado.contas,
@@ -2175,11 +2251,11 @@ function Livro({ negocio, onVoltar }) {
       onAlternarAtiva: alternarAtivaRecorrente,
       onGerar: gerarRecorrentesDoMes
     }
-  ), aba === "negocio" && /* @__PURE__ */ React17.createElement(ConfigNegocio, { negocioId: negocio.id })));
+  ), aba === "negocio" && /* @__PURE__ */ React18.createElement(ConfigNegocio, { negocioId: negocio.id })));
 }
 
 // src/telas/PainelDoMes.jsx
-import React18, { useEffect as useEffect9, useState as useState15 } from "react";
+import React19, { useEffect as useEffect9, useState as useState16 } from "react";
 import { ArrowLeft as ArrowLeft3, Copy, Check as Check4 } from "lucide-react";
 
 // src/dados/painelDoMes.mjs
@@ -2249,17 +2325,17 @@ var STATUS_INFO = {
   fechado: { texto: "m\xEAs fechado", cor: "var(--muted)" }
 };
 function BotaoCopiar({ texto }) {
-  const [copiado, setCopiado] = useState15(false);
+  const [copiado, setCopiado] = useState16(false);
   const copiar = async () => {
     await navigator.clipboard.writeText(texto);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 1800);
   };
-  return /* @__PURE__ */ React18.createElement("button", { onClick: copiar, className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70 shrink-0", style: { color: "var(--accent)" } }, copiado ? /* @__PURE__ */ React18.createElement(React18.Fragment, null, /* @__PURE__ */ React18.createElement(Check4, { size: 13 }), " Copiado") : /* @__PURE__ */ React18.createElement(React18.Fragment, null, /* @__PURE__ */ React18.createElement(Copy, { size: 13 }), " Copiar mensagem"));
+  return /* @__PURE__ */ React19.createElement("button", { onClick: copiar, className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70 shrink-0", style: { color: "var(--accent)" } }, copiado ? /* @__PURE__ */ React19.createElement(React19.Fragment, null, /* @__PURE__ */ React19.createElement(Check4, { size: 13 }), " Copiado") : /* @__PURE__ */ React19.createElement(React19.Fragment, null, /* @__PURE__ */ React19.createElement(Copy, { size: 13 }), " Copiar mensagem"));
 }
 function PainelDoMes({ onVoltar }) {
-  const [dados, setDados] = useState15(null);
-  const [erro, setErro] = useState15("");
+  const [dados, setDados] = useState16(null);
+  const [erro, setErro] = useState16("");
   useEffect9(() => {
     let vivo = true;
     carregarPainelDoMes().then((d) => {
@@ -2271,26 +2347,26 @@ function PainelDoMes({ onVoltar }) {
       vivo = false;
     };
   }, []);
-  return /* @__PURE__ */ React18.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React18.createElement("div", { className: "max-w-2xl mx-auto px-5 py-8" }, /* @__PURE__ */ React18.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React18.createElement(ArrowLeft3, { size: 14 }), " Voltar"), /* @__PURE__ */ React18.createElement("div", { className: "mb-1 text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Painel do M\xEAs"), dados && /* @__PURE__ */ React18.createElement("div", { className: "text-xs mb-6", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, nomeDoMes(dados.mes), " \u2014 quem mandou, quem falta"), erro && /* @__PURE__ */ React18.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), !dados && !erro && /* @__PURE__ */ React18.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026"), dados && (() => {
+  return /* @__PURE__ */ React19.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React19.createElement("div", { className: "max-w-2xl mx-auto px-5 py-8" }, /* @__PURE__ */ React19.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React19.createElement(ArrowLeft3, { size: 14 }), " Voltar"), /* @__PURE__ */ React19.createElement("div", { className: "mb-1 text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Painel do M\xEAs"), dados && /* @__PURE__ */ React19.createElement("div", { className: "text-xs mb-6", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, nomeDoMes(dados.mes), " \u2014 quem mandou, quem falta"), erro && /* @__PURE__ */ React19.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), !dados && !erro && /* @__PURE__ */ React19.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026"), dados && (() => {
     const painel = montarPainelDoMes(dados.negocios, dados.itensPorNegocio, dados.negociosComMesFechado);
     if (!painel.length) {
-      return /* @__PURE__ */ React18.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React18.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum neg\xF3cio ativo com onboarding conclu\xEDdo ainda."));
+      return /* @__PURE__ */ React19.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React19.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum neg\xF3cio ativo com onboarding conclu\xEDdo ainda."));
     }
-    return /* @__PURE__ */ React18.createElement("div", { className: "space-y-2" }, painel.map((linha) => {
+    return /* @__PURE__ */ React19.createElement("div", { className: "space-y-2" }, painel.map((linha) => {
       const info = STATUS_INFO[linha.status];
       const texto = linha.status === "faltando" ? `falta: ${linha.pendentes} ${linha.pendentes === 1 ? "item" : "itens"} por classificar` : info.texto;
       const mensagem = mensagemCobranca(linha, dados.mes);
-      return /* @__PURE__ */ React18.createElement(Card, { key: linha.negocioId, pad: "apertado" }, /* @__PURE__ */ React18.createElement("div", { className: "flex items-center justify-between gap-3 flex-wrap" }, /* @__PURE__ */ React18.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React18.createElement("span", { className: "text-sm font-medium mr-2", style: { color: "var(--ink)" } }, linha.apelido || linha.nome), /* @__PURE__ */ React18.createElement("span", { className: "text-xs", style: { color: info.cor } }, texto)), mensagem && /* @__PURE__ */ React18.createElement(BotaoCopiar, { texto: mensagem })));
+      return /* @__PURE__ */ React19.createElement(Card, { key: linha.negocioId, pad: "apertado" }, /* @__PURE__ */ React19.createElement("div", { className: "flex items-center justify-between gap-3 flex-wrap" }, /* @__PURE__ */ React19.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React19.createElement("span", { className: "text-sm font-medium mr-2", style: { color: "var(--ink)" } }, linha.apelido || linha.nome), /* @__PURE__ */ React19.createElement("span", { className: "text-xs", style: { color: info.cor } }, texto)), mensagem && /* @__PURE__ */ React19.createElement(BotaoCopiar, { texto: mensagem })));
     }));
   })()));
 }
 
 // src/app/App.jsx
 function App() {
-  const [authSession, setAuthSession] = useState16(void 0);
-  const [dark] = useState16(true);
-  const [negocioAberto, setNegocioAberto] = useState16(null);
-  const [painelAberto, setPainelAberto] = useState16(false);
+  const [authSession, setAuthSession] = useState17(void 0);
+  const [dark] = useState17(true);
+  const [negocioAberto, setNegocioAberto] = useState17(null);
+  const [painelAberto, setPainelAberto] = useState17(false);
   useEffect10(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -2305,14 +2381,14 @@ function App() {
     };
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
-  return /* @__PURE__ */ React19.createElement(React19.Fragment, null, /* @__PURE__ */ React19.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React19.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React19.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React19.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
+  return /* @__PURE__ */ React20.createElement(React20.Fragment, null, /* @__PURE__ */ React20.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React20.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React20.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React20.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
     /* `key={negocioAberto.id}` desmonta e remonta o Livro inteiro ao
        trocar de negócio — é o que elimina por construção a classe de
        bug H3 do ContLife (doc 26): sem isso, o estado em memória de
        um negócio podia vazar para dentro da chave do próximo por um
        instante, entre trocar o id e a carga nova terminar. */
-    /* @__PURE__ */ React19.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
-  ) : painelAberto ? /* @__PURE__ */ React19.createElement(PainelDoMes, { onVoltar: () => setPainelAberto(false) }) : /* @__PURE__ */ React19.createElement(Negocios, { onAbrirNegocio: setNegocioAberto, onAbrirPainel: () => setPainelAberto(true) }));
+    /* @__PURE__ */ React20.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+  ) : painelAberto ? /* @__PURE__ */ React20.createElement(PainelDoMes, { onVoltar: () => setPainelAberto(false) }) : /* @__PURE__ */ React20.createElement(Negocios, { onAbrirNegocio: setNegocioAberto, onAbrirPainel: () => setPainelAberto(true) }));
 }
 export {
   App as default

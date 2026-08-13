@@ -15,8 +15,10 @@ import { RetratoDoMes } from "./RetratoDoMes.jsx";
 import { PlanoContas } from "./PlanoContas.jsx";
 import { ConfigNegocio } from "./ConfigNegocio.jsx";
 import { Recorrentes } from "./Recorrentes.jsx";
+import { Baixas } from "./Baixas.jsx";
 import { construirLancamentoDeClassificacao } from "../dominio/classificacao.mjs";
 import { gerarLancamentosDoMes } from "../dominio/recorrentes.mjs";
+import { construirBaixa } from "../dominio/baixas.mjs";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const mesDe = (dataIso) => (dataIso || "").slice(0, 7);
@@ -54,6 +56,7 @@ const ABAS = [
   { id: "razao", label: "Razão" },
   { id: "balancete", label: "Balancete" },
   { id: "conciliacao", label: "Conciliação" },
+  { id: "baixas", label: "A receber/pagar" },
   { id: "revisao", label: "Revisão" },
   { id: "entregas", label: "Entregas" },
   { id: "plano", label: "Plano de contas" },
@@ -294,6 +297,24 @@ export function Livro({ negocio, onVoltar }) {
     }));
   }, []);
 
+  /* Baixa: liga um recebimento/pagamento à fatura específica (docs/08
+     §2). É um lançamento de verdade, então respeita a mesma trava de
+     mês fechado dos demais. */
+  const darBaixa = useCallback((linhaOriginal, contaTransitoId, data) => {
+    if (mesEstaFechado(data)) {
+      setErro(`O mês de ${mesDe(data)} já está fechado — reabra na aba Revisão antes de dar baixa.`);
+      return false;
+    }
+    const { lancamento, linhas } = construirBaixa(linhaOriginal, contaTransitoId, data);
+    setEstado((prev) => ({
+      ...prev,
+      lancamentos: [...prev.lancamentos, lancamento],
+      lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
+      trilha: [...prev.trilha, { tipo: "baixa", descricao: lancamento.descricao }],
+    }));
+    return true;
+  }, [mesEstaFechado]);
+
   const gerarRecorrentesDoMes = useCallback(() => {
     const mes = new Date().toISOString().slice(0, 7);
     const dataDoMes = `${mes}-01`;
@@ -426,6 +447,9 @@ export function Livro({ negocio, onVoltar }) {
             conciliacoes={estado.conciliacoes}
             onAlternar={alternarConciliacao}
           />
+        )}
+        {aba === "baixas" && (
+          <Baixas contas={estado.contas} lancamentoLinhas={estado.lancamentoLinhas} onDarBaixa={darBaixa} />
         )}
         {aba === "revisao" && (
           <Revisao

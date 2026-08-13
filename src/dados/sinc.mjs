@@ -58,9 +58,9 @@ export const COLECOES = {
     tabela: "lancamento_linhas",
     forma: "lista",
     /* `descricao`/`vencimento` vieram em 0006_linha_descricao.sql,
-       depois da 0001 — o schema evolui por ALTER, nunca editando
-       migração já aplicada (docs/06 §1). */
-    campos: ["id", "lancamentoId", "contaId", "tipo", "valor", "descricao", "vencimento"],
+       `baixaDe` em 0010_baixa_de.sql — o schema evolui por ALTER, nunca
+       editando migração já aplicada (docs/06 §1). */
+    campos: ["id", "lancamentoId", "contaId", "tipo", "valor", "descricao", "vencimento", "baixaDe"],
     chave: ["id"],
   },
   entradaItens: {

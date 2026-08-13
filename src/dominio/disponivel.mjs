@@ -24,19 +24,24 @@
    todo recebimento de verdade gera um crédito que já desconta do saldo.
    Por isso: usa o menor entre os dois. Mesma lógica para compromissos.
 
-   O QUE FALTA PARA ISTO FICAR MAIS PRECISO (registrado, não escondido)
+   A BAIXA POR ITEM (src/dominio/baixas.mjs) SOBE A PRECISÃO, NÃO SUBSTITUI O CAPEAMENTO
    ------------------------------------------------------------
-   Sem uma baixa explícita por item (docs/06 §13, ainda não construída),
-   não dá para saber COM CERTEZA se uma linha "a receber" específica,
-   dentro da janela de 30 dias, já foi paga ou não — só o agregado. O
-   capeamento é a mitigação; o próximo ganho de precisão é uma tela de
-   "baixa de recebível" ligando pagamento a origem.
+   Quando uma linha "a receber"/"a pagar" tem uma baixa ligada a ela
+   (`baixaDe` apontando pra ela — docs/08 §2, "o próximo ganho de
+   precisão"), sabe-se COM CERTEZA que ela já foi paga: exclui da soma
+   por vencimento. Mas nem toda linha antiga tem baixa registrada (a
+   feature só existe a partir de agora) — por isso o capeamento pelo
+   saldo agregado continua como rede de segurança, não é removido.
    ============================================================ */
 
 import { saldoDeConta } from "./razao.mjs";
 
 const DIAS_JANELA = 30;
-const CONTAS_COMPROMISSO = ["fornecedores", "das_a_pagar", "emprestimos", "salarios_a_pagar"];
+/* Exportadas para `baixas.mjs` reaproveitar a mesma lista — a "conta a
+   receber" e as "contas de compromisso" do plano de fábrica (docs/06
+   §7) são a mesma definição nos dois lugares, não duas cópias. */
+export const CONTA_A_RECEBER = "clientes";
+export const CONTAS_COMPROMISSO = ["fornecedores", "das_a_pagar", "emprestimos", "salarios_a_pagar"];
 
 function addDias(iso, n) {
   const d = new Date(iso + "T12:00:00");
@@ -44,10 +49,10 @@ function addDias(iso, n) {
   return d.toISOString().slice(0, 10);
 }
 
-function somaComVencimentoEmJanela(linhas, contaId, tipo, hoje, dias) {
+function somaComVencimentoEmJanela(linhas, contaId, tipo, hoje, dias, baixadas) {
   const limite = addDias(hoje, dias);
   return linhas
-    .filter((l) => l.contaId === contaId && l.tipo === tipo && l.vencimento && l.vencimento >= hoje && l.vencimento <= limite)
+    .filter((l) => l.contaId === contaId && l.tipo === tipo && l.vencimento && l.vencimento >= hoje && l.vencimento <= limite && !baixadas.has(l.id))
     .reduce((s, l) => s + l.valor, 0);
 }
 
@@ -99,12 +104,14 @@ export function quantoPodeTirar({ contas, lancamentos, lancamentoLinhas, periodo
     (caixaConta ? saldoDeConta(caixaConta, lancamentoLinhas) : 0) +
     (bancoConta ? saldoDeConta(bancoConta, lancamentoLinhas) : 0);
 
-  const aReceberBruto = somaComVencimentoEmJanela(lancamentoLinhas, "clientes", "D", hoje, DIAS_JANELA);
-  const aReceber = capadoNoSaldo(aReceberBruto, contas, "clientes", lancamentoLinhas);
+  const baixadas = new Set(lancamentoLinhas.filter((l) => l.baixaDe).map((l) => l.baixaDe));
+
+  const aReceberBruto = somaComVencimentoEmJanela(lancamentoLinhas, CONTA_A_RECEBER, "D", hoje, DIAS_JANELA, baixadas);
+  const aReceber = capadoNoSaldo(aReceberBruto, contas, CONTA_A_RECEBER, lancamentoLinhas);
 
   let compromissos = 0;
   for (const contaId of CONTAS_COMPROMISSO) {
-    const bruto = somaComVencimentoEmJanela(lancamentoLinhas, contaId, "C", hoje, DIAS_JANELA);
+    const bruto = somaComVencimentoEmJanela(lancamentoLinhas, contaId, "C", hoje, DIAS_JANELA, baixadas);
     compromissos += capadoNoSaldo(bruto, contas, contaId, lancamentoLinhas);
   }
 

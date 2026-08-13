@@ -688,15 +688,65 @@ tabela `cartas`). `npm test`: 94/94 passando.
 
 ---
 
-## ➡️ Próxima tarefa — o que falta do `04_MAPA_DO_APP.md` §12
+## ✅ Baixa de recebível/pagável específica (13/ago)
 
-O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro,
-Caixa de Entrada, Revisão (com Achados), Fechamento, Entregas (com Carta de recomendações),
-edição/exclusão de lançamento, cadastro e plano de contas editáveis, logout, prateleira com
-resumo do mês, recorrentes e Painel do Mês. O que falta:
+Implementa docs/08_DIFERENCIAL.md §2 — o ganho de precisão registrado desde a primeira versão
+de `disponivel.mjs`: em vez de só confiar no saldo agregado de Clientes/Fornecedores pra saber
+se "a receber em 30 dias" já foi pago, agora liga o pagamento à fatura específica.
 
-1. **Baixa de recebível/pagável** — ligar um pagamento à origem específica (docs/08
-   §2, o último item da lista original do "O QUE FALTA")
+| Arquivo | O que é |
+|---|---|
+| `supabase/migrations/0010_baixa_de.sql` | `lancamento_linhas.baixa_de` — FK auto-referente (aponta pra outra linha do mesmo negócio), guarda qual pagamento quitou qual fatura |
+| `src/dados/sinc.mjs` | `baixaDe` no `campos` de `lancamentoLinhas` |
+| `src/dominio/baixas.mjs` (novo) | `recebiveisEmAberto`/`pagaveisEmAberto` (linhas sem baixa ligada) e `construirBaixa` (monta o lançamento de quitação, sempre pelo valor CHEIO — sem baixa parcial nesta versão, registrado no código) |
+| `src/dominio/disponivel.mjs` | `quantoPodeTirar` agora exclui linhas já baixadas da soma por vencimento, ANTES do capeamento agregado — pega um caso que o capeamento sozinho não pega (uma dívida antiga fora da janela sustenta o saldo e disfarça uma liquidação dentro da janela) |
+| `src/telas/Baixas.jsx` (novo) | duas listas (a receber / a pagar em aberto) com "Dar baixa" inline — escolhe caixa/banco e data |
+| `src/telas/Lancar.jsx` | campo de vencimento (opcional) aparece quando a conta da linha é Clientes ou uma das 4 contas de compromisso — antes só o balanço de abertura conseguia setar vencimento; sem isso, "baixa" nunca teria nada pra baixar fora do dia 1 |
+| `tests/baixas.test.mjs` (novo) | 8 testes | `tests/disponivel.test.mjs` (+1) | o caso que só a baixa por item resolve |
+
+### Achado ajustando o Lançar, não bug — gap descoberto construindo
+
+`vencimento` só podia ser setado no balanço de abertura (`ClienteNovo.jsx`) — o formulário de
+Lançar do dia a dia sempre gravava `vencimento: null`. Uma venda a prazo feita em agosto nunca
+teria data de vencimento, e "baixa" ficaria uma tela vazia pra sempre fora da abertura.
+Corrigido: campo de vencimento opcional, só aparece quando a conta escolhida é "a receber" ou
+"a pagar" (evita poluir toda linha comum de caixa/despesa).
+
+### Verificado no navegador contra o banco real
+
+Negócio de teste "Comercio Teste Baixas": lancei uma venda a prazo (D Clientes R$300, venc.
+20/08) — apareceu em "A receber em aberto" com a data certa. Cliquei "Dar baixa" (Caixa,
+hoje) — sumiu da lista, e o SQL confirmou o novo lançamento (D Caixa 300 / C Clientes 300)
+com `baixa_de` apontando exatamente pro id da linha original. Negócio de teste apagado
+depois — o `on delete cascade` de `negocios` limpou a FK auto-referente de `baixa_de` sem
+erro, mesmo sendo duas linhas do MESMO negócio se referenciando. `npm test`: 103/103
+passando.
+
+⚠️ **Nota de ferramenta, não de app:** durante este teste, `mcp__Claude_Browser__form_input` e
+`computer{action:"type"}` não conseguiram commitar valor em `<input type="date">` — só
+funcionou setando `.value` via `Object.getOwnPropertyDescriptor` + `dispatchEvent` direto no
+DOM. Confirmado que o app reage certo a eventos DOM padrão; a limitação é do driver de
+automação do navegador desta sessão, não do código.
+
+---
+
+## ➡️ Próxima tarefa
+
+Os dez itens do "O QUE FALTA" (mandato "quero o sistema já pronto com tudo") estão
+completos: núcleo contábil, onboarding, livro completo (lançar/editar/excluir, diário, razão,
+balancete, plano de contas editável, conciliação, baixas), Revisão com Achados, Fechamento,
+Entregas com Carta de recomendações, Recorrentes, Painel do Mês, cadastro editável, logout e
+prateleira rica. Não há mais nenhum item pendente desta lista.
+
+O que resta é o que já estava registrado como fora do escopo de código, pendente de ação do
+Luan (não bloqueia nada tecnicamente):
+
+1. ⚠️ Revogar o token de gerenciamento do Supabase (`sbp_...`) — não é mais necessário
+2. ⚠️ Conferir na legislação vigente o limite anual do MEI, o DAS e os prazos, antes do
+   primeiro cliente real — popular `parametros_fiscais`
+3. Script de exportação/backup semanal
+4. Testar o fluxo real de confirmação de e-mail no cadastro (ainda só testado com o usuário
+   de teste)
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
 semanal (lacuna 1, acima).

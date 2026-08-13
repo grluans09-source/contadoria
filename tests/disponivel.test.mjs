@@ -59,6 +59,28 @@ test("a receber NUNCA passa do saldo total da conta (o capeamento contra superes
   assert.equal(r.aReceber, 0, "já foi pago — não pode contar de novo só porque a linha antiga ainda tem vencimento registrado");
 });
 
+test("baixa por item pega o caso que o capeamento agregado NÃO pega sozinho", () => {
+  const linhas = [
+    /* uma dívida antiga, fora da janela de 30 dias, ainda em aberto —
+       ela sozinha já sustenta o saldo agregado de Clientes em R$1.000,
+       então o capeamento (bruto vs. saldo) não teria motivo pra cortar
+       nada. */
+    { lancamentoId: "lAntiga", contaId: "clientes", tipo: "D", valor: 1000, vencimento: "2026-11-01" },
+    { lancamentoId: "lAntiga", contaId: "vendas", tipo: "C", valor: 1000 },
+    /* uma venda a prazo DENTRO da janela — mas JÁ FOI PAGA (a linha de
+       baixa aponta pra ela via baixaDe). Sem o rastreio por item, a
+       busca "bruta" por vencimento ainda a encontraria (400 ≤ saldo de
+       1000, o capeamento não desconfiaria de nada) e contaria de novo
+       um dinheiro que já entrou. */
+    { id: "rJanela", lancamentoId: "lJanela", contaId: "clientes", tipo: "D", valor: 400, vencimento: "2026-08-20" },
+    { lancamentoId: "lJanela", contaId: "vendas", tipo: "C", valor: 400 },
+    { lancamentoId: "lBaixa", contaId: "banco", tipo: "D", valor: 400 },
+    { lancamentoId: "lBaixa", contaId: "clientes", tipo: "C", valor: 400, baixaDe: "rJanela" },
+  ];
+  const r = quantoPodeTirar({ contas, lancamentos: [], lancamentoLinhas: linhas, periodosFechados: [], hoje: HOJE });
+  assert.equal(r.aReceber, 0, "a baixa específica precisa excluir os 400 mesmo com saldo agregado sobrando pra disfarçar");
+});
+
 test("compromissos dentro da janela reduzem o disponível; capados no saldo em aberto", () => {
   const linhas = [
     { lancamentoId: "l1", contaId: "caixa", tipo: "D", valor: 1000 },

@@ -37,7 +37,7 @@ function estadoCheio() {
     lancamentos: [{ id: "l1", data: "2026-08-01", dataCompetencia: "2026-08-01",
                     descricao: "Venda", origem: "manual", documento: "NF 42" }],
     lancamentoLinhas: [{ id: "ll1", lancamentoId: "l1", contaId: "c1", tipo: "D", valor: 150.5,
-                         descricao: "Saldo inicial do caixa", vencimento: null }],
+                         descricao: "Saldo inicial do caixa", vencimento: null, baixaDe: null }],
     entradaItens: [{ id: "e1", origem: "extrato", data: "2026-08-01",
                      descricaoBruta: "PIX RECEBIDO", valor: 150.5, situacao: "classificado",
                      lancamentoId: "l1", contaOrigemId: "c1" }],
