@@ -552,20 +552,52 @@ nenhuma tabela. `npm test`: 62/62 passando.
 
 ---
 
+## ✅ Recorrentes (13/ago)
+
+Implementa docs/05_ROTEIRO_DO_SERVICO.md §7: "já entram cadastradas na abertura — é o que
+faz o segundo mês ser rápido". Item 2 do que faltava.
+
+| Arquivo | O que é |
+|---|---|
+| `supabase/migrations/0008_recorrentes.sql` | tabelas `recorrentes`/`recorrente_linhas` (mesmo desenho cabeçalho+linhas de `lancamentos`, docs/06 §1); RLS e grants no mesmo padrão; `aplicar_lote` reescrito com as duas tabelas na lista branca |
+| `src/dados/sinc.mjs` | duas coleções novas no motor de sincronização — carregam/salvam sozinhas, sem código extra em `estadoNegocio.mjs` |
+| `src/dominio/recorrentes.mjs` (novo) | `gerarLancamentosDoMes` — função pura: materializa cada template ativo num lançamento de verdade, `origem: "recorrente"`, `documento` = id do template. Não duplica se já gerou este mês (mesmo `documento` + mesmo mês) |
+| `tests/recorrentes.test.mjs` (novo) | 5 testes — inclui não duplicar, mês diferente conta separado, e cada lançamento gerado fecha D=C |
+| `src/telas/Recorrentes.jsx` (novo) | cadastro de template (mesma validação de equilíbrio do Lancar), lista com ativar/desativar, botão "Gerar lançamentos do mês" |
+| `src/telas/Livro.jsx` | aba nova; `adicionarRecorrente`/`alternarAtivaRecorrente`/`gerarRecorrentesDoMes` |
+| `src/telas/Diario.jsx` | `recorrente` saiu da lista de origens travadas — é um lançamento comum que nasceu sozinho, não uma marca estrutural como abertura/fechamento; precisa poder ser corrigido se o valor variar um mês (conta de energia, por exemplo) |
+
+### Achado ajustando o Diário, não bug — decisão de design revista
+
+`ORIGENS_EDITAVEIS` só tinha `manual`/`extrato`; `recorrente` ficaria travado do mesmo jeito
+que `abertura`/`encerramento_mes`, mas não deveria: não é uma marca estrutural, é só um
+lançamento que nasceu sozinho. Corrigido antes de qualquer relato, testado editando o
+lançamento gerado (abriu no formulário com os valores certos, R$400/R$400).
+
+### Verificado no navegador contra o banco real
+
+Negócio de teste "Padaria Teste Recorrentes": cadastrei o template "Aluguel" (D Aluguel
+R$400, C Caixa R$400), cliquei "Gerar lançamentos do mês" — 1 lançamento criado, a prateleira
+passou a mostrar "faltou R$400,00 este mês". Cliquei "Gerar" de novo — "Nada para gerar: já
+foi feito este mês", confirmado por SQL que só existe 1 lançamento com `origem='recorrente'`
+e `documento` apontando pro id do template certo. Editei o lançamento gerado — abriu certo no
+formulário. Desativei o template — persistiu `ativa:false`. Negócio de teste apagado depois,
+zero linhas órfãs. `npm test`: 67/67 passando.
+
+---
+
 ## ➡️ Próxima tarefa — o que falta do `04_MAPA_DO_APP.md` §12
 
 O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro,
 Caixa de Entrada, Revisão, Fechamento, Entregas, edição/exclusão de lançamento, cadastro e
-plano de contas editáveis, logout e prateleira com resumo do mês. O que falta:
+plano de contas editáveis, logout, prateleira com resumo do mês e recorrentes. O que falta:
 
 1. **Painel do Mês** (`04` §3) — só faz sentido com mais de 1 cliente real usando
-2. **Recorrentes** — peça futura sinalizada no passo 5 (Bloco 4 do Roteiro captura como
-   texto livre por enquanto); sem tabela própria ainda
-3. **Achados/anomalias** (`04` §7) — deliberadamente adiado: exige histórico de meses para
+2. **Achados/anomalias** (`04` §7) — deliberadamente adiado: exige histórico de meses para
    ter uma média com que comparar, e ainda não existe cliente real com histórico
-4. **Baixa de recebível/pagável** — ligar um pagamento à origem específica (docs/08
+3. **Baixa de recebível/pagável** — ligar um pagamento à origem específica (docs/08
    §2, registrado como próximo ganho de precisão do "quanto você pode tirar")
-5. **Carta de recomendações** (`04` §9) — texto livre por enquanto; a UI de captura ainda
+4. **Carta de recomendações** (`04` §9) — texto livre por enquanto; a UI de captura ainda
    não existe
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação

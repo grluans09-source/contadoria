@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React17, { useState as useState14, useEffect as useEffect8 } from "react";
+import React18, { useState as useState15, useEffect as useEffect8 } from "react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -767,7 +767,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
 }
 
 // src/telas/Livro.jsx
-import React16, { useState as useState13, useEffect as useEffect7, useRef as useRef2, useCallback as useCallback2 } from "react";
+import React17, { useState as useState14, useEffect as useEffect7, useRef as useRef2, useCallback as useCallback2 } from "react";
 import { ArrowLeft as ArrowLeft2 } from "lucide-react";
 
 // src/dados/sinc.mjs
@@ -831,6 +831,21 @@ var COLECOES = {
     tabela: "trilha",
     forma: "trilha",
     apenasInsere: true
+  },
+  /* Recorrentes — o template (cabeçalho) e suas pernas, mesmo desenho
+     cabeçalho+linhas de lancamentos/lancamentoLinhas (docs/06 §1). */
+  recorrentes: {
+    tabela: "recorrentes",
+    forma: "lista",
+    campos: ["id", "descricao", "ativa"],
+    padroes: { ativa: true },
+    chave: ["id"]
+  },
+  recorrenteLinhas: {
+    tabela: "recorrente_linhas",
+    forma: "lista",
+    campos: ["id", "recorrenteId", "contaId", "tipo", "valor"],
+    chave: ["id"]
   },
   /* Array de "mes:AAAA-MM" ou "ano:AAAA" (docs/06 §5). */
   periodosFechados: {
@@ -976,7 +991,7 @@ import { Pencil, Trash2 as Trash22, Check, X as X2 } from "lucide-react";
 var fmt2 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtData = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
 var ORIGEM_LABEL = { manual: "Manual", extrato: "Extrato", recorrente: "Recorrente", abertura: "Abertura", encerramento_mes: "Fechamento", encerramento_ano: "Encerramento" };
-var ORIGENS_EDITAVEIS = /* @__PURE__ */ new Set(["manual", "extrato"]);
+var ORIGENS_EDITAVEIS = /* @__PURE__ */ new Set(["manual", "extrato", "recorrente"]);
 function LinhaExcluir({ lancamento, onConfirmar }) {
   const [confirmando, setConfirmando] = useState5(false);
   if (confirmando) {
@@ -1615,8 +1630,85 @@ function ConfigNegocio({ negocioId, onAtualizado }) {
   return /* @__PURE__ */ React15.createElement(Card, { className: "max-w-lg" }, /* @__PURE__ */ React15.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Nome"), /* @__PURE__ */ React15.createElement(Input, { value: campo.nome, onChange: (e) => set("nome", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Apelido"), /* @__PURE__ */ React15.createElement(Input, { value: campo.apelido, onChange: (e) => set("apelido", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "CNPJ"), /* @__PURE__ */ React15.createElement(Input, { value: campo.cnpj, onChange: (e) => set("cnpj", e.target.value), placeholder: "opcional" })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Atividade principal"), /* @__PURE__ */ React15.createElement(Input, { value: campo.atividade, onChange: (e) => set("atividade", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "WhatsApp"), /* @__PURE__ */ React15.createElement(Input, { value: campo.whatsapp, onChange: (e) => set("whatsapp", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Tem funcion\xE1rio?"), /* @__PURE__ */ React15.createElement(Select, { value: campo.tem_funcionario, onChange: (v) => set("tem_funcionario", v), options: [{ value: "sim", label: "Sim" }, { value: "nao", label: "N\xE3o" }] })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Situa\xE7\xE3o"), /* @__PURE__ */ React15.createElement(Select, { value: campo.situacao, onChange: (v) => set("situacao", v), options: [{ value: "ativo", label: "Ativo" }, { value: "encerrado", label: "Encerrado" }] })), erro && /* @__PURE__ */ React15.createElement("div", { className: "text-xs rounded-md px-3 py-2", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React15.createElement("div", { className: "flex items-center gap-3 pt-1" }, /* @__PURE__ */ React15.createElement(Button, { onClick: salvar, disabled: salvando }, salvando ? "Salvando\u2026" : "Salvar"), confirmado && /* @__PURE__ */ React15.createElement("span", { className: "text-xs", style: { color: "var(--credit)" } }, "Salvo."))));
 }
 
-// src/telas/Livro.jsx
+// src/telas/Recorrentes.jsx
+import React16, { useState as useState13, useMemo as useMemo9 } from "react";
+import { Plus as Plus5, Trash2 as Trash24, RefreshCw } from "lucide-react";
 var uid4 = () => Math.random().toString(36).slice(2, 10);
+var fmt9 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var linhaVazia2 = () => ({ chave: uid4(), contaId: "", tipo: "D", valor: "" });
+function FormularioNovoRecorrente({ opcoesContas, onAdicionar, onFechar }) {
+  const [descricao, setDescricao] = useState13("");
+  const [linhas, setLinhas] = useState13([linhaVazia2(), linhaVazia2()]);
+  const editarLinha = (chave, campo, valor) => setLinhas((ls) => ls.map((l) => l.chave === chave ? { ...l, [campo]: valor } : l));
+  const removerLinha = (chave) => setLinhas((ls) => ls.filter((l) => l.chave !== chave));
+  const adicionarLinha = () => setLinhas((ls) => [...ls, linhaVazia2()]);
+  const numero = (v) => {
+    const n = parseFloat(String(v).replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const somaD = linhas.filter((l) => l.tipo === "D").reduce((s, l) => s + numero(l.valor), 0);
+  const somaC = linhas.filter((l) => l.tipo === "C").reduce((s, l) => s + numero(l.valor), 0);
+  const diferenca = Math.round((somaD - somaC) * 100) / 100;
+  const linhasValidas = linhas.filter((l) => l.contaId && numero(l.valor) > 0);
+  const podeGravar = descricao.trim() && linhasValidas.length >= 2 && diferenca === 0 && somaD > 0;
+  const salvar = () => {
+    if (!podeGravar) return;
+    const recorrenteId = uid4();
+    onAdicionar({
+      recorrente: { id: recorrenteId, descricao: descricao.trim(), ativa: true },
+      linhas: linhasValidas.map((l) => ({ id: uid4(), recorrenteId, contaId: l.contaId, tipo: l.tipo, valor: numero(l.valor) }))
+    });
+    onFechar();
+  };
+  return /* @__PURE__ */ React16.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React16.createElement("div", { className: "mb-3" }, /* @__PURE__ */ React16.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React16.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Aluguel" })), /* @__PURE__ */ React16.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React16.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center" }, /* @__PURE__ */ React16.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React16.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React16.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React16.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), /* @__PURE__ */ React16.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React16.createElement(Trash24, { size: 15 })))), /* @__PURE__ */ React16.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React16.createElement(Plus5, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React16.createElement("span", null, "D\xE9bitos: ", fmt9(somaD), " \xB7 Cr\xE9ditos: ", fmt9(somaC)), diferenca !== 0 && /* @__PURE__ */ React16.createElement(AlertLine, null, "Diferen\xE7a de ", fmt9(Math.abs(diferenca)), " \u2014 precisa fechar antes de gravar")), /* @__PURE__ */ React16.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React16.createElement(Button, { onClick: salvar, disabled: !podeGravar }, "Salvar recorrente"), /* @__PURE__ */ React16.createElement(Button, { variant: "ghost", onClick: onFechar }, "Cancelar")));
+}
+function Recorrentes({ contas, recorrentes, recorrenteLinhas, onAdicionar, onAlternarAtiva, onGerar }) {
+  const [mostrarForm, setMostrarForm] = useState13(false);
+  const [resultado, setResultado] = useState13(null);
+  const contasPorId = useMemo9(() => new Map(contas.map((c) => [c.id, c])), [contas]);
+  const opcoesContas = useMemo9(
+    () => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)).map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })),
+    [contas]
+  );
+  const linhasDe = (recorrenteId) => recorrenteLinhas.filter((l) => l.recorrenteId === recorrenteId);
+  const gerar = () => {
+    const { gerados } = onGerar();
+    setResultado(gerados);
+    setTimeout(() => setResultado(null), 4e3);
+  };
+  return /* @__PURE__ */ React16.createElement("div", null, /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-4 flex-wrap gap-2" }, /* @__PURE__ */ React16.createElement(Button, { onClick: gerar, disabled: !recorrentes.some((r) => r.ativa) }, /* @__PURE__ */ React16.createElement(RefreshCw, { size: 14 }), " Gerar lan\xE7amentos do m\xEAs"), !mostrarForm && /* @__PURE__ */ React16.createElement(Button, { variant: "ghost", onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React16.createElement(Plus5, { size: 14 }), " Novo recorrente")), resultado !== null && /* @__PURE__ */ React16.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--credit-soft)", color: "var(--credit)" } }, resultado > 0 ? `${resultado} lan\xE7amento(s) gerado(s) \u2014 confira no Di\xE1rio.` : "Nada para gerar: j\xE1 foi feito este m\xEAs, ou n\xE3o h\xE1 recorrente ativa."), mostrarForm && /* @__PURE__ */ React16.createElement(FormularioNovoRecorrente, { opcoesContas, onAdicionar, onFechar: () => setMostrarForm(false) }), recorrentes.length === 0 && !mostrarForm && /* @__PURE__ */ React16.createElement(Card, { className: "text-center py-10" }, /* @__PURE__ */ React16.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum recorrente cadastrado ainda."), /* @__PURE__ */ React16.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)" } }, "Aluguel, internet, mensalidade \u2014 o que se repete todo m\xEAs.")), /* @__PURE__ */ React16.createElement("div", { className: "space-y-3" }, recorrentes.map((r) => /* @__PURE__ */ React16.createElement(Card, { key: r.id, pad: "apertado", style: { opacity: r.ativa ? 1 : 0.45 } }, /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-2" }, /* @__PURE__ */ React16.createElement("span", { className: "text-sm font-medium", style: { color: "var(--ink)" } }, r.descricao), /* @__PURE__ */ React16.createElement("button", { onClick: () => onAlternarAtiva(r.id, !r.ativa), className: "text-xs transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, r.ativa ? "desativar" : "ativar")), linhasDe(r.id).map((l) => /* @__PURE__ */ React16.createElement("div", { key: l.id, className: "flex justify-between text-xs py-0.5", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, /* @__PURE__ */ React16.createElement("span", null, l.tipo, " \xB7 ", contasPorId.get(l.contaId)?.nome || l.contaId), /* @__PURE__ */ React16.createElement("span", null, fmt9(l.valor))))))));
+}
+
+// src/dominio/recorrentes.mjs
+var uidPadrao3 = () => Math.random().toString(36).slice(2, 10);
+function gerarLancamentosDoMes(recorrentes, recorrenteLinhas, lancamentos, mes, dataDoMes, gerarId = uidPadrao3) {
+  const jaGeradas = new Set(
+    (lancamentos || []).filter((l) => l.origem === "recorrente" && (l.data || "").slice(0, 7) === mes).map((l) => l.documento)
+  );
+  const novosLancamentos = [];
+  const novasLinhas = [];
+  for (const rec of recorrentes || []) {
+    if (!rec.ativa || jaGeradas.has(rec.id)) continue;
+    const linhasDoTemplate = (recorrenteLinhas || []).filter((l) => l.recorrenteId === rec.id);
+    if (!linhasDoTemplate.length) continue;
+    const lancamentoId = gerarId();
+    novosLancamentos.push({
+      id: lancamentoId,
+      data: dataDoMes,
+      dataCompetencia: dataDoMes,
+      descricao: rec.descricao,
+      origem: "recorrente",
+      documento: rec.id
+    });
+    for (const l of linhasDoTemplate) {
+      novasLinhas.push({ id: gerarId(), lancamentoId, contaId: l.contaId, tipo: l.tipo, valor: l.valor, descricao: null, vencimento: null });
+    }
+  }
+  return { lancamentos: novosLancamentos, linhas: novasLinhas };
+}
+
+// src/telas/Livro.jsx
+var uid5 = () => Math.random().toString(36).slice(2, 10);
 var mesDe = (dataIso) => (dataIso || "").slice(0, 7);
 var ABAS = [
   { id: "caixa", label: "Caixa de Entrada" },
@@ -1628,16 +1720,17 @@ var ABAS = [
   { id: "revisao", label: "Revis\xE3o" },
   { id: "entregas", label: "Entregas" },
   { id: "plano", label: "Plano de contas" },
+  { id: "recorrentes", label: "Recorrentes" },
   { id: "negocio", label: "Neg\xF3cio" }
 ];
 function Livro({ negocio, onVoltar }) {
-  const [aba, setAba] = useState13("caixa");
-  const [estado, setEstado] = useState13(null);
-  const [loaded, setLoaded] = useState13(false);
-  const [erro, setErro] = useState13("");
-  const [salvando, setSalvando] = useState13(false);
-  const [confirmado, setConfirmado] = useState13(false);
-  const [editandoId, setEditandoId] = useState13(null);
+  const [aba, setAba] = useState14("caixa");
+  const [estado, setEstado] = useState14(null);
+  const [loaded, setLoaded] = useState14(false);
+  const [erro, setErro] = useState14("");
+  const [salvando, setSalvando] = useState14(false);
+  const [confirmado, setConfirmado] = useState14(false);
+  const [editandoId, setEditandoId] = useState14(null);
   const fotoRef = useRef2(null);
   const estadoRef = useRef2(null);
   const timerRef = useRef2(null);
@@ -1736,7 +1829,7 @@ function Livro({ negocio, onVoltar }) {
       const regraExistente = prev.regrasClassificacao.find(
         (r) => (r.padrao || "").toUpperCase() === padrao.toUpperCase() && r.contaId === contaCategoriaId
       );
-      const regrasClassificacao = regraExistente ? prev.regrasClassificacao.map((r) => r === regraExistente ? { ...r, acertos: (r.acertos || 1) + 1 } : r) : [...prev.regrasClassificacao, { id: uid4(), padrao, contaId: contaCategoriaId, acertos: 1 }];
+      const regrasClassificacao = regraExistente ? prev.regrasClassificacao.map((r) => r === regraExistente ? { ...r, acertos: (r.acertos || 1) + 1 } : r) : [...prev.regrasClassificacao, { id: uid5(), padrao, contaId: contaCategoriaId, acertos: 1 }];
       return {
         ...prev,
         lancamentos: [...prev.lancamentos, lancamento],
@@ -1786,6 +1879,44 @@ function Livro({ negocio, onVoltar }) {
       contas: prev.contas.map((c) => c.id === contaId ? { ...c, ativa } : c)
     }));
   }, []);
+  const adicionarRecorrente = useCallback2(({ recorrente, linhas }) => {
+    setEstado((prev) => ({
+      ...prev,
+      recorrentes: [...prev.recorrentes, recorrente],
+      recorrenteLinhas: [...prev.recorrenteLinhas, ...linhas],
+      trilha: [...prev.trilha, { tipo: "recorrente_novo", descricao: recorrente.descricao }]
+    }));
+  }, []);
+  const alternarAtivaRecorrente = useCallback2((recorrenteId, ativa) => {
+    setEstado((prev) => ({
+      ...prev,
+      recorrentes: prev.recorrentes.map((r) => r.id === recorrenteId ? { ...r, ativa } : r)
+    }));
+  }, []);
+  const gerarRecorrentesDoMes = useCallback2(() => {
+    const mes = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
+    const dataDoMes = `${mes}-01`;
+    if (mesEstaFechado(dataDoMes)) {
+      setErro(`O m\xEAs de ${mes} j\xE1 est\xE1 fechado \u2014 reabra na aba Revis\xE3o antes de gerar recorrentes.`);
+      return { gerados: 0 };
+    }
+    const { lancamentos, linhas } = gerarLancamentosDoMes(
+      estadoRef.current.recorrentes,
+      estadoRef.current.recorrenteLinhas,
+      estadoRef.current.lancamentos,
+      mes,
+      dataDoMes
+    );
+    if (lancamentos.length) {
+      setEstado((prev) => ({
+        ...prev,
+        lancamentos: [...prev.lancamentos, ...lancamentos],
+        lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
+        trilha: [...prev.trilha, { tipo: "gerar_recorrentes", descricao: `${lancamentos.length} lan\xE7amento(s) de ${mes}` }]
+      }));
+    }
+    return { gerados: lancamentos.length };
+  }, [mesEstaFechado]);
   const editarLancamento = useCallback2(({ lancamentoId, lancamento, linhas }) => {
     const original = estadoRef.current?.lancamentos.find((l) => l.id === lancamentoId);
     if (mesEstaFechado(original?.data) || mesEstaFechado(lancamento.data)) {
@@ -1819,9 +1950,9 @@ function Livro({ negocio, onVoltar }) {
   }, [mesEstaFechado]);
   const editando = editandoId && estado ? { lancamento: estado.lancamentos.find((l) => l.id === editandoId), linhas: estado.lancamentoLinhas.filter((l) => l.lancamentoId === editandoId) } : null;
   if (!loaded || !estado) {
-    return /* @__PURE__ */ React16.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React16.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
+    return /* @__PURE__ */ React17.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React17.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
   }
-  return /* @__PURE__ */ React16.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React16.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React16.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React16.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React16.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React16.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React16.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React16.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React16.createElement(
+  return /* @__PURE__ */ React17.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React17.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React17.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React17.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React17.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React17.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React17.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React17.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React17.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React17.createElement(
     CaixaEntrada,
     {
       contas: estado.contas,
@@ -1832,7 +1963,7 @@ function Livro({ negocio, onVoltar }) {
       onPessoal: (item) => marcarSituacao(item, "pessoal"),
       onDuvida: (item) => marcarSituacao(item, "duvida")
     }
-  ), aba === "lancar" && /* @__PURE__ */ React16.createElement(
+  ), aba === "lancar" && /* @__PURE__ */ React17.createElement(
     Lancar,
     {
       contas: estado.contas,
@@ -1841,7 +1972,7 @@ function Livro({ negocio, onVoltar }) {
       onEditar: editarLancamento,
       onCancelarEdicao: cancelarEdicao
     }
-  ), aba === "diario" && /* @__PURE__ */ React16.createElement(
+  ), aba === "diario" && /* @__PURE__ */ React17.createElement(
     Diario,
     {
       contas: estado.contas,
@@ -1850,7 +1981,7 @@ function Livro({ negocio, onVoltar }) {
       onEditar: iniciarEdicao,
       onExcluir: excluirLancamento
     }
-  ), aba === "razao" && /* @__PURE__ */ React16.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React16.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React16.createElement(
+  ), aba === "razao" && /* @__PURE__ */ React17.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React17.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React17.createElement(
     Conciliacao,
     {
       lancamentos: estado.lancamentos,
@@ -1858,7 +1989,7 @@ function Livro({ negocio, onVoltar }) {
       conciliacoes: estado.conciliacoes,
       onAlternar: alternarConciliacao
     }
-  ), aba === "revisao" && /* @__PURE__ */ React16.createElement(
+  ), aba === "revisao" && /* @__PURE__ */ React17.createElement(
     Revisao,
     {
       contas: estado.contas,
@@ -1869,7 +2000,7 @@ function Livro({ negocio, onVoltar }) {
       onFechar: fecharMes,
       onReabrir: reabrirMes
     }
-  ), aba === "entregas" && /* @__PURE__ */ React16.createElement(
+  ), aba === "entregas" && /* @__PURE__ */ React17.createElement(
     RetratoDoMes,
     {
       negocio,
@@ -1878,14 +2009,24 @@ function Livro({ negocio, onVoltar }) {
       lancamentoLinhas: estado.lancamentoLinhas,
       periodosFechados: estado.periodosFechados
     }
-  ), aba === "plano" && /* @__PURE__ */ React16.createElement(PlanoContas, { contas: estado.contas, onAdicionar: adicionarConta, onAlternarAtiva: alternarAtivaConta }), aba === "negocio" && /* @__PURE__ */ React16.createElement(ConfigNegocio, { negocioId: negocio.id })));
+  ), aba === "plano" && /* @__PURE__ */ React17.createElement(PlanoContas, { contas: estado.contas, onAdicionar: adicionarConta, onAlternarAtiva: alternarAtivaConta }), aba === "recorrentes" && /* @__PURE__ */ React17.createElement(
+    Recorrentes,
+    {
+      contas: estado.contas,
+      recorrentes: estado.recorrentes,
+      recorrenteLinhas: estado.recorrenteLinhas,
+      onAdicionar: adicionarRecorrente,
+      onAlternarAtiva: alternarAtivaRecorrente,
+      onGerar: gerarRecorrentesDoMes
+    }
+  ), aba === "negocio" && /* @__PURE__ */ React17.createElement(ConfigNegocio, { negocioId: negocio.id })));
 }
 
 // src/app/App.jsx
 function App() {
-  const [authSession, setAuthSession] = useState14(void 0);
-  const [dark] = useState14(true);
-  const [negocioAberto, setNegocioAberto] = useState14(null);
+  const [authSession, setAuthSession] = useState15(void 0);
+  const [dark] = useState15(true);
+  const [negocioAberto, setNegocioAberto] = useState15(null);
   useEffect8(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -1900,14 +2041,14 @@ function App() {
     };
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
-  return /* @__PURE__ */ React17.createElement(React17.Fragment, null, /* @__PURE__ */ React17.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React17.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React17.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React17.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
+  return /* @__PURE__ */ React18.createElement(React18.Fragment, null, /* @__PURE__ */ React18.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React18.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React18.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React18.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
     /* `key={negocioAberto.id}` desmonta e remonta o Livro inteiro ao
        trocar de negócio — é o que elimina por construção a classe de
        bug H3 do ContLife (doc 26): sem isso, o estado em memória de
        um negócio podia vazar para dentro da chave do próximo por um
        instante, entre trocar o id e a carga nova terminar. */
-    /* @__PURE__ */ React17.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
-  ) : /* @__PURE__ */ React17.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
+    /* @__PURE__ */ React18.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+  ) : /* @__PURE__ */ React18.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
 }
 export {
   App as default

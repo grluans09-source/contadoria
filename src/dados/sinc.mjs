@@ -100,6 +100,22 @@ export const COLECOES = {
     apenasInsere: true,
   },
 
+  /* Recorrentes — o template (cabeçalho) e suas pernas, mesmo desenho
+     cabeçalho+linhas de lancamentos/lancamentoLinhas (docs/06 §1). */
+  recorrentes: {
+    tabela: "recorrentes",
+    forma: "lista",
+    campos: ["id", "descricao", "ativa"],
+    padroes: { ativa: true },
+    chave: ["id"],
+  },
+  recorrenteLinhas: {
+    tabela: "recorrente_linhas",
+    forma: "lista",
+    campos: ["id", "recorrenteId", "contaId", "tipo", "valor"],
+    chave: ["id"],
+  },
+
   /* Array de "mes:AAAA-MM" ou "ano:AAAA" (docs/06 §5). */
   periodosFechados: {
     tabela: "periodos_fechados",

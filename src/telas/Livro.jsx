@@ -14,7 +14,9 @@ import { Revisao } from "./Revisao.jsx";
 import { RetratoDoMes } from "./RetratoDoMes.jsx";
 import { PlanoContas } from "./PlanoContas.jsx";
 import { ConfigNegocio } from "./ConfigNegocio.jsx";
+import { Recorrentes } from "./Recorrentes.jsx";
 import { construirLancamentoDeClassificacao } from "../dominio/classificacao.mjs";
+import { gerarLancamentosDoMes } from "../dominio/recorrentes.mjs";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const mesDe = (dataIso) => (dataIso || "").slice(0, 7);
@@ -55,6 +57,7 @@ const ABAS = [
   { id: "revisao", label: "Revisão" },
   { id: "entregas", label: "Entregas" },
   { id: "plano", label: "Plano de contas" },
+  { id: "recorrentes", label: "Recorrentes" },
   { id: "negocio", label: "Negócio" },
 ];
 
@@ -246,6 +249,48 @@ export function Livro({ negocio, onVoltar }) {
     }));
   }, []);
 
+  const adicionarRecorrente = useCallback(({ recorrente, linhas }) => {
+    setEstado((prev) => ({
+      ...prev,
+      recorrentes: [...prev.recorrentes, recorrente],
+      recorrenteLinhas: [...prev.recorrenteLinhas, ...linhas],
+      trilha: [...prev.trilha, { tipo: "recorrente_novo", descricao: recorrente.descricao }],
+    }));
+  }, []);
+
+  const alternarAtivaRecorrente = useCallback((recorrenteId, ativa) => {
+    setEstado((prev) => ({
+      ...prev,
+      recorrentes: prev.recorrentes.map((r) => (r.id === recorrenteId ? { ...r, ativa } : r)),
+    }));
+  }, []);
+
+  /* Gera os lançamentos do mês CORRENTE (não o mês que a tela está
+     olhando — recorrentes são sobre "o que vence agora", docs/05 §7).
+     `gerarLancamentosDoMes` (dominio puro) já filtra as inativas e as
+     que já foram geradas este mês; aqui só aplica ao estado, dentro do
+     mesmo loop reativo de tudo o mais. */
+  const gerarRecorrentesDoMes = useCallback(() => {
+    const mes = new Date().toISOString().slice(0, 7);
+    const dataDoMes = `${mes}-01`;
+    if (mesEstaFechado(dataDoMes)) {
+      setErro(`O mês de ${mes} já está fechado — reabra na aba Revisão antes de gerar recorrentes.`);
+      return { gerados: 0 };
+    }
+    const { lancamentos, linhas } = gerarLancamentosDoMes(
+      estadoRef.current.recorrentes, estadoRef.current.recorrenteLinhas, estadoRef.current.lancamentos, mes, dataDoMes
+    );
+    if (lancamentos.length) {
+      setEstado((prev) => ({
+        ...prev,
+        lancamentos: [...prev.lancamentos, ...lancamentos],
+        lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
+        trilha: [...prev.trilha, { tipo: "gerar_recorrentes", descricao: `${lancamentos.length} lançamento(s) de ${mes}` }],
+      }));
+    }
+    return { gerados: lancamentos.length };
+  }, [mesEstaFechado]);
+
   /* Editar substitui o cabeçalho e TROCA as linhas inteiras — não tenta
      casar linha por linha (o dono pode ter mudado quantas são). O motor
      de sincronização calcula sozinho o que precisa apagar e o que
@@ -380,6 +425,16 @@ export function Livro({ negocio, onVoltar }) {
         )}
         {aba === "plano" && (
           <PlanoContas contas={estado.contas} onAdicionar={adicionarConta} onAlternarAtiva={alternarAtivaConta} />
+        )}
+        {aba === "recorrentes" && (
+          <Recorrentes
+            contas={estado.contas}
+            recorrentes={estado.recorrentes}
+            recorrenteLinhas={estado.recorrenteLinhas}
+            onAdicionar={adicionarRecorrente}
+            onAlternarAtiva={alternarAtivaRecorrente}
+            onGerar={gerarRecorrentesDoMes}
+          />
         )}
         {aba === "negocio" && <ConfigNegocio negocioId={negocio.id} />}
       </div>

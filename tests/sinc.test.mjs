@@ -26,6 +26,7 @@ const arquivosMigracao = () => readdirSync(MIGRACOES_DIR).filter((f) => f.endsWi
 const vazio = {
   contas: [], lancamentos: [], lancamentoLinhas: [], entradaItens: [],
   regrasClassificacao: [], lixeira: [], trilha: [],
+  recorrentes: [], recorrenteLinhas: [],
   periodosFechados: [], conciliacoes: [],
 };
 
@@ -43,6 +44,8 @@ function estadoCheio() {
     regrasClassificacao: [{ id: "r1", padrao: "POSTO IPIRANGA", contaId: "c1", acertos: 3 }],
     lixeira: [{ lancamentoId: "l9", conteudo: { id: "l9", linhas: [] }, excluidoEm: "2026-08-01T10:00:00.000Z" }],
     trilha: [{ tipo: "criar", descricao: "lançamento l1" }],
+    recorrentes: [{ id: "rec1", descricao: "Aluguel", ativa: true }],
+    recorrenteLinhas: [{ id: "rl1", recorrenteId: "rec1", contaId: "c1", tipo: "D", valor: 400 }],
     periodosFechados: ["mes:2026-07"],
     conciliacoes: ["l1"],
   };
@@ -92,6 +95,7 @@ const SERVIDOR_CUIDA = {
   regras_classificacao: ["atualizado_em"],
   trilha: ["id", "criado_em"],
   conciliacoes: ["conferido_em"],
+  recorrentes: ["criado_em"],
 };
 
 /* ============================================================
@@ -159,6 +163,8 @@ test("nenhuma coluna `not null` com padrão recebe null quando o campo falta", (
     regrasClassificacao: [{ id: "x", padrao: "p" }],
     lixeira: [{ lancamentoId: "l1", conteudo: {}, excluidoEm: "2026-08-01T00:00:00Z" }],
     trilha: [{ tipo: "a", descricao: "d" }],
+    recorrentes: [{ id: "x", descricao: "d" }],
+    recorrenteLinhas: [{ id: "x", recorrenteId: "rec1", contaId: "c1", tipo: "D", valor: 1 }],
     periodosFechados: ["mes:2026-07"],
     conciliacoes: ["l1"],
   };
@@ -192,6 +198,8 @@ test("um estado cheio sobrevive a ir para o banco e voltar", () => {
   assert.deepEqual(reconstruido.contas, cheio.contas);
   assert.deepEqual(reconstruido.lancamentos, cheio.lancamentos);
   assert.deepEqual(reconstruido.lancamentoLinhas, cheio.lancamentoLinhas);
+  assert.deepEqual(reconstruido.recorrentes, cheio.recorrentes);
+  assert.deepEqual(reconstruido.recorrenteLinhas, cheio.recorrenteLinhas);
   assert.deepEqual(reconstruido.periodosFechados, cheio.periodosFechados);
   assert.deepEqual(reconstruido.conciliacoes, cheio.conciliacoes);
 });

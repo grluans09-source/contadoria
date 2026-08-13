@@ -8,8 +8,12 @@ const fmtData = (d) => (d ? d.split("-").reverse().join("/") : "—");
 const ORIGEM_LABEL = { manual: "Manual", extrato: "Extrato", recorrente: "Recorrente", abertura: "Abertura", encerramento_mes: "Fechamento", encerramento_ano: "Encerramento" };
 
 /* Lançamento gerado pelo sistema (abertura, fechamento) não se edita
-   nem apaga na mão — são a fundação do livro ou o selo de um mês. */
-const ORIGENS_EDITAVEIS = new Set(["manual", "extrato"]);
+   nem apaga na mão — são a fundação do livro ou o selo de um mês.
+   `recorrente` fica DE FORA dessa trava: é só um lançamento manual que
+   nasceu sozinho (docs/05 §7) — se o valor variar um mês (conta de
+   energia, por exemplo), o dono precisa poder corrigir só aquele mês,
+   sem mexer no template. */
+const ORIGENS_EDITAVEIS = new Set(["manual", "extrato", "recorrente"]);
 
 function LinhaExcluir({ lancamento, onConfirmar }) {
   const [confirmando, setConfirmando] = useState(false);
