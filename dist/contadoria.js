@@ -1,6 +1,5 @@
 // src/app/App.jsx
-import React6, { useState as useState5, useEffect as useEffect5 } from "react";
-import { ArrowLeft as ArrowLeft2 } from "lucide-react";
+import React11, { useState as useState8, useEffect as useEffect6 } from "react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -186,6 +185,19 @@ function Confirmacao({ texto, ativa }) {
     },
     texto
   );
+}
+var AlertLine = ({ children }) => /* @__PURE__ */ React2.createElement("div", { className: "text-xs flex items-center gap-1.5", style: { color: "var(--debit)" } }, children);
+function Tabs({ tabs, active, onChange }) {
+  return /* @__PURE__ */ React2.createElement("div", { className: "flex flex-wrap gap-1 mb-6 p-1 rounded-lg border w-fit", style: { borderColor: "var(--rule-faint)", background: "var(--surface)" } }, tabs.map((t) => /* @__PURE__ */ React2.createElement(
+    "button",
+    {
+      key: t.id,
+      onClick: () => onChange(t.id),
+      className: "px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150",
+      style: active === t.id ? { background: "linear-gradient(135deg, var(--gold-2), var(--gold))", color: "#171204", fontWeight: 600 } : { background: "transparent", color: "var(--muted)" }
+    },
+    t.label
+  )));
 }
 
 // src/telas/Autenticacao.jsx
@@ -662,15 +674,439 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
   ))), erro && /* @__PURE__ */ React5.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React5.createElement("div", { className: "flex justify-between" }, /* @__PURE__ */ React5.createElement(Button, { variant: "ghost", disabled: bloco === 1, onClick: () => setBloco((b) => b - 1) }, /* @__PURE__ */ React5.createElement(ArrowLeft, { size: 14 }), " Anterior"), ultimoBloco ? /* @__PURE__ */ React5.createElement(Button, { onClick: concluir, disabled: salvando }, salvando ? "Gravando\u2026" : "Concluir cadastro") : /* @__PURE__ */ React5.createElement(Button, { onClick: () => setBloco((b) => b + 1) }, "Pr\xF3ximo ", /* @__PURE__ */ React5.createElement(ArrowRight, { size: 14 })))));
 }
 
-// src/app/App.jsx
-function DentroDoNegocio({ negocio, onVoltar }) {
-  return /* @__PURE__ */ React6.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React6.createElement("div", { className: "max-w-3xl mx-auto px-5 py-8" }, /* @__PURE__ */ React6.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React6.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React6.createElement("div", { className: "text-xl font-bold mb-2", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React6.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "O balan\xE7o de abertura j\xE1 est\xE1 lan\xE7ado. A Caixa de Entrada e o resto do Livro chegam no pr\xF3ximo passo (docs/06_MODELO_DE_DADOS.md \xA713, passo 6).")));
+// src/telas/Livro.jsx
+import React10, { useState as useState7, useEffect as useEffect5, useRef as useRef2, useCallback as useCallback2 } from "react";
+import { ArrowLeft as ArrowLeft2 } from "lucide-react";
+
+// src/dados/sinc.mjs
+function paraSnake(nome) {
+  return nome.replace(/[A-Z]/g, (letra) => "_" + letra.toLowerCase());
 }
-function App() {
-  const [authSession, setAuthSession] = useState5(void 0);
-  const [dark] = useState5(true);
-  const [negocioAberto, setNegocioAberto] = useState5(null);
+var COLECOES = {
+  contas: {
+    tabela: "contas",
+    forma: "lista",
+    campos: ["id", "codigo", "nome", "tipo", "subtipo", "ordem", "ativa"],
+    padroes: { ordem: 0, ativa: true },
+    chave: ["id"]
+  },
+  lancamentos: {
+    tabela: "lancamentos",
+    forma: "lista",
+    campos: ["id", "data", "dataCompetencia", "descricao", "origem", "documento"],
+    padroes: { descricao: "", origem: "manual" },
+    chave: ["id"]
+  },
+  lancamentoLinhas: {
+    tabela: "lancamento_linhas",
+    forma: "lista",
+    /* `descricao`/`vencimento` vieram em 0006_linha_descricao.sql,
+       depois da 0001 — o schema evolui por ALTER, nunca editando
+       migração já aplicada (docs/06 §1). */
+    campos: ["id", "lancamentoId", "contaId", "tipo", "valor", "descricao", "vencimento"],
+    chave: ["id"]
+  },
+  entradaItens: {
+    tabela: "entrada_itens",
+    forma: "lista",
+    campos: ["id", "origem", "data", "descricaoBruta", "valor", "situacao", "lancamentoId"],
+    padroes: { descricaoBruta: "", situacao: "pendente" },
+    chave: ["id"]
+  },
+  regrasClassificacao: {
+    tabela: "regras_classificacao",
+    forma: "lista",
+    campos: ["id", "padrao", "contaId", "acertos"],
+    padroes: { acertos: 1 },
+    chave: ["id"]
+  },
+  /* A lixeira guarda o lançamento inteiro (cabeçalho + linhas, como veio
+     do estado em memória) na coluna `conteudo`. A chave é `lancamentoId`,
+     não `id` — é o caso que motivou o `chaveCampo` (ver cabeçalho). */
+  lixeira: {
+    tabela: "lixeira",
+    forma: "lista",
+    chaveCampo: "lancamentoId",
+    campos: ["lancamentoId", "conteudo", "excluidoEm"],
+    chave: ["lancamento_id"]
+  },
+  /* Trilha de auditoria: só nasce, nunca morre (docs/06 §10). Comparação
+     por IDENTIDADE de objeto, como no ContLife — o estado do React nunca
+     muta os antigos no lugar. */
+  trilha: {
+    tabela: "trilha",
+    forma: "trilha",
+    apenasInsere: true
+  },
+  /* Array de "mes:AAAA-MM" ou "ano:AAAA" (docs/06 §5). */
+  periodosFechados: {
+    tabela: "periodos_fechados",
+    forma: "conjunto",
+    chave: ["tipo", "periodo"],
+    partes: ["tipo", "periodo"]
+  },
+  /* Array de lancamento_id que já foram conferidos contra o extrato. */
+  conciliacoes: {
+    tabela: "conciliacoes",
+    forma: "conjunto",
+    chave: ["lancamento_id"],
+    partes: ["lancamento_id"]
+  }
+};
+var LIMITE_PERIGO = { minimoAbsoluto: 25, fracao: 0.5 };
+function paraLinha(registro, campos, padroes) {
+  const linha = {};
+  for (const campo of campos) {
+    const v = registro[campo];
+    linha[paraSnake(campo)] = v === void 0 || v === null ? padroes?.[campo] ?? null : v;
+  }
+  return linha;
+}
+function partirChave(texto) {
+  const corte = String(texto).lastIndexOf(":");
+  return corte < 0 ? [String(texto), ""] : [texto.slice(0, corte), texto.slice(corte + 1)];
+}
+function mesmoRegistro(a, b) {
+  if (a === b) return true;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+function diferencaLista(desc, antes, depois, ops) {
+  const chaveCampo = desc.chaveCampo || "id";
+  const chaveDb = paraSnake(chaveCampo);
+  const mapaAntes = new Map((antes || []).map((r) => [r[chaveCampo], r]));
+  const mapaDepois = new Map((depois || []).map((r) => [r[chaveCampo], r]));
+  for (const [chave, registro] of mapaDepois) {
+    const anterior = mapaAntes.get(chave);
+    if (!anterior || !mesmoRegistro(anterior, registro)) {
+      ops.push({ acao: "gravar", tabela: desc.tabela, valores: paraLinha(registro, desc.campos, desc.padroes) });
+    }
+  }
+  for (const chave of mapaAntes.keys()) {
+    if (!mapaDepois.has(chave)) {
+      ops.push({ acao: "apagar", tabela: desc.tabela, chave: { [chaveDb]: chave } });
+    }
+  }
+}
+function diferencaTrilha(desc, antes, depois, ops) {
+  const vistos = new Set(antes || []);
+  for (const item of depois || []) {
+    if (vistos.has(item)) continue;
+    ops.push({
+      acao: "gravar",
+      tabela: desc.tabela,
+      valores: { tipo: item.tipo ?? "", descricao: item.descricao ?? "" }
+    });
+  }
+}
+function diferencaConjunto(desc, antes, depois, ops) {
+  const a = new Set(antes || []);
+  const d = new Set(depois || []);
+  const decompor = (texto) => desc.partes.length === 1 ? { [desc.partes[0]]: texto } : (([x, y]) => ({ [desc.partes[0]]: x, [desc.partes[1]]: y }))(partirChave(texto));
+  for (const texto of d) if (!a.has(texto)) ops.push({ acao: "gravar", tabela: desc.tabela, valores: decompor(texto) });
+  for (const texto of a) if (!d.has(texto)) ops.push({ acao: "apagar", tabela: desc.tabela, chave: decompor(texto) });
+}
+function totalDe(antes) {
+  let total = 0;
+  for (const nome of Object.keys(COLECOES)) {
+    const valor = antes?.[nome];
+    if (Array.isArray(valor)) total += valor.length;
+  }
+  return total;
+}
+function calcularDiferenca(antes, depois) {
+  const ops = [];
+  for (const [nome, desc] of Object.entries(COLECOES)) {
+    const a = antes?.[nome];
+    const d = depois?.[nome];
+    if (a === d) continue;
+    if (desc.forma === "lista") diferencaLista(desc, a, d, ops);
+    else if (desc.forma === "trilha") diferencaTrilha(desc, a, d, ops);
+    else if (desc.forma === "conjunto") diferencaConjunto(desc, a, d, ops);
+  }
+  const apagados = ops.filter((o) => o.acao === "apagar").length;
+  const gravados = ops.length - apagados;
+  const total = totalDe(antes);
+  const perigo = apagados >= LIMITE_PERIGO.minimoAbsoluto && total > 0 && apagados >= total * LIMITE_PERIGO.fracao ? { motivo: "exclusao_em_massa", apagados, total } : null;
+  return { ops, resumo: { gravar: gravados, apagar: apagados }, perigo };
+}
+function montarEstado(tabelas) {
+  const estado = {};
+  for (const [nome, desc] of Object.entries(COLECOES)) {
+    const linhas = tabelas?.[desc.tabela] || [];
+    if (desc.forma === "lista") {
+      estado[nome] = linhas.map((linha) => {
+        const registro = {};
+        for (const campo of desc.campos) registro[campo] = linha[paraSnake(campo)];
+        return registro;
+      });
+    } else if (desc.forma === "trilha") {
+      estado[nome] = linhas.map((l) => ({ tipo: l.tipo, descricao: l.descricao }));
+    } else if (desc.forma === "conjunto") {
+      estado[nome] = linhas.map((l) => desc.partes.map((p) => l[p]).join(":"));
+    }
+  }
+  return estado;
+}
+var TABELAS = Object.values(COLECOES).map((c) => c.tabela);
+function fotografar(estado) {
+  const foto = {};
+  for (const nome of Object.keys(COLECOES)) foto[nome] = estado?.[nome];
+  return foto;
+}
+
+// src/dados/estadoNegocio.mjs
+var PAGINA = 1e3;
+async function carregarTabela(tabela, negocioId) {
+  let todas = [];
+  let pagina = 0;
+  while (true) {
+    const { data, error } = await supabase.from(tabela).select("*").eq("negocio_id", negocioId).range(pagina * PAGINA, pagina * PAGINA + PAGINA - 1);
+    if (error) throw new Error(`Falha ao carregar ${tabela}: ${error.message}`);
+    todas = todas.concat(data || []);
+    if (!data || data.length < PAGINA) break;
+    pagina++;
+  }
+  return todas;
+}
+async function carregarEstadoNegocio(negocioId) {
+  const entradas = await Promise.all(
+    TABELAS.map(async (tabela) => [tabela, await carregarTabela(tabela, negocioId)])
+  );
+  const tabelas = Object.fromEntries(entradas);
+  return montarEstado(tabelas);
+}
+
+// src/telas/Diario.jsx
+import React6, { useMemo } from "react";
+var fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmtData = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
+var ORIGEM_LABEL = { manual: "Manual", extrato: "Extrato", recorrente: "Recorrente", abertura: "Abertura", encerramento_mes: "Fechamento", encerramento_ano: "Encerramento" };
+function Diario({ contas, lancamentos, lancamentoLinhas }) {
+  const nomeConta = useMemo(() => new Map(contas.map((c) => [c.id, c.nome])), [contas]);
+  const linhasPorLancamento = useMemo(() => {
+    const mapa = /* @__PURE__ */ new Map();
+    for (const l of lancamentoLinhas) {
+      if (!mapa.has(l.lancamentoId)) mapa.set(l.lancamentoId, []);
+      mapa.get(l.lancamentoId).push(l);
+    }
+    return mapa;
+  }, [lancamentoLinhas]);
+  const ordenados = useMemo(
+    () => [...lancamentos].sort((a, b) => (b.data || "").localeCompare(a.data || "")),
+    [lancamentos]
+  );
+  if (ordenados.length === 0) {
+    return /* @__PURE__ */ React6.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React6.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento ainda."));
+  }
+  return /* @__PURE__ */ React6.createElement("div", { className: "space-y-3" }, ordenados.map((l) => {
+    const linhas = linhasPorLancamento.get(l.id) || [];
+    return /* @__PURE__ */ React6.createElement(Card, { key: l.id, pad: "apertado" }, /* @__PURE__ */ React6.createElement("div", { className: "flex items-center justify-between mb-2" }, /* @__PURE__ */ React6.createElement("div", null, /* @__PURE__ */ React6.createElement("span", { className: "font-mono text-xs mr-2", style: { color: "var(--muted)" } }, fmtData(l.data)), /* @__PURE__ */ React6.createElement("span", { style: { color: "var(--ink)" } }, l.descricao)), /* @__PURE__ */ React6.createElement("span", { className: "text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full", style: { background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" } }, ORIGEM_LABEL[l.origem] || l.origem)), /* @__PURE__ */ React6.createElement("table", { className: "w-full text-xs" }, /* @__PURE__ */ React6.createElement("tbody", null, linhas.map((linha) => /* @__PURE__ */ React6.createElement("tr", { key: linha.id }, /* @__PURE__ */ React6.createElement("td", { className: "py-0.5 pr-2", style: { color: linha.tipo === "D" ? "var(--ink)" : "var(--muted)", paddingLeft: linha.tipo === "C" ? "1.5rem" : 0 } }, linha.tipo === "D" ? "D" : "C", " ", nomeConta.get(linha.contaId) || linha.contaId, linha.descricao ? /* @__PURE__ */ React6.createElement("span", { style: { color: "var(--muted)" } }, " \u2014 ", linha.descricao) : null), /* @__PURE__ */ React6.createElement("td", { className: "py-0.5 text-right tabular-nums" }, fmt(linha.valor)))))));
+  }));
+}
+
+// src/telas/Razao.jsx
+import React7, { useState as useState5, useMemo as useMemo2 } from "react";
+
+// src/dominio/razao.mjs
+var DEBITO_NORMAL = { ativo: true, despesa: true, passivo: false, pl: false, receita: false };
+function balancete(contas, linhas) {
+  const porConta = new Map(contas.map((c) => [c.id, { ...c, debito: 0, credito: 0 }]));
+  const orfas = [];
+  for (const l of linhas) {
+    const c = porConta.get(l.contaId);
+    if (!c) {
+      orfas.push(l);
+      continue;
+    }
+    if (l.tipo === "D") c.debito += l.valor;
+    else c.credito += l.valor;
+  }
+  const linhasBalancete = [...porConta.values()].map((c) => ({ ...c, saldo: DEBITO_NORMAL[c.tipo] ? c.debito - c.credito : c.credito - c.debito })).sort((a, b) => a.codigo.localeCompare(b.codigo));
+  const totalDebito = linhasBalancete.reduce((s, c) => s + c.debito, 0);
+  const totalCredito = linhasBalancete.reduce((s, c) => s + c.credito, 0);
+  return {
+    linhas: linhasBalancete,
+    totalDebito,
+    totalCredito,
+    fecha: Math.abs(totalDebito - totalCredito) < 0.01,
+    orfas
+  };
+}
+
+// src/telas/Razao.jsx
+var fmt2 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmtData2 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
+function Razao({ contas, lancamentos, lancamentoLinhas }) {
+  const contasOrdenadas = useMemo2(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
+  const [contaId, setContaId] = useState5(contasOrdenadas[0]?.id || "");
+  const conta = contas.find((c) => c.id === contaId);
+  const linhas = useMemo2(() => {
+    if (!conta) return [];
+    const porLancamento = new Map(lancamentos.map((l) => [l.id, l]));
+    const normal = DEBITO_NORMAL[conta.tipo];
+    let corrente = 0;
+    return lancamentoLinhas.filter((l) => l.contaId === contaId).map((l) => ({ ...l, data: porLancamento.get(l.lancamentoId)?.data, lancDescricao: porLancamento.get(l.lancamentoId)?.descricao })).sort((a, b) => (a.data || "").localeCompare(b.data || "")).map((l) => {
+      corrente += l.tipo === "D" === normal ? l.valor : -l.valor;
+      return { ...l, saldoCorrente: corrente };
+    });
+  }, [contaId, conta, lancamentoLinhas, lancamentos]);
+  return /* @__PURE__ */ React7.createElement("div", null, /* @__PURE__ */ React7.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React7.createElement(Select, { value: contaId, onChange: setContaId, options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React7.createElement(Card, null, linhas.length === 0 ? /* @__PURE__ */ React7.createElement("div", { className: "text-center py-8 text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento nesta conta ainda.") : /* @__PURE__ */ React7.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React7.createElement("thead", null, /* @__PURE__ */ React7.createElement("tr", { style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React7.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Data"), /* @__PURE__ */ React7.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Descri\xE7\xE3o"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "D\xE9bito"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "Cr\xE9dito"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2", style: { color: "var(--muted)" } }, "Saldo"))), /* @__PURE__ */ React7.createElement("tbody", null, linhas.map((l) => /* @__PURE__ */ React7.createElement("tr", { key: l.id, style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 font-mono text-xs", style: { color: "var(--muted)" } }, fmtData2(l.data)), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3" }, l.descricao || l.lancDescricao), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, l.tipo === "D" ? fmt2(l.valor) : "\u2014"), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, l.tipo === "C" ? fmt2(l.valor) : "\u2014"), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 text-right tabular-nums font-medium" }, fmt2(l.saldoCorrente))))))));
+}
+
+// src/telas/Balancete.jsx
+import React8 from "react";
+var TIPO_LABEL2 = { ativo: "Ativo", passivo: "Passivo", pl: "Patrim\xF4nio L\xEDquido", receita: "Receita", despesa: "Despesa" };
+var fmt3 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+function Balancete({ contas, lancamentoLinhas }) {
+  const b = balancete(contas, lancamentoLinhas);
+  return /* @__PURE__ */ React8.createElement(Card, null, /* @__PURE__ */ React8.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React8.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React8.createElement("thead", null, /* @__PURE__ */ React8.createElement("tr", { style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React8.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "C\xF3digo"), /* @__PURE__ */ React8.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Conta"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "D\xE9bito"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "Cr\xE9dito"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2", style: { color: "var(--muted)" } }, "Saldo"))), /* @__PURE__ */ React8.createElement("tbody", null, b.linhas.filter((c) => c.debito || c.credito).map((c) => /* @__PURE__ */ React8.createElement("tr", { key: c.id, style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 font-mono text-xs", style: { color: "var(--muted)" } }, c.codigo), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3" }, c.nome, /* @__PURE__ */ React8.createElement("span", { className: "text-[10px] ml-2 uppercase tracking-wide", style: { color: "var(--muted)" } }, TIPO_LABEL2[c.tipo])), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, c.debito ? fmt3(c.debito) : "\u2014"), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, c.credito ? fmt3(c.credito) : "\u2014"), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 text-right tabular-nums font-medium", style: { color: "var(--ink)" } }, fmt3(c.saldo)))), b.linhas.every((c) => !c.debito && !c.credito) && /* @__PURE__ */ React8.createElement("tr", null, /* @__PURE__ */ React8.createElement("td", { colSpan: 5, className: "py-8 text-center text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento ainda."))), /* @__PURE__ */ React8.createElement("tfoot", null, /* @__PURE__ */ React8.createElement("tr", { style: { borderTop: "2px solid var(--rule)" } }, /* @__PURE__ */ React8.createElement("td", { colSpan: 2, className: "py-2 pr-3 font-medium" }, "Total"), /* @__PURE__ */ React8.createElement("td", { className: "py-2 pr-3 text-right tabular-nums font-medium" }, fmt3(b.totalDebito)), /* @__PURE__ */ React8.createElement("td", { className: "py-2 pr-3 text-right tabular-nums font-medium" }, fmt3(b.totalCredito)), /* @__PURE__ */ React8.createElement("td", { className: "py-2 text-right" }, /* @__PURE__ */ React8.createElement("span", { className: "text-xs px-2 py-1 rounded-full", style: { background: b.fecha ? "var(--credit-soft)" : "var(--debit-soft)", color: b.fecha ? "var(--credit)" : "var(--debit)" } }, b.fecha ? "fecha \u2713" : "n\xE3o fecha \u26A0")))))));
+}
+
+// src/telas/Lancar.jsx
+import React9, { useState as useState6, useMemo as useMemo3 } from "react";
+import { Plus as Plus3, Trash2 as Trash22 } from "lucide-react";
+var uid = () => Math.random().toString(36).slice(2, 10);
+var hojeISO2 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+var fmt4 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var linhaVazia = () => ({ chave: uid(), contaId: "", tipo: "D", valor: "", descricao: "" });
+function Lancar({ contas, onAdicionar }) {
+  const contasOrdenadas = useMemo3(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
+  const opcoesContas = contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` }));
+  const [data, setData] = useState6(hojeISO2());
+  const [descricao, setDescricao] = useState6("");
+  const [linhas, setLinhas] = useState6([linhaVazia(), linhaVazia()]);
+  const [confirmado, setConfirmado] = useState6(false);
+  const editarLinha = (chave, campo, valor) => setLinhas((ls) => ls.map((l) => l.chave === chave ? { ...l, [campo]: valor } : l));
+  const removerLinha = (chave) => setLinhas((ls) => ls.filter((l) => l.chave !== chave));
+  const adicionarLinha = () => setLinhas((ls) => [...ls, linhaVazia()]);
+  const numero = (v) => {
+    const n = parseFloat(String(v).replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const somaD = linhas.filter((l) => l.tipo === "D").reduce((s, l) => s + numero(l.valor), 0);
+  const somaC = linhas.filter((l) => l.tipo === "C").reduce((s, l) => s + numero(l.valor), 0);
+  const diferenca = Math.round((somaD - somaC) * 100) / 100;
+  const linhasValidas = linhas.filter((l) => l.contaId && numero(l.valor) > 0);
+  const podeGravar = descricao.trim() && linhasValidas.length >= 2 && diferenca === 0 && somaD > 0;
+  const gravar = () => {
+    if (!podeGravar) return;
+    const idLancamento = uid();
+    onAdicionar({
+      lancamento: { id: idLancamento, data, dataCompetencia: data, descricao: descricao.trim(), origem: "manual", documento: null },
+      linhas: linhasValidas.map((l) => ({
+        id: uid(),
+        lancamentoId: idLancamento,
+        contaId: l.contaId,
+        tipo: l.tipo,
+        valor: numero(l.valor),
+        descricao: l.descricao.trim() || null,
+        vencimento: null
+      }))
+    });
+    setData(hojeISO2());
+    setDescricao("");
+    setLinhas([linhaVazia(), linhaVazia()]);
+    setConfirmado(true);
+    setTimeout(() => setConfirmado(false), 2e3);
+  };
+  return /* @__PURE__ */ React9.createElement(Card, null, /* @__PURE__ */ React9.createElement("div", { className: "grid grid-cols-2 gap-3 mb-4" }, /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Data"), /* @__PURE__ */ React9.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React9.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Venda do dia" }))), /* @__PURE__ */ React9.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React9.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React9.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React9.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React9.createElement(Trash22, { size: 15 })))), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React9.createElement(Plus3, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement("span", null, "D\xE9bitos: ", fmt4(somaD), " \xB7 Cr\xE9ditos: ", fmt4(somaC)), diferenca !== 0 && /* @__PURE__ */ React9.createElement(AlertLine, null, "Diferen\xE7a de ", fmt4(Math.abs(diferenca)), " \u2014 o lan\xE7amento precisa fechar antes de gravar")), /* @__PURE__ */ React9.createElement(Button, { onClick: gravar, disabled: !podeGravar }, "Lan\xE7ar"), confirmado && /* @__PURE__ */ React9.createElement("span", { className: "ml-3 text-xs", style: { color: "var(--credit)" } }, "Lan\xE7ado."));
+}
+
+// src/telas/Livro.jsx
+var ABAS = [
+  { id: "lancar", label: "Lan\xE7ar" },
+  { id: "diario", label: "Di\xE1rio" },
+  { id: "razao", label: "Raz\xE3o" },
+  { id: "balancete", label: "Balancete" }
+];
+function Livro({ negocio, onVoltar }) {
+  const [aba, setAba] = useState7("lancar");
+  const [estado, setEstado] = useState7(null);
+  const [loaded, setLoaded] = useState7(false);
+  const [erro, setErro] = useState7("");
+  const [salvando, setSalvando] = useState7(false);
+  const [confirmado, setConfirmado] = useState7(false);
+  const fotoRef = useRef2(null);
+  const estadoRef = useRef2(null);
+  const timerRef = useRef2(null);
   useEffect5(() => {
+    estadoRef.current = estado;
+  }, [estado]);
+  useEffect5(() => {
+    let vivo = true;
+    carregarEstadoNegocio(negocio.id).then((estadoServidor) => {
+      if (!vivo) return;
+      setEstado(estadoServidor);
+      fotoRef.current = fotografar(estadoServidor);
+      setLoaded(true);
+    }).catch((e) => {
+      if (vivo) setErro(`N\xE3o consegui carregar o livro: ${e.message}`);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [negocio.id]);
+  useEffect5(() => {
+    if (!loaded || !estado) return;
+    const { ops, perigo } = calcularDiferenca(fotoRef.current, fotografar(estado));
+    if (!ops.length) {
+      timerRef.current = null;
+      return;
+    }
+    if (perigo) {
+      timerRef.current = null;
+      setErro(`Parei antes de salvar: a mudan\xE7a apagaria ${perigo.apagados} de ${perigo.total} registros de uma vez. Nada foi alterado no servidor.`);
+      return;
+    }
+    timerRef.current = setTimeout(async () => {
+      timerRef.current = null;
+      setSalvando(true);
+      setErro("");
+      try {
+        const { error } = await supabase.rpc("aplicar_lote", { p_negocio: negocio.id, p_ops: ops });
+        if (error) throw new Error(error.message);
+        fotoRef.current = fotografar(estado);
+        setConfirmado(true);
+        setTimeout(() => setConfirmado(false), 1800);
+      } catch (e) {
+        setErro(`N\xE3o consegui salvar: ${e.message}. Nada foi perdido na tela \u2014 tente de novo.`);
+      } finally {
+        setSalvando(false);
+      }
+    }, 900);
+    return () => clearTimeout(timerRef.current);
+  }, [estado, loaded]);
+  useEffect5(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+        const { ops, perigo } = calcularDiferenca(fotoRef.current, fotografar(estadoRef.current));
+        if (ops.length && !perigo) {
+          supabase.rpc("aplicar_lote", { p_negocio: negocio.id, p_ops: ops });
+        }
+      }
+    };
+  }, []);
+  const adicionarLancamento = useCallback2(({ lancamento, linhas }) => {
+    setEstado((prev) => ({
+      ...prev,
+      lancamentos: [...prev.lancamentos, lancamento],
+      lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas]
+    }));
+  }, []);
+  if (!loaded || !estado) {
+    return /* @__PURE__ */ React10.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React10.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
+  }
+  return /* @__PURE__ */ React10.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React10.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React10.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React10.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React10.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React10.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React10.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React10.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React10.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "lancar" && /* @__PURE__ */ React10.createElement(Lancar, { contas: estado.contas, onAdicionar: adicionarLancamento }), aba === "diario" && /* @__PURE__ */ React10.createElement(Diario, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "razao" && /* @__PURE__ */ React10.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React10.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas })));
+}
+
+// src/app/App.jsx
+function App() {
+  const [authSession, setAuthSession] = useState8(void 0);
+  const [dark] = useState8(true);
+  const [negocioAberto, setNegocioAberto] = useState8(null);
+  useEffect6(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
       if (vivo) setAuthSession(data.session);
@@ -684,7 +1120,14 @@ function App() {
     };
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
-  return /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React6.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React6.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React6.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? /* @__PURE__ */ React6.createElement(DentroDoNegocio, { negocio: negocioAberto, onVoltar: fecharNegocio }) : /* @__PURE__ */ React6.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
+  return /* @__PURE__ */ React11.createElement(React11.Fragment, null, /* @__PURE__ */ React11.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React11.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React11.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React11.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
+    /* `key={negocioAberto.id}` desmonta e remonta o Livro inteiro ao
+       trocar de negócio — é o que elimina por construção a classe de
+       bug H3 do ContLife (doc 26): sem isso, o estado em memória de
+       um negócio podia vazar para dentro da chave do próximo por um
+       instante, entre trocar o id e a carga nova terminar. */
+    /* @__PURE__ */ React11.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+  ) : /* @__PURE__ */ React11.createElement(Negocios, { onAbrirNegocio: setNegocioAberto }));
 }
 export {
   App as default

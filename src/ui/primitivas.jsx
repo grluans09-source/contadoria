@@ -137,3 +137,21 @@ export function Confirmacao({ texto, ativa }) {
 export const AlertLine = ({ children }) => (
   <div className="text-xs flex items-center gap-1.5" style={{ color: "var(--debit)" }}>{children}</div>
 );
+
+/* Abas — copiado do ContLife (contlife.jsx, ~linha 4303), a peça que
+   faltava para o Livro (Lançar/Diário/Razão/Balancete). */
+export function Tabs({ tabs, active, onChange }) {
+  return (
+    <div className="flex flex-wrap gap-1 mb-6 p-1 rounded-lg border w-fit" style={{ borderColor: "var(--rule-faint)", background: "var(--surface)" }}>
+      {tabs.map((t) => (
+        <button key={t.id} onClick={() => onChange(t.id)}
+          className="px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150"
+          style={active === t.id
+            ? { background: "linear-gradient(135deg, var(--gold-2), var(--gold))", color: "#171204", fontWeight: 600 }
+            : { background: "transparent", color: "var(--muted)" }}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}

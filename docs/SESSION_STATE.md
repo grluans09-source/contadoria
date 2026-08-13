@@ -23,7 +23,13 @@ login, cadastro de negócio via `criar_negocio()`, e a prateleira.
 **O passo 5 está concluído e verificado com o teste mais completo até aqui:** o Roteiro do
 Cliente Novo inteiro (6 blocos) rodado ponta a ponta no navegador, terminando num balanço de
 abertura real de 6 linhas gravado pela trava de equilíbrio — débitos e créditos batendo em
-R$ 4.810,00, capital do titular calculado certo (R$ 4.010,00). Ver a seção própria abaixo.
+R$ 4.810,00, capital do titular calculado certo (R$ 4.010,00).
+
+**O passo 6 está concluído: o Livro está de pé, com o loop reativo do ContLife funcionando
+de ponta a ponta** — lançou uma venda de teste pela tela (D Caixa / C Prestação de serviços,
+R$ 500), **sem clicar em nenhum botão de "salvar"**, e o lançamento apareceu no banco de
+verdade sozinho, debounced. Diário, Razão e Balancete todos conferidos mostrando o mesmo
+lançamento certo, com "fecha ✓". Ver a seção própria abaixo.
 
 | Arquivo | O que é |
 |---|---|
@@ -330,20 +336,65 @@ mesmo com o app já pintado por baixo). **Corrigido em `dist/index.html`:** `set
 
 ---
 
-## ➡️ Próxima tarefa — passo 6 do `06` §13: o Livro (Lançar, Diário, Razão, Balancete)
+## ✅ Passo 6 do `06` §13 — O LIVRO, CONCLUÍDO E VERIFICADO COM O LOOP REATIVO (12/ago)
 
-Substituir o placeholder `DentroDoNegocio` (em `src/app/App.jsx`) pela tela real — a partir
-daqui o negócio tem plano de contas e saldo inicial de verdade para exercitar:
+`DentroDoNegocio` (o placeholder em `src/app/App.jsx`) foi substituído por `Livro.jsx` de
+verdade — Lançar, Diário, Razão, Balancete.
 
-1. Carregar o estado do negócio (contas + lançamentos + linhas) via `montarEstado` do motor
-   de sincronização — primeira vez que ele roda de ponta a ponta, não só em teste
-2. Telas: Diário (tudo em ordem de data), Razão/razonete (por conta), Balancete (saldos +
-   prova de que débito = crédito)
-3. Lançar — o formulário de lançamento com N linhas, reaproveitando a lógica de
-   `aberturaBalanco.mjs` como referência de como montar `ops` para `aplicar_lote`
-4. A partir daqui, considerar migrar do "chamar `aplicar_lote` direto no clique" (como o
-   Roteiro faz) para o padrão do ContLife — `fotoRef` + `calcularDiferenca` + debounce — já
-   que o Livro terá edição contínua, não um formulário de uma vez só
+| Arquivo | O que é |
+|---|---|
+| `src/dominio/razao.mjs` | `saldoDeConta`, `balancete` (débito/crédito bruto por conta, recomputado das linhas — nunca de um saldo em cache, a mesma lição do H2 do ContLife), `linhasComContexto` |
+| `src/dados/estadoNegocio.mjs` | carrega TODAS as coleções de um negócio, **paginado** (armadilha do PostgREST: 1.000 linhas por página, em silêncio) → `montarEstado` |
+| `src/telas/Balancete.jsx`, `Diario.jsx`, `Razao.jsx`, `Lancar.jsx` | as 4 telas, uma por arquivo |
+| `src/telas/Livro.jsx` | o container: carrega o estado, o loop reativo (ver abaixo), abas |
+| `src/ui/primitivas.jsx` | ganhou `Tabs` (copiado do ContLife) |
+| `tests/razao.test.mjs` | 9 testes — inclui conta sem nenhuma linha (não deve sumir) e linha órfã (não deve derrubar a tela) |
+
+### A peça que faltava: o loop reativo (`fotoRef` + `calcularDiferenca` + debounce)
+
+O Roteiro chama `aplicar_lote` direto no clique — certo para UM formulário. O Livro tem
+edição contínua, e reescrever cada mutação para salvar sozinha é o modo de falha que o
+ContLife decidiu evitar: esquecer UM ponto de mutação para de salvar em silêncio. `Livro.jsx`
+usa o padrão do ContLife pela primeira vez de ponta a ponta: guarda a foto confirmada pelo
+servidor, compara contra ela a cada mudança em memória, debounce de 900ms, só a DIFERENÇA
+vai num lote.
+
+**Sem a guarda `loadedForKeyRef` do bug H3 do ContLife (doc 26)** — e não por esquecimento:
+`App.jsx` monta `<Livro key={negocio.id} .../>`. Trocar de negócio DESMONTA o componente
+inteiro; React resolve por construção o que o ContLife precisou de uma guarda manual para
+resolver (o estado de um dossiê vazando pro próximo por um instante, entre trocar a chave e
+a carga nova terminar).
+
+**Achado construindo, corrigido antes de virar bug real:** se o dono clicasse "Voltar"
+dentro da janela de debounce (900ms), o cleanup normal do efeito CANCELARIA o salvamento —
+perderia o lançamento em silêncio. `Livro.jsx` tem um segundo efeito, só de desmontagem, que
+DESCARREGA qualquer gravação pendente antes de sair (melhor esforço, sem `await` — o
+componente já foi).
+
+### Verificado no navegador, contra o banco real — sem clicar em "salvar" nenhuma vez
+
+Lançamento de teste (D Caixa R$ 500 / C Prestação de serviços R$ 500) inserido só pela tela
+do Lançar. **Sem nenhum botão de "salvar"**, o loop reativo gravou sozinho — conferido direto
+no banco (não só na tela): o lançamento e as duas linhas exatamente como digitado. Diário,
+Razão (conta Caixa, saldo corrente certo) e Balancete (só as 2 contas com movimento,
+débito = crédito = R$ 500,00, "fecha ✓") todos conferidos consistentes com o mesmo dado.
+Negócio de teste apagado depois, cascade confirmado.
+
+---
+
+## ➡️ Próxima tarefa — o que vem depois do Livro
+
+O núcleo contábil está de pé e provado: schema, trava, sincronização, onboarding, livro. O
+que falta é o que estava mapeado desde `04_MAPA_DO_APP.md` §12, agora com base sólida para
+construir em cima:
+
+1. **Caixa de Entrada** (`04` §5) — o gargalo real do serviço (`03` §5). Importar
+   extrato/CSV, classificar em lote, aprender com `regras_classificacao` (já no schema,
+   ainda sem tela)
+2. **Fechamento de mês + Revisão** (`04` §7-8) — conciliação, Mesa de Revisão (os
+   invariantes, recalculados da fonte — `razao.mjs` já dá a base), trilha de auditoria
+3. **Entregas** (`04` §9) — o Retrato do Mês (`08` §3), "quanto você pode tirar" (`08` §2)
+4. **Painel do Mês** (`04` §3) — só faz sentido com mais de 1 cliente real usando
 
 ⚠️ **Antes do primeiro cliente real** (não bloqueia o código agora): o script de exportação
 semanal (lacuna 1, acima).
@@ -351,7 +402,7 @@ semanal (lacuna 1, acima).
 ### Duas conferências obrigatórias
 
 ⚠️ **O token de gerenciamento (`sbp_...`) segue ativo** — pedido ao Luan revogar. Não é mais
-necessário para nada do passo 6 em diante.
+necessário para nada do que vem a seguir.
 
 ⚠️ **Antes do primeiro cliente real:** conferir na legislação vigente o limite anual do MEI
 (e a regra de proporcionalidade no 1º ano), o valor e a composição do DAS, e os prazos. Os
