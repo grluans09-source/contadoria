@@ -143,6 +143,10 @@ export const ARQUETIPOS = [
          de maior risco. */
       { id: "mercadoria_com_terceiros", codigo: "1123", nome: "Mercadoria com terceiros", tipo: "ativo", subtipo: "circulante", ordem: 23 },
       { id: "venda_mercadorias", codigo: "4101", nome: "Venda de mercadorias", tipo: "receita", ordem: 1 },
+      /* Beneficiamento VENDE mercadoria — então precisa de CMV como a
+         revenda, senão o custo do que saiu não tem onde ser reconhecido
+         e a margem sai inflada. Achado conferindo o plano gerado. */
+      { id: "cmv", codigo: "5120", nome: "Custo da mercadoria vendida", tipo: "despesa", ordem: 20 },
       { id: "servico_terceiros", codigo: "5150", nome: "Serviço de terceiros", tipo: "despesa", ordem: 50 },
       { id: "perda_beneficiamento", codigo: "5151", nome: "Perda no beneficiamento", tipo: "despesa", ordem: 51 },
     ],

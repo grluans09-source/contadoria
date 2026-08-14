@@ -523,6 +523,10 @@ var ARQUETIPOS = [
          de maior risco. */
       { id: "mercadoria_com_terceiros", codigo: "1123", nome: "Mercadoria com terceiros", tipo: "ativo", subtipo: "circulante", ordem: 23 },
       { id: "venda_mercadorias", codigo: "4101", nome: "Venda de mercadorias", tipo: "receita", ordem: 1 },
+      /* Beneficiamento VENDE mercadoria — então precisa de CMV como a
+         revenda, senão o custo do que saiu não tem onde ser reconhecido
+         e a margem sai inflada. Achado conferindo o plano gerado. */
+      { id: "cmv", codigo: "5120", nome: "Custo da mercadoria vendida", tipo: "despesa", ordem: 20 },
       { id: "servico_terceiros", codigo: "5150", nome: "Servi\xE7o de terceiros", tipo: "despesa", ordem: 50 },
       { id: "perda_beneficiamento", codigo: "5151", nome: "Perda no beneficiamento", tipo: "despesa", ordem: 51 }
     ],
@@ -612,6 +616,9 @@ function planoDeFabrica(arquetipoId) {
     }
   }
   return contas.map((c) => ({ ...c, subtipo: c.subtipo ?? null, ativa: true }));
+}
+function camposAberturaDe(arquetipoId) {
+  return acharArquetipo(arquetipoId)?.camposAbertura || [];
 }
 
 // src/telas/Negocios.jsx
@@ -743,6 +750,59 @@ function Negocios({ onAbrirNegocio, onAbrirPainel }) {
 import React5, { useState as useState4, useEffect as useEffect4 } from "react";
 import { Plus as Plus2, Trash2, ArrowLeft, ArrowRight, HelpCircle, Send } from "lucide-react";
 
+// src/dominio/dividas.mjs
+var CLASSIFICACOES_DIVIDA = [
+  {
+    id: "negocio",
+    rotulo: "\xC9 do neg\xF3cio",
+    ajuda: "Fornecedor, empr\xE9stimo no CNPJ, cart\xE3o da empresa.",
+    entraNoLivro: true
+  },
+  {
+    id: "pessoal_no_negocio",
+    rotulo: "\xC9 pessoal, mas o dinheiro entrou no neg\xF3cio",
+    ajuda: "Empr\xE9stimo no seu nome para comprar equipamento, estoque, ve\xEDculo do trabalho. Quem paga \xE9 o caixa do neg\xF3cio, ent\xE3o conta.",
+    entraNoLivro: true
+  },
+  {
+    id: "pessoal",
+    rotulo: "\xC9 s\xF3 pessoal",
+    ajuda: "Financiamento da casa, cart\xE3o usado em compra pessoal. N\xE3o entra no livro do neg\xF3cio \u2014 mas eu anoto, porque muda quanto voc\xEA precisa tirar por m\xEAs.",
+    entraNoLivro: false
+  }
+];
+function contaParaDivida({ classificacao, ehFornecedor }) {
+  if (classificacao === "pessoal") return null;
+  if (classificacao === "negocio" && ehFornecedor) return "fornecedores";
+  return "emprestimos";
+}
+function separarDividas(dividas) {
+  const itens = [];
+  const notas = [];
+  let totalPessoal = 0;
+  for (const d of dividas || []) {
+    const valor = Number(d.valor);
+    if (!(valor > 0)) continue;
+    const conta = contaParaDivida({ classificacao: d.classificacao, ehFornecedor: d.ehFornecedor });
+    if (!conta) {
+      totalPessoal += valor;
+      notas.push({ descricao: d.descricao || "D\xEDvida pessoal", valor, vencimento: d.vencimento || null });
+      continue;
+    }
+    itens.push({
+      contaId: conta,
+      tipo: "C",
+      valor,
+      /* A origem fica na descrição da linha: seis meses depois, olhando
+         o Razão, ele precisa entender por que uma dívida pessoal está no
+         livro do negócio. */
+      descricao: d.classificacao === "pessoal_no_negocio" ? `${d.descricao || "Empr\xE9stimo"} (pessoal, aplicado no neg\xF3cio)` : d.descricao || null,
+      vencimento: d.vencimento || null
+    });
+  }
+  return { itens, notas, totalPessoal };
+}
+
 // src/dominio/roteiro.mjs
 function perguntasPara(perguntas, { tipo, arquetipo, apenasEssenciais = false, blocos = null } = {}) {
   return (perguntas || []).filter((p) => p.ativo !== false).filter((p) => !blocos || blocos.includes(p.bloco)).filter((p) => !apenasEssenciais || p.essencial).filter((p) => !p.tipos?.length || p.tipos.includes(tipo)).filter((p) => !p.arquetipos?.length || arquetipo && p.arquetipos.includes(arquetipo)).sort((a, b) => a.bloco - b.bloco || a.ordem - b.ordem);
@@ -811,6 +871,7 @@ var NOMES_BLOCO = {
   6: "O combinado"
 };
 var hojeISO = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+var fmtMoeda = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 function PorQueImporta({ texto }) {
   const [aberto, setAberto] = useState4(false);
   if (!texto) return null;
@@ -890,9 +951,34 @@ Leva uns 10 minutos e d\xE1 pra parar no meio e voltar depois.`
     "abrir no WhatsApp"
   ), /* @__PURE__ */ React5.createElement("span", { className: "text-[10px]", style: { color: "var(--muted)" } }, "vale 30 dias"))), erro && /* @__PURE__ */ React5.createElement("div", { className: "text-xs mt-2", style: { color: "var(--debit)" } }, erro));
 }
-function BlocoAbertura({ abertura, setAbertura, perguntas }) {
+function ListaDividas({ itens, onChange }) {
+  const add = () => onChange([...itens, { descricao: "", valor: "", vencimento: "", classificacao: "negocio", ehFornecedor: true }]);
+  const remover = (i) => onChange(itens.filter((_, idx) => idx !== i));
+  const editar = (i, campo, v) => onChange(itens.map((it, idx) => idx === i ? { ...it, [campo]: v } : it));
+  const { notas, totalPessoal } = separarDividas(itens);
+  return /* @__PURE__ */ React5.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React5.createElement(Label, null, "Quanto voc\xEA deve, para quem, e quando vence"), itens.map((item, i) => {
+    const classe = CLASSIFICACOES_DIVIDA.find((c) => c.id === item.classificacao);
+    return /* @__PURE__ */ React5.createElement("div", { key: i, className: "mb-3 pb-3", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React5.createElement("div", { className: "flex gap-2 mb-2 items-center" }, /* @__PURE__ */ React5.createElement(Input, { placeholder: "para quem", value: item.descricao, onChange: (e) => editar(i, "descricao", e.target.value), className: "flex-[2]" }), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "valor", value: item.valor, onChange: (e) => editar(i, "valor", e.target.value), className: "flex-1" }), /* @__PURE__ */ React5.createElement(Input, { type: "date", value: item.vencimento, onChange: (e) => editar(i, "vencimento", e.target.value), className: "flex-1" }), /* @__PURE__ */ React5.createElement("button", { type: "button", onClick: () => remover(i), className: "transition-opacity hover:opacity-70 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React5.createElement(Trash2, { size: 15 }))), /* @__PURE__ */ React5.createElement(
+      Select,
+      {
+        value: item.classificacao,
+        onChange: (v) => editar(i, "classificacao", v),
+        options: CLASSIFICACOES_DIVIDA.map((c) => ({ value: c.id, label: c.rotulo }))
+      }
+    ), classe && /* @__PURE__ */ React5.createElement("div", { className: "text-[11px] mt-1", style: { color: classe.entraNoLivro ? "var(--muted)" : "var(--accent)" } }, classe.ajuda), item.classificacao === "negocio" && /* @__PURE__ */ React5.createElement("label", { className: "text-[11px] inline-flex items-center gap-1.5 mt-1.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React5.createElement(
+      "input",
+      {
+        type: "checkbox",
+        checked: item.ehFornecedor !== false,
+        onChange: (e) => editar(i, "ehFornecedor", e.target.checked)
+      }
+    ), "\xE9 fornecedor (se n\xE3o, entra como empr\xE9stimo)"));
+  }), /* @__PURE__ */ React5.createElement("button", { type: "button", onClick: add, className: "text-xs inline-flex items-center gap-1 mt-1", style: { color: "var(--accent)" } }, /* @__PURE__ */ React5.createElement(Plus2, { size: 13 }), " adicionar d\xEDvida"), notas.length > 0 && /* @__PURE__ */ React5.createElement("div", { className: "text-xs rounded-md px-3 py-2 mt-3", style: { background: "var(--accent-soft)", color: "var(--ink)", lineHeight: 1.6 } }, fmtMoeda(totalPessoal), " em d\xEDvida pessoal fica ", /* @__PURE__ */ React5.createElement("strong", null, "fora"), " do livro do neg\xF3cio \u2014 est\xE1 certo assim. Mas anote: isso muda quanto ele precisa tirar por m\xEAs, e \xE9 conversa da primeira entrega."));
+}
+function BlocoAbertura({ abertura, setAbertura, perguntas, arquetipo, dinheiroMisturado }) {
   const porBloco3 = (ordem) => perguntas.find((p) => p.bloco === 3 && p.ordem === ordem)?.porque_importa;
-  return /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement("div", { className: "text-xs mb-5", style: { color: "var(--muted)" } }, "Todo cliente chega no meio da vida \u2014 esta \xE9 a foto do que ele tem e do que deve hoje. Valor aproximado est\xE1 de bom tamanho; tudo \xE9 corrig\xEDvel depois, com rastro."), /* @__PURE__ */ React5.createElement("div", { className: "grid grid-cols-2 gap-3 mb-6" }, /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement(Label, null, "Dinheiro em esp\xE9cie"), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: abertura.caixa, onChange: (e) => setAbertura({ ...abertura, caixa: e.target.value }) })), /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement(Label, null, "Na conta (banco)"), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: abertura.banco, onChange: (e) => setAbertura({ ...abertura, banco: e.target.value }) }))), /* @__PURE__ */ React5.createElement(PorQueImporta, { texto: porBloco3(1) }), /* @__PURE__ */ React5.createElement(
+  const especificos = camposAberturaDe(arquetipo);
+  return /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement("div", { className: "text-xs mb-5", style: { color: "var(--muted)", lineHeight: 1.6 } }, "Todo cliente chega no meio da vida \u2014 esta \xE9 a foto do que ele tem e do que deve hoje. Valor aproximado est\xE1 de bom tamanho; tudo \xE9 corrig\xEDvel depois, com rastro."), dinheiroMisturado && /* @__PURE__ */ React5.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-5", style: { background: "var(--accent-soft)", color: "var(--ink)", lineHeight: 1.6 } }, /* @__PURE__ */ React5.createElement("strong", null, "Ele usa o mesmo dinheiro para tudo."), ' Informe o total mesmo \u2014 o sistema trata como capital do neg\xF3cio, e a partir da\xED cada gasto pessoal aparece como retirada. N\xE3o pe\xE7a para ele adivinhar quanto \xE9 "do neg\xF3cio": esse n\xFAmero seria inven\xE7\xE3o, e o jeito certo \xE9 justamente o que revela, no fim do m\xEAs, quanto ele tirou de verdade.'), /* @__PURE__ */ React5.createElement("div", { className: "grid grid-cols-2 gap-3 mb-6" }, /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement(Label, null, "Dinheiro em esp\xE9cie"), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: abertura.caixa, onChange: (e) => setAbertura({ ...abertura, caixa: e.target.value }) })), /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement(Label, null, "Na conta (banco)"), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: abertura.banco, onChange: (e) => setAbertura({ ...abertura, banco: e.target.value }) }))), /* @__PURE__ */ React5.createElement(PorQueImporta, { texto: porBloco3(1) }), /* @__PURE__ */ React5.createElement(
     ListaItens,
     {
       titulo: "O que o neg\xF3cio tem que vale dinheiro (equipamentos, m\xF3veis, ve\xEDculo)",
@@ -900,39 +986,30 @@ function BlocoAbertura({ abertura, setAbertura, perguntas }) {
       itens: abertura.equipamentos,
       onChange: (v) => setAbertura({ ...abertura, equipamentos: v })
     }
-  ), /* @__PURE__ */ React5.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React5.createElement(Label, null, "Mercadoria parada (valor total aproximado)"), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: abertura.estoque, onChange: (e) => setAbertura({ ...abertura, estoque: e.target.value }) }), /* @__PURE__ */ React5.createElement(PorQueImporta, { texto: porBloco3(3) })), /* @__PURE__ */ React5.createElement(
+  ), especificos.map((campo) => /* @__PURE__ */ React5.createElement("div", { className: "mb-6", key: campo.chave }, /* @__PURE__ */ React5.createElement(Label, null, campo.rotulo), /* @__PURE__ */ React5.createElement(
+    Input,
+    {
+      money: true,
+      placeholder: "0,00",
+      value: abertura.especificos?.[campo.chave] ?? "",
+      onChange: (e) => setAbertura({ ...abertura, especificos: { ...abertura.especificos || {}, [campo.chave]: e.target.value } })
+    }
+  ), /* @__PURE__ */ React5.createElement(PorQueImporta, { texto: campo.porque }))), /* @__PURE__ */ React5.createElement(
     ListaItens,
     {
       titulo: "Quem te deve, quanto, e para quando",
       comVencimento: true,
-      porque: porBloco3(4),
+      porque: porBloco3(3),
       itens: abertura.aReceber,
       onChange: (v) => setAbertura({ ...abertura, aReceber: v })
     }
-  ), /* @__PURE__ */ React5.createElement(
-    ListaItens,
-    {
-      titulo: "Quanto voc\xEA deve, para quem, e quando vence",
-      comVencimento: true,
-      porque: porBloco3(5),
-      itens: abertura.aPagar,
-      onChange: (v) => setAbertura({ ...abertura, aPagar: v })
-    }
-  ), /* @__PURE__ */ React5.createElement(
-    ListaItens,
-    {
-      titulo: "Empr\xE9stimo ou financiamento (saldo devedor)",
-      porque: porBloco3(6),
-      itens: abertura.emprestimos,
-      onChange: (v) => setAbertura({ ...abertura, emprestimos: v })
-    }
-  ));
+  ), /* @__PURE__ */ React5.createElement(ListaDividas, { itens: abertura.dividas, onChange: (v) => setAbertura({ ...abertura, dividas: v }) }));
 }
 function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
   const [perguntas, setPerguntas] = useState4([]);
   const [bloco, setBloco] = useState4(1);
   const [respostas, setRespostas] = useState4({});
-  const [abertura, setAbertura] = useState4({ caixa: "", banco: "", equipamentos: [], estoque: "", aReceber: [], aPagar: [], emprestimos: [] });
+  const [abertura, setAbertura] = useState4({ caixa: "", banco: "", equipamentos: [], especificos: {}, aReceber: [], dividas: [] });
   const [salvando, setSalvando] = useState4(false);
   const [erro, setErro] = useState4("");
   useEffect4(() => {
@@ -960,20 +1037,15 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       const v = numeroOuNulo(eq.valor);
       if (v) itens.push({ contaId: "equipamentos", tipo: "D", valor: v, descricao: eq.descricao || null });
     }
-    const estoque = numeroOuNulo(abertura.estoque);
-    if (estoque) itens.push({ contaId: "estoque", tipo: "D", valor: estoque, descricao: "Mercadoria em estoque" });
+    for (const campo of camposAberturaDe(negocio.arquetipo)) {
+      const v = numeroOuNulo(abertura.especificos?.[campo.chave]);
+      if (v) itens.push({ contaId: campo.contaId, tipo: campo.tipo, valor: v, descricao: campo.rotulo });
+    }
     for (const r of abertura.aReceber) {
       const v = numeroOuNulo(r.valor);
       if (v) itens.push({ contaId: "clientes", tipo: "D", valor: v, descricao: r.descricao || null, vencimento: r.vencimento || null });
     }
-    for (const p of abertura.aPagar) {
-      const v = numeroOuNulo(p.valor);
-      if (v) itens.push({ contaId: "fornecedores", tipo: "C", valor: v, descricao: p.descricao || null, vencimento: p.vencimento || null });
-    }
-    for (const e of abertura.emprestimos) {
-      const v = numeroOuNulo(e.valor);
-      if (v) itens.push({ contaId: "emprestimos", tipo: "C", valor: v, descricao: e.descricao || null });
-    }
+    itens.push(...separarDividas(abertura.dividas).itens);
     return itens;
   };
   const concluir = async () => {
@@ -1044,7 +1116,16 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       className: "h-1 flex-1 rounded-full transition-colors duration-300",
       style: { background: n <= bloco ? "var(--gold)" : "var(--rule-faint)" }
     }
-  ))), bloco === 1 && /* @__PURE__ */ React5.createElement(MandarParaOCliente, { negocioId: negocio.id, whatsapp: negocio.whatsapp }), /* @__PURE__ */ React5.createElement(Card, { className: "mb-6" }, bloco === 3 ? /* @__PURE__ */ React5.createElement(BlocoAbertura, { abertura, setAbertura, perguntas }) : doBloco(bloco).map((p) => /* @__PURE__ */ React5.createElement(
+  ))), bloco === 1 && /* @__PURE__ */ React5.createElement(MandarParaOCliente, { negocioId: negocio.id, whatsapp: negocio.whatsapp }), /* @__PURE__ */ React5.createElement(Card, { className: "mb-6" }, bloco === 3 ? /* @__PURE__ */ React5.createElement(
+    BlocoAbertura,
+    {
+      abertura,
+      setAbertura,
+      perguntas,
+      arquetipo: negocio.arquetipo,
+      dinheiroMisturado: negocio.dinheiro_misturado
+    }
+  ) : doBloco(bloco).map((p) => /* @__PURE__ */ React5.createElement(
     CampoRoteiro,
     {
       key: p.id,

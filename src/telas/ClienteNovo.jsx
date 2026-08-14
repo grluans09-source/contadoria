@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Plus, Trash2, ArrowLeft, ArrowRight, HelpCircle, Send } from "lucide-react";
 import { supabase } from "../dados/supabase.mjs";
 import { Card, Label, Input, Select, Button } from "../ui/primitivas.jsx";
-import { planoDeFabrica } from "../dominio/arquetipos.mjs";
+import { planoDeFabrica, camposAberturaDe } from "../dominio/arquetipos.mjs";
+import { separarDividas, CLASSIFICACOES_DIVIDA } from "../dominio/dividas.mjs";
 import { perguntasPara } from "../dominio/roteiro.mjs";
 import { montarLancamentoAbertura } from "../dominio/aberturaBalanco.mjs";
 
@@ -29,6 +30,7 @@ const NOMES_BLOCO = {
 };
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
+const fmtMoeda = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
 /* ── "por que isso importa" — docs/05 §6, ao lado de cada campo ── */
 function PorQueImporta({ texto }) {
@@ -162,15 +164,88 @@ function MandarParaOCliente({ negocioId, whatsapp }) {
   );
 }
 
-/* ── Bloco 3 — a tela especializada do balanço de abertura ── */
-function BlocoAbertura({ abertura, setAbertura, perguntas }) {
+/* ── Lista de dívidas, cada uma com a sua classificação ─────────
+   O dono perguntou: "quanto você deve pra quem — seria relacionado ao
+   trabalho?". A resposta tem três casos, e o do meio é o mais comum e o
+   mais fácil de errar (ver src/dominio/dividas.mjs). */
+function ListaDividas({ itens, onChange }) {
+  const add = () => onChange([...itens, { descricao: "", valor: "", vencimento: "", classificacao: "negocio", ehFornecedor: true }]);
+  const remover = (i) => onChange(itens.filter((_, idx) => idx !== i));
+  const editar = (i, campo, v) => onChange(itens.map((it, idx) => (idx === i ? { ...it, [campo]: v } : it)));
+
+  const { notas, totalPessoal } = separarDividas(itens);
+
+  return (
+    <div className="mb-6">
+      <Label>Quanto você deve, para quem, e quando vence</Label>
+      {itens.map((item, i) => {
+        const classe = CLASSIFICACOES_DIVIDA.find((c) => c.id === item.classificacao);
+        return (
+          <div key={i} className="mb-3 pb-3" style={{ borderBottom: "1px solid var(--rule-faint)" }}>
+            <div className="flex gap-2 mb-2 items-center">
+              <Input placeholder="para quem" value={item.descricao} onChange={(e) => editar(i, "descricao", e.target.value)} className="flex-[2]" />
+              <Input money placeholder="valor" value={item.valor} onChange={(e) => editar(i, "valor", e.target.value)} className="flex-1" />
+              <Input type="date" value={item.vencimento} onChange={(e) => editar(i, "vencimento", e.target.value)} className="flex-1" />
+              <button type="button" onClick={() => remover(i)} className="transition-opacity hover:opacity-70 shrink-0" style={{ color: "var(--debit)" }} aria-label="Remover">
+                <Trash2 size={15} />
+              </button>
+            </div>
+            <Select value={item.classificacao} onChange={(v) => editar(i, "classificacao", v)}
+              options={CLASSIFICACOES_DIVIDA.map((c) => ({ value: c.id, label: c.rotulo }))} />
+            {classe && (
+              <div className="text-[11px] mt-1" style={{ color: classe.entraNoLivro ? "var(--muted)" : "var(--accent)" }}>
+                {classe.ajuda}
+              </div>
+            )}
+            {item.classificacao === "negocio" && (
+              <label className="text-[11px] inline-flex items-center gap-1.5 mt-1.5" style={{ color: "var(--muted)" }}>
+                <input type="checkbox" checked={item.ehFornecedor !== false}
+                  onChange={(e) => editar(i, "ehFornecedor", e.target.checked)} />
+                é fornecedor (se não, entra como empréstimo)
+              </label>
+            )}
+          </div>
+        );
+      })}
+      <button type="button" onClick={add} className="text-xs inline-flex items-center gap-1 mt-1" style={{ color: "var(--accent)" }}>
+        <Plus size={13} /> adicionar dívida
+      </button>
+
+      {notas.length > 0 && (
+        <div className="text-xs rounded-md px-3 py-2 mt-3" style={{ background: "var(--accent-soft)", color: "var(--ink)", lineHeight: 1.6 }}>
+          {fmtMoeda(totalPessoal)} em dívida pessoal fica <strong>fora</strong> do livro do negócio — está certo assim.
+          Mas anote: isso muda quanto ele precisa tirar por mês, e é conversa da primeira entrega.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Bloco 3 — a foto de hoje, montada a partir do ARQUÉTIPO ────
+   Os campos comuns valem para todo negócio; os específicos vêm de
+   `camposAbertura` do arquétipo — é o que faz a facção ser perguntada
+   sobre mercadoria na mão de terceiro e o eletricista sobre material
+   já comprado para obra. */
+function BlocoAbertura({ abertura, setAbertura, perguntas, arquetipo, dinheiroMisturado }) {
   const porBloco3 = (ordem) => perguntas.find((p) => p.bloco === 3 && p.ordem === ordem)?.porque_importa;
+  const especificos = camposAberturaDe(arquetipo);
+
   return (
     <div>
-      <div className="text-xs mb-5" style={{ color: "var(--muted)" }}>
+      <div className="text-xs mb-5" style={{ color: "var(--muted)", lineHeight: 1.6 }}>
         Todo cliente chega no meio da vida — esta é a foto do que ele tem e do que deve hoje.
         Valor aproximado está de bom tamanho; tudo é corrigível depois, com rastro.
       </div>
+
+      {dinheiroMisturado && (
+        <div className="text-xs rounded-md px-3 py-2 mb-5" style={{ background: "var(--accent-soft)", color: "var(--ink)", lineHeight: 1.6 }}>
+          <strong>Ele usa o mesmo dinheiro para tudo.</strong> Informe o total mesmo — o sistema trata como
+          capital do negócio, e a partir daí cada gasto pessoal aparece como retirada.
+          Não peça para ele adivinhar quanto é "do negócio": esse número seria invenção, e o
+          jeito certo é justamente o que revela, no fim do mês, quanto ele tirou de verdade.
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div>
           <Label>Dinheiro em espécie</Label>
@@ -187,23 +262,21 @@ function BlocoAbertura({ abertura, setAbertura, perguntas }) {
         porque={porBloco3(2)} itens={abertura.equipamentos}
         onChange={(v) => setAbertura({ ...abertura, equipamentos: v })} />
 
-      <div className="mb-6">
-        <Label>Mercadoria parada (valor total aproximado)</Label>
-        <Input money placeholder="0,00" value={abertura.estoque} onChange={(e) => setAbertura({ ...abertura, estoque: e.target.value })} />
-        <PorQueImporta texto={porBloco3(3)} />
-      </div>
+      {/* Os campos que só este tipo de negócio tem */}
+      {especificos.map((campo) => (
+        <div className="mb-6" key={campo.chave}>
+          <Label>{campo.rotulo}</Label>
+          <Input money placeholder="0,00" value={abertura.especificos?.[campo.chave] ?? ""}
+            onChange={(e) => setAbertura({ ...abertura, especificos: { ...(abertura.especificos || {}), [campo.chave]: e.target.value } })} />
+          <PorQueImporta texto={campo.porque} />
+        </div>
+      ))}
 
       <ListaItens titulo="Quem te deve, quanto, e para quando" comVencimento
-        porque={porBloco3(4)} itens={abertura.aReceber}
+        porque={porBloco3(3)} itens={abertura.aReceber}
         onChange={(v) => setAbertura({ ...abertura, aReceber: v })} />
 
-      <ListaItens titulo="Quanto você deve, para quem, e quando vence" comVencimento
-        porque={porBloco3(5)} itens={abertura.aPagar}
-        onChange={(v) => setAbertura({ ...abertura, aPagar: v })} />
-
-      <ListaItens titulo="Empréstimo ou financiamento (saldo devedor)"
-        porque={porBloco3(6)} itens={abertura.emprestimos}
-        onChange={(v) => setAbertura({ ...abertura, emprestimos: v })} />
+      <ListaDividas itens={abertura.dividas} onChange={(v) => setAbertura({ ...abertura, dividas: v })} />
     </div>
   );
 }
@@ -212,7 +285,7 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
   const [perguntas, setPerguntas] = useState([]);
   const [bloco, setBloco] = useState(1);
   const [respostas, setRespostas] = useState({});
-  const [abertura, setAbertura] = useState({ caixa: "", banco: "", equipamentos: [], estoque: "", aReceber: [], aPagar: [], emprestimos: [] });
+  const [abertura, setAbertura] = useState({ caixa: "", banco: "", equipamentos: [], especificos: {}, aReceber: [], dividas: [] });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
@@ -248,20 +321,25 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       const v = numeroOuNulo(eq.valor);
       if (v) itens.push({ contaId: "equipamentos", tipo: "D", valor: v, descricao: eq.descricao || null });
     }
-    const estoque = numeroOuNulo(abertura.estoque);
-    if (estoque) itens.push({ contaId: "estoque", tipo: "D", valor: estoque, descricao: "Mercadoria em estoque" });
+
+    /* Os campos que só este arquétipo tem — mercadoria com terceiro,
+       saldo em plataforma, material de obra, estoque de insumo… Cada um
+       já traz a conta e o lado (D/C) na definição do arquétipo. */
+    for (const campo of camposAberturaDe(negocio.arquetipo)) {
+      const v = numeroOuNulo(abertura.especificos?.[campo.chave]);
+      if (v) itens.push({ contaId: campo.contaId, tipo: campo.tipo, valor: v, descricao: campo.rotulo });
+    }
+
     for (const r of abertura.aReceber) {
       const v = numeroOuNulo(r.valor);
       if (v) itens.push({ contaId: "clientes", tipo: "D", valor: v, descricao: r.descricao || null, vencimento: r.vencimento || null });
     }
-    for (const p of abertura.aPagar) {
-      const v = numeroOuNulo(p.valor);
-      if (v) itens.push({ contaId: "fornecedores", tipo: "C", valor: v, descricao: p.descricao || null, vencimento: p.vencimento || null });
-    }
-    for (const e of abertura.emprestimos) {
-      const v = numeroOuNulo(e.valor);
-      if (v) itens.push({ contaId: "emprestimos", tipo: "C", valor: v, descricao: e.descricao || null });
-    }
+
+    /* Dívidas: cada uma vai para a conta certa conforme a classificação,
+       e a puramente pessoal fica de fora do livro de propósito
+       (src/dominio/dividas.mjs). */
+    itens.push(...separarDividas(abertura.dividas).itens);
+
     return itens;
   };
 
@@ -373,7 +451,8 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
 
         <Card className="mb-6">
           {bloco === 3 ? (
-            <BlocoAbertura abertura={abertura} setAbertura={setAbertura} perguntas={perguntas} />
+            <BlocoAbertura abertura={abertura} setAbertura={setAbertura} perguntas={perguntas}
+              arquetipo={negocio.arquetipo} dinheiroMisturado={negocio.dinheiro_misturado} />
           ) : (
             doBloco(bloco).map((p) => (
               <CampoRoteiro key={p.id} pergunta={p} valor={respostas[p.id]}

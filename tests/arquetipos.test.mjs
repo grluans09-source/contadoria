@@ -81,6 +81,13 @@ test("beneficiamento tem a conta de mercadoria com terceiros — a razão de o a
   assert.ok(contas.has("servico_terceiros"));
 });
 
+test("todo arquétipo que VENDE mercadoria tem CMV — senão a margem sai inflada", () => {
+  for (const id of ["revenda", "beneficiamento"]) {
+    const contas = new Set(planoDeFabrica(id).map((c) => c.id));
+    assert.ok(contas.has("cmv"), `${id} vende mercadoria e precisa reconhecer o custo do que saiu`);
+  }
+});
+
 test("intermediação tem repasses a pagar — o dinheiro que passa pela conta e não é dele", () => {
   const plano = planoDeFabrica("intermediacao");
   const repasse = plano.find((c) => c.id === "repasses_a_pagar");
