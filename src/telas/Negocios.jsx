@@ -158,7 +158,7 @@ export function Negocios({ onAbrirNegocio, onAbrirPainel }) {
   const carregar = useCallback(async () => {
     const { data, error } = await supabase
       .from("negocios")
-      .select("id, nome, apelido, tipo, situacao, created_at, configuracao, arquetipo, dinheiro_misturado")
+      .select("id, nome, apelido, tipo, situacao, created_at, configuracao, arquetipo, dinheiro_misturado, retrato_de_entrada")
       .order("created_at", { ascending: false });
     if (error) { setErro(error.message); return; }
     setNegocios(data || []);

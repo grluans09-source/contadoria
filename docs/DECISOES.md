@@ -199,9 +199,34 @@ retroativo a janeiro (docs/07 §4).
 
 # F-bis · Propostas ainda aguardando decisão
 
-### F3 · Linha de base no onboarding — **PROPOSTA** ⭐ urgente
-Retrato imutável de como o cliente chegou. **Irrecuperável se adiado** — mesma lógica do campo
-"recomendação seguida?".
+### F3 · Retrato de entrada (linha de base) — **IMPLEMENTADO** (14/ago) ✅
+`src/dominio/linhaDeBase.mjs` · migrações 0014 e 0015 · 14 testes.
+
+**O que se descobriu construindo:** o instinto era guardar números — mas o número da abertura
+**já está no livro**. O que some para sempre é a outra metade: **o que ele ACREDITAVA**. Por
+isso o retrato tem dois lados, `declarado` e `medido`.
+
+**A frase que justifica a peça**, gerada de ponta a ponta no teste:
+> *"Quando começamos, você me disse que tirava R$ 2.000,00 por mês. O que os números mostram
+> é R$ 4.100,00 — R$ 2.100,00 a mais do que você imaginava."*
+
+Ela **só existe** porque o "ele disse" foi congelado antes de haver medição.
+
+**Imutável no BANCO, não só na tela** (gatilho `retrato_de_entrada_imutavel`, migração 0014):
+se a trava vivesse só no app, qualquer caminho novo — importação, correção, script — poderia
+sobrescrever, e a linha de base deixaria de ser linha de base. Testado ao vivo: 1ª gravação
+passa, 2ª é recusada, demais campos seguem editáveis.
+
+**Achado corrigido antes de publicar:** a primeira versão localizava as perguntas por
+**fragmento de texto**. Conflitava com C8 (perguntas são editáveis no banco de propósito):
+reescrever o texto de uma pergunta faria a captura falhar **em silêncio**, num campo
+write-once que não teria conserto depois. Trocado por `destino = 'retrato.*'` (migração 0015)
+— **texto é editável, destino é contrato**. As 7 perguntas foram conferidas contra o banco:
+sem duplicata, sem chave faltando.
+
+**Bug de sinal pego por teste:** o patrimônio estava sendo invertido no código.
+`saldoDeConta` já devolve o sinal correto para conta de PL — patrimônio negativo tem que sair
+negativo (docs/06 §4).
 
 ### F4 · Achados com valor em R$, evidência e hipótese inocente — **PROPOSTA**
 Hoje o achado aponta e para. Falta quanto custou, quais lançamentos geraram, e a explicação

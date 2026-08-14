@@ -129,14 +129,14 @@ var Card = ({ children, className = "", pad = true, elevavel = false, onClick, i
   children
 );
 var Label = ({ children }) => /* @__PURE__ */ React2.createElement("div", { className: "text-[11px] uppercase tracking-wide mb-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, children);
-var Input = ({ mono, money, num, className = "", ...p }) => /* @__PURE__ */ React2.createElement(
+var Input = ({ mono, money, num: num2, className = "", ...p }) => /* @__PURE__ */ React2.createElement(
   "input",
   {
     ...p,
-    inputMode: money ? "decimal" : num ? "numeric" : p.inputMode,
-    enterKeyHint: p.enterKeyHint || (money || num ? "done" : void 0),
-    className: `w-full rounded-md border px-3 py-2 text-sm transition-colors duration-150 ${money || num ? "text-right tabular-nums" : ""} ${className}`,
-    style: { borderColor: "var(--rule-faint)", background: "var(--paper)", color: "var(--ink)", fontFamily: mono || money || num ? "var(--font-mono)" : "var(--font-body)" }
+    inputMode: money ? "decimal" : num2 ? "numeric" : p.inputMode,
+    enterKeyHint: p.enterKeyHint || (money || num2 ? "done" : void 0),
+    className: `w-full rounded-md border px-3 py-2 text-sm transition-colors duration-150 ${money || num2 ? "text-right tabular-nums" : ""} ${className}`,
+    style: { borderColor: "var(--rule-faint)", background: "var(--paper)", color: "var(--ink)", fontFamily: mono || money || num2 ? "var(--font-mono)" : "var(--font-body)" }
   }
 );
 function Select({ value, onChange, options, placeholder }) {
@@ -716,7 +716,7 @@ function Negocios({ onAbrirNegocio, onAbrirPainel }) {
   const [erro, setErro] = useState3("");
   const [confirmacao, setConfirmacao] = useState3(false);
   const carregar = useCallback(async () => {
-    const { data, error } = await supabase.from("negocios").select("id, nome, apelido, tipo, situacao, created_at, configuracao, arquetipo, dinheiro_misturado").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("negocios").select("id, nome, apelido, tipo, situacao, created_at, configuracao, arquetipo, dinheiro_misturado, retrato_de_entrada").order("created_at", { ascending: false });
     if (error) {
       setErro(error.message);
       return;
@@ -807,6 +807,67 @@ function separarDividas(dividas) {
 // src/dominio/roteiro.mjs
 function perguntasPara(perguntas, { tipo, arquetipo, apenasEssenciais = false, blocos = null } = {}) {
   return (perguntas || []).filter((p) => p.ativo !== false).filter((p) => !blocos || blocos.includes(p.bloco)).filter((p) => !apenasEssenciais || p.essencial).filter((p) => !p.tipos?.length || p.tipos.includes(tipo)).filter((p) => !p.arquetipos?.length || arquetipo && p.arquetipos.includes(arquetipo)).sort((a, b) => a.bloco - b.bloco || a.ordem - b.ordem);
+}
+
+// src/dominio/valorDoTempo.mjs
+var SEMANAS_POR_MES = 4.345;
+function horaDoDono({ retiradaNoMes, horasPorSemana, salarioMinimoHora = null }) {
+  const horas = Number(horasPorSemana);
+  const retirada = Number(retiradaNoMes);
+  if (!(horas > 0) || !(retirada > 0)) return null;
+  const horasNoMes = Math.round(horas * SEMANAS_POR_MES * 10) / 10;
+  const porHora = Math.round(retirada / horasNoMes * 100) / 100;
+  return {
+    porHora,
+    horasNoMes,
+    salarioMinimoHora,
+    abaixoDoMinimo: salarioMinimoHora ? porHora < salarioMinimoHora : null,
+    comparacao: salarioMinimoHora ? Math.round(porHora / salarioMinimoHora * 100) / 100 : null
+  };
+}
+
+// src/dominio/linhaDeBase.mjs
+var num = (v) => {
+  const n = parseFloat(String(v ?? "").replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
+function montarRetratoDeEntrada({ negocio, declarado = {}, contas = [], linhasAbertura = [], hoje }) {
+  const saldoDe = (id) => {
+    const conta = contas.find((c) => c.id === id);
+    return conta ? saldoDeConta(conta, linhasAbertura) : 0;
+  };
+  const caixaEBanco = CONTAS_DINHEIRO.reduce((s, id) => s + saldoDe(id), 0);
+  const aReceber = saldoDe("clientes");
+  const dividas = Math.abs(saldoDe("fornecedores")) + Math.abs(saldoDe("emprestimos"));
+  const patrimonio = Math.round(saldoDe("capital_titular") * 100) / 100;
+  const faturamentoDeclarado = num(declarado.faturamentoMensal);
+  const retiradaDeclarada = num(declarado.retiradaMensal);
+  const horas = num(declarado.horasPorSemana);
+  return {
+    capturadoEm: hoje,
+    tipo: negocio?.tipo ?? null,
+    arquetipo: negocio?.arquetipo ?? null,
+    /* O que ele ACREDITAVA — a metade que some se não for congelada */
+    declarado: {
+      faturamentoMensal: faturamentoDeclarado,
+      retiradaMensal: retiradaDeclarada,
+      horasPorSemana: horas,
+      achaQueGanhaDinheiro: declarado.achaQueGanhaDinheiro || null,
+      oQueIncomoda: declarado.oQueIncomoda || null,
+      meta: declarado.meta || null,
+      /* A hora que ele acha que vale, pelos números dele mesmos */
+      horaDeclarada: horaDoDono({ retiradaNoMes: retiradaDeclarada, horasPorSemana: horas })?.porHora ?? null
+    },
+    /* O que o livro MOSTROU no dia 1 */
+    medido: {
+      caixaEBanco: Math.round(caixaEBanco * 100) / 100,
+      aReceber: Math.round(aReceber * 100) / 100,
+      dividasDoNegocio: Math.round(dividas * 100) / 100,
+      patrimonioLiquido: patrimonio,
+      dinheiroMisturado: !!negocio?.dinheiro_misturado,
+      temContaSeparada: declarado.temContaSeparada === "sim"
+    }
+  };
 }
 
 // src/dominio/aberturaBalanco.mjs
@@ -1085,8 +1146,22 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       ];
       const { error: erroLote } = await supabase.rpc("aplicar_lote", { p_negocio: negocio.id, p_ops: ops });
       if (erroLote) throw new Error(`N\xE3o consegui gravar o balan\xE7o de abertura: ${erroLote.message}`);
-      const bloco1 = respostas;
       const patchNegocio = { inicio_do_servico: hojeISO(), configuracao: { ...negocio.configuracao || {}, onboarded: true } };
+      if (!negocio.retrato_de_entrada) {
+        const declarado = {};
+        for (const p of perguntas) {
+          if (!p.destino?.startsWith("retrato.")) continue;
+          const chave = p.destino.slice("retrato.".length);
+          declarado[chave] = respostas[p.id];
+        }
+        patchNegocio.retrato_de_entrada = montarRetratoDeEntrada({
+          negocio,
+          hoje: hojeISO(),
+          contas: planoDeFabrica(negocio.arquetipo),
+          linhasAbertura: linhas,
+          declarado
+        });
+      }
       for (const p of perguntas) {
         if (p.bloco !== 1) continue;
         const valor = respostas[p.id];

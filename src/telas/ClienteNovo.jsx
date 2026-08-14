@@ -5,6 +5,7 @@ import { Card, Label, Input, Select, Button } from "../ui/primitivas.jsx";
 import { planoDeFabrica, camposAberturaDe } from "../dominio/arquetipos.mjs";
 import { separarDividas, CLASSIFICACOES_DIVIDA } from "../dominio/dividas.mjs";
 import { perguntasPara } from "../dominio/roteiro.mjs";
+import { montarRetratoDeEntrada } from "../dominio/linhaDeBase.mjs";
 import { montarLancamentoAbertura } from "../dominio/aberturaBalanco.mjs";
 
 /* O Roteiro do Cliente Novo — docs/05_ROTEIRO_DO_SERVICO.md §4 e
@@ -392,8 +393,34 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
          fora do aplicar_lote de propósito: `negocios` não é uma
          coleção-filha escopada por negocio_id, é o próprio negócio, e a
          RLS já garante que só o contador dele grava aqui. */
-      const bloco1 = respostas;
       const patchNegocio = { inicio_do_servico: hojeISO(), configuracao: { ...(negocio.configuracao || {}), onboarded: true } };
+
+      /* A LINHA DE BASE (docs/09, P6). Congelada aqui, uma vez só: o
+         que ele ACREDITAVA, ao lado do que o balanço MEDIU. Sem isto,
+         daqui a seis meses não há como provar transformação nenhuma —
+         e a metade "acreditava" é irrecuperável.
+         O banco também recusa sobrescrita (gatilho da 0014); aqui só
+         não mandamos quando já existe. */
+      if (!negocio.retrato_de_entrada) {
+        /* Procura por `destino`, NUNCA pelo texto da pergunta: o texto é
+           editável de propósito (C8), e casar por fragmento faria a
+           captura falhar em silêncio se alguém reescrevesse a pergunta —
+           num campo que é write-once e portanto não teria conserto. */
+        const declarado = {};
+        for (const p of perguntas) {
+          if (!p.destino?.startsWith("retrato.")) continue;
+          const chave = p.destino.slice("retrato.".length);
+          declarado[chave] = respostas[p.id];
+        }
+
+        patchNegocio.retrato_de_entrada = montarRetratoDeEntrada({
+          negocio,
+          hoje: hojeISO(),
+          contas: planoDeFabrica(negocio.arquetipo),
+          linhasAbertura: linhas,
+          declarado,
+        });
+      }
       for (const p of perguntas) {
         if (p.bloco !== 1) continue;
         const valor = respostas[p.id];
