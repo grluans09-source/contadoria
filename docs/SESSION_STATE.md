@@ -807,17 +807,49 @@ direto em `auth.users`. Ciclo completo provado.
 
 ---
 
+## ✅ Publicado no Netlify — acesso de qualquer lugar (13/ago)
+
+O Luan perguntou se dava pra acessar do celular além do computador — resposta honesta: só
+via Wi-Fi local com o PC ligado rodando `serve.mjs`, porque nada estava publicado na
+internet ainda. Resolvido publicando `dist/` (site 100% estático, dependências via CDN —
+sem passo de build no servidor) no Netlify.
+
+**Site:** https://contadoria-luan.netlify.app — acessível de qualquer dispositivo, qualquer
+rede, sem depender do computador do Luan ligado.
+
+| O que | Como |
+|---|---|
+| Conta Netlify | criada pelo Luan (login GitHub) — nunca por mim, mesma regra de sempre |
+| Token de acesso pessoal | gerado pelo Luan, guardado em `netlify/.access-token` (gitignored, mesmo padrão do token do Supabase) |
+| Site | `contadoria-luan` (projeto `9843ac09-e6a6-44a8-bab5-3bafcd515dd8`), criado via `netlify sites:create` |
+| Deploy | **manual, via CLI** (`npm run publicar` → `scripts/publicar.mjs`) — **não é deploy contínuo ligado ao GitHub.** Push no git NÃO republica sozinho; precisa rodar `npm run build && npm run bump && npm run publicar` toda vez que algo for pra produção |
+| Redirect de e-mail | `uri_allow_list` do Supabase Auth ganhou `https://contadoria-luan.netlify.app/**` (mesma correção do localhost, agora pra produção) |
+
+Também foi preciso enviar pro GitHub 8 commits que estavam só locais (todo o trabalho desta
+sessão) — `git push origin main`, conferido sem segredo no diff antes de enviar.
+
+Verificado no navegador: a URL de produção carrega a tela de login normalmente, sem erro no
+console.
+
+⚠️ **Registrar para a próxima sessão:** publicar não é automático. Se mexer no código e
+esquecer de rodar `npm run publicar`, o site publicado fica desatualizado enquanto o `git`
+já tem a mudança nova — os dois podem divergir silenciosamente.
+
+---
+
 ## ➡️ Próxima tarefa
 
-Os dez itens do "O QUE FALTA" original (mandato "quero o sistema já pronto com tudo") e os
-quatro itens de pós-produção (parâmetros fiscais, backup, decisão do token, confirmação de
-e-mail) estão **todos completos**. Não há pendência de código conhecida.
+Os dez itens do "O QUE FALTA" original, os quatro itens de pós-produção e a publicação do
+site estão **todos completos**. Não há pendência de código conhecida.
 
 O que resta é rotina, não tarefa:
 - Reconferir `parametros_fiscais` todo janeiro (salário mínimo muda, DAS sobe) e antes do
   primeiro cliente real (os dois PLPs de aumento do teto do MEI ainda não são lei)
 - Rodar `npm run backup` semanalmente (ou antes de qualquer migração arriscada)
-- Lembrar de subir `serve.mjs` (ou `preview_start`) no início de cada sessão de trabalho —
-  ele não fica rodando sozinho entre uma sessão e outra
+- Lembrar de subir `serve.mjs` (ou `preview_start`) no início de cada sessão de trabalho de
+  DESENVOLVIMENTO — ele não fica rodando sozinho entre uma sessão e outra (isso é diferente
+  do site publicado no Netlify, que fica no ar sozinho, sem precisar de PC ligado)
+- Depois de qualquer mudança de código que deva valer em produção: `npm run build && npm
+  run bump && npm run publicar` — nenhum desses passos acontece sozinho
 
 **Modelo:** alvo claro, segue em **Sonnet**.
