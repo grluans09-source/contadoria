@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React20, { useState as useState17, useEffect as useEffect10 } from "react";
+import React21, { useState as useState18, useEffect as useEffect11 } from "react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -355,119 +355,6 @@ async function resumoDoMesAtual(negocioId) {
   return { resultado: r.resultado, temMovimento: true };
 }
 
-// src/telas/Negocios.jsx
-var TIPO_LABEL = { mei: "MEI", informal: "Informal" };
-var fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
-function ResumoDoMes({ negocioId }) {
-  const [resumo, setResumo] = useState3(null);
-  useEffect3(() => {
-    let vivo = true;
-    resumoDoMesAtual(negocioId).then((r) => {
-      if (vivo) setResumo(r);
-    });
-    return () => {
-      vivo = false;
-    };
-  }, [negocioId]);
-  if (!resumo) return /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "\u2026");
-  if (!resumo.temMovimento) return /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento neste m\xEAs");
-  return /* @__PURE__ */ React4.createElement("span", { style: { color: resumo.resultado >= 0 ? "var(--credit)" : "var(--debit)" } }, resumo.resultado >= 0 ? "sobrou" : "faltou", " ", fmt(Math.abs(resumo.resultado)), " este m\xEAs");
-}
-function CardNegocio({ negocio, recemCriado, onAbrir }) {
-  const onboarded = !!negocio.configuracao?.onboarded;
-  return /* @__PURE__ */ React4.createElement(
-    Card,
-    {
-      elevavel: true,
-      onClick: () => onAbrir(negocio),
-      className: recemCriado ? "animate-[surgir_.4s_ease-out]" : ""
-    },
-    /* @__PURE__ */ React4.createElement("div", { className: "flex items-start justify-between gap-3" }, /* @__PURE__ */ React4.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React4.createElement("div", { className: "font-medium truncate", style: { color: "var(--ink)", fontFamily: "var(--font-display)" } }, negocio.apelido || negocio.nome), negocio.apelido && /* @__PURE__ */ React4.createElement("div", { className: "text-xs truncate", style: { color: "var(--muted)" } }, negocio.nome)), /* @__PURE__ */ React4.createElement(
-      "span",
-      {
-        className: "text-[10px] uppercase tracking-wide px-2 py-1 rounded-full shrink-0",
-        style: { background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" }
-      },
-      TIPO_LABEL[negocio.tipo] || negocio.tipo
-    )),
-    /* @__PURE__ */ React4.createElement("div", { className: "mt-3 text-xs" }, negocio.situacao !== "ativo" ? /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "Encerrado") : !onboarded ? /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "Roteiro do Cliente Novo pendente") : /* @__PURE__ */ React4.createElement(ResumoDoMes, { negocioId: negocio.id }))
-  );
-}
-function FormularioNovoNegocio({ onCriado, onFechar }) {
-  const [nome, setNome] = useState3("");
-  const [apelido, setApelido] = useState3("");
-  const [tipo, setTipo] = useState3("mei");
-  const [salvando, setSalvando] = useState3(false);
-  const [erro, setErro] = useState3("");
-  const salvar = async (e) => {
-    e.preventDefault();
-    if (!nome.trim()) {
-      setErro("D\xE1 um nome pro neg\xF3cio \u2014 pode ser s\xF3 o nome do cliente.");
-      return;
-    }
-    setSalvando(true);
-    setErro("");
-    try {
-      const { data, error } = await supabase.rpc("criar_negocio", {
-        p_nome: nome.trim(),
-        p_apelido: apelido.trim() || null,
-        p_tipo: tipo
-      });
-      if (error) throw error;
-      onCriado(data);
-    } catch (err) {
-      setErro(err?.message || "N\xE3o consegui criar \u2014 tenta de novo.");
-    } finally {
-      setSalvando(false);
-    }
-  };
-  return /* @__PURE__ */ React4.createElement(Card, { className: "mb-6" }, /* @__PURE__ */ React4.createElement("div", { className: "flex items-center justify-between mb-4" }, /* @__PURE__ */ React4.createElement("div", { className: "font-medium", style: { color: "var(--ink)", fontFamily: "var(--font-display)" } }, "Novo neg\xF3cio"), /* @__PURE__ */ React4.createElement("button", { onClick: onFechar, className: "transition-opacity hover:opacity-70", "aria-label": "Fechar", style: { color: "var(--muted)" } }, /* @__PURE__ */ React4.createElement(X, { size: 16 }))), /* @__PURE__ */ React4.createElement("form", { onSubmit: salvar, className: "space-y-3" }, /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement(Label, null, "Nome do neg\xF3cio ou do cliente"), /* @__PURE__ */ React4.createElement(Input, { autoFocus: true, value: nome, onChange: (e) => setNome(e.target.value), placeholder: "ex.: Salgados da L\xE9ia" })), /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement(Label, null, "Apelido (opcional \u2014 como voc\xEA quer ver na lista)"), /* @__PURE__ */ React4.createElement(Input, { value: apelido, onChange: (e) => setApelido(e.target.value), placeholder: "ex.: L\xE9ia" })), /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement(Label, null, "Tipo"), /* @__PURE__ */ React4.createElement(Select, { value: tipo, onChange: setTipo, options: [
-    { value: "mei", label: "MEI" },
-    { value: "informal", label: "Informal" }
-  ] })), erro && /* @__PURE__ */ React4.createElement("div", { className: "text-xs rounded-md px-3 py-2", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React4.createElement(Button, { type: "submit", disabled: salvando }, salvando ? "Criando\u2026" : "Criar neg\xF3cio")));
-}
-function Negocios({ onAbrirNegocio, onAbrirPainel }) {
-  const [negocios, setNegocios] = useState3(null);
-  const [mostrarForm, setMostrarForm] = useState3(false);
-  const [recemCriadoId, setRecemCriadoId] = useState3(null);
-  const [erro, setErro] = useState3("");
-  const [confirmacao, setConfirmacao] = useState3(false);
-  const carregar = useCallback(async () => {
-    const { data, error } = await supabase.from("negocios").select("id, nome, apelido, tipo, situacao, created_at, configuracao, arquetipo, dinheiro_misturado").order("created_at", { ascending: false });
-    if (error) {
-      setErro(error.message);
-      return;
-    }
-    setNegocios(data || []);
-  }, []);
-  useEffect3(() => {
-    carregar();
-  }, [carregar]);
-  const aoCriar = async (novoId) => {
-    setMostrarForm(false);
-    await carregar();
-    setRecemCriadoId(novoId);
-    setConfirmacao(true);
-    setTimeout(() => setConfirmacao(false), 2200);
-    setTimeout(() => setRecemCriadoId(null), 900);
-  };
-  return /* @__PURE__ */ React4.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React4.createElement("div", { className: "max-w-3xl mx-auto px-5 py-8" }, /* @__PURE__ */ React4.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Seus neg\xF3cios"), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "a prateleira")), /* @__PURE__ */ React4.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React4.createElement(Button, { variant: "ghost", onClick: onAbrirPainel }, /* @__PURE__ */ React4.createElement(ClipboardList, { size: 15 }), " Painel do M\xEAs"), !mostrarForm && /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Novo neg\xF3cio"), /* @__PURE__ */ React4.createElement(
-    "button",
-    {
-      onClick: () => supabase.auth.signOut(),
-      className: "text-xs inline-flex items-center gap-1.5 px-2 py-2 transition-opacity hover:opacity-70",
-      style: { color: "var(--muted)" },
-      "aria-label": "Sair",
-      title: "Sair da conta"
-    },
-    /* @__PURE__ */ React4.createElement(LogOut, { size: 15 })
-  ))), /* @__PURE__ */ React4.createElement("div", { className: "mb-4" }, /* @__PURE__ */ React4.createElement(Confirmacao, { texto: "Neg\xF3cio criado.", ativa: confirmacao })), mostrarForm && /* @__PURE__ */ React4.createElement(FormularioNovoNegocio, { onCriado: aoCriar, onFechar: () => setMostrarForm(false) }), erro && /* @__PURE__ */ React4.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), negocios === null && /* @__PURE__ */ React4.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026"), negocios !== null && negocios.length === 0 && !mostrarForm && /* @__PURE__ */ React4.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React4.createElement(Building2, { size: 28, className: "mx-auto mb-3", style: { color: "var(--muted)" } }), /* @__PURE__ */ React4.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum neg\xF3cio cadastrado ainda."), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1 mb-4", style: { color: "var(--muted)" } }, "O primeiro passo \xE9 criar o neg\xF3cio do seu primeiro cliente."), /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Criar o primeiro")), negocios !== null && negocios.length > 0 && /* @__PURE__ */ React4.createElement("div", { className: "grid gap-3 sm:grid-cols-2" }, negocios.map((n) => /* @__PURE__ */ React4.createElement(CardNegocio, { key: n.id, negocio: n, recemCriado: n.id === recemCriadoId, onAbrir: onAbrirNegocio })))));
-}
-
-// src/telas/ClienteNovo.jsx
-import React5, { useState as useState4, useEffect as useEffect4 } from "react";
-import { Plus as Plus2, Trash2, ArrowLeft, ArrowRight, HelpCircle } from "lucide-react";
-
 // src/dominio/planoContas.mjs
 function planoBase() {
   return [
@@ -727,6 +614,140 @@ function planoDeFabrica(arquetipoId) {
   return contas.map((c) => ({ ...c, subtipo: c.subtipo ?? null, ativa: true }));
 }
 
+// src/telas/Negocios.jsx
+var TIPO_LABEL = { mei: "MEI", informal: "Informal" };
+var fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+function ResumoDoMes({ negocioId }) {
+  const [resumo, setResumo] = useState3(null);
+  useEffect3(() => {
+    let vivo = true;
+    resumoDoMesAtual(negocioId).then((r) => {
+      if (vivo) setResumo(r);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [negocioId]);
+  if (!resumo) return /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "\u2026");
+  if (!resumo.temMovimento) return /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento neste m\xEAs");
+  return /* @__PURE__ */ React4.createElement("span", { style: { color: resumo.resultado >= 0 ? "var(--credit)" : "var(--debit)" } }, resumo.resultado >= 0 ? "sobrou" : "faltou", " ", fmt(Math.abs(resumo.resultado)), " este m\xEAs");
+}
+function CardNegocio({ negocio, recemCriado, onAbrir }) {
+  const onboarded = !!negocio.configuracao?.onboarded;
+  return /* @__PURE__ */ React4.createElement(
+    Card,
+    {
+      elevavel: true,
+      onClick: () => onAbrir(negocio),
+      className: recemCriado ? "animate-[surgir_.4s_ease-out]" : ""
+    },
+    /* @__PURE__ */ React4.createElement("div", { className: "flex items-start justify-between gap-3" }, /* @__PURE__ */ React4.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React4.createElement("div", { className: "font-medium truncate", style: { color: "var(--ink)", fontFamily: "var(--font-display)" } }, negocio.apelido || negocio.nome), negocio.apelido && /* @__PURE__ */ React4.createElement("div", { className: "text-xs truncate", style: { color: "var(--muted)" } }, negocio.nome)), /* @__PURE__ */ React4.createElement(
+      "span",
+      {
+        className: "text-[10px] uppercase tracking-wide px-2 py-1 rounded-full shrink-0",
+        style: { background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" }
+      },
+      TIPO_LABEL[negocio.tipo] || negocio.tipo
+    )),
+    /* @__PURE__ */ React4.createElement("div", { className: "mt-3 text-xs" }, negocio.situacao !== "ativo" ? /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "Encerrado") : !onboarded ? /* @__PURE__ */ React4.createElement("span", { style: { color: "var(--muted)" } }, "Roteiro do Cliente Novo pendente") : /* @__PURE__ */ React4.createElement(ResumoDoMes, { negocioId: negocio.id }))
+  );
+}
+function FormularioNovoNegocio({ onCriado, onFechar }) {
+  const [nome, setNome] = useState3("");
+  const [apelido, setApelido] = useState3("");
+  const [tipo, setTipo] = useState3("mei");
+  const [arquetipo, setArquetipo] = useState3("");
+  const [salvando, setSalvando] = useState3(false);
+  const [erro, setErro] = useState3("");
+  const escolhido = acharArquetipo(arquetipo);
+  const salvar = async (e) => {
+    e.preventDefault();
+    if (!nome.trim()) {
+      setErro("D\xE1 um nome pro neg\xF3cio \u2014 pode ser s\xF3 o nome do cliente.");
+      return;
+    }
+    if (!arquetipo) {
+      setErro("Escolhe o que o neg\xF3cio faz \u2014 \xE9 isso que monta o plano de contas certo pra ele.");
+      return;
+    }
+    setSalvando(true);
+    setErro("");
+    try {
+      const { data, error } = await supabase.rpc("criar_negocio", {
+        p_nome: nome.trim(),
+        p_apelido: apelido.trim() || null,
+        p_tipo: tipo
+      });
+      if (error) throw error;
+      const { error: erroArq } = await supabase.from("negocios").update({ arquetipo }).eq("id", data);
+      if (erroArq) throw erroArq;
+      onCriado(data);
+    } catch (err) {
+      setErro(err?.message || "N\xE3o consegui criar \u2014 tenta de novo.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+  return /* @__PURE__ */ React4.createElement(Card, { className: "mb-6" }, /* @__PURE__ */ React4.createElement("div", { className: "flex items-center justify-between mb-4" }, /* @__PURE__ */ React4.createElement("div", { className: "font-medium", style: { color: "var(--ink)", fontFamily: "var(--font-display)" } }, "Novo neg\xF3cio"), /* @__PURE__ */ React4.createElement("button", { onClick: onFechar, className: "transition-opacity hover:opacity-70", "aria-label": "Fechar", style: { color: "var(--muted)" } }, /* @__PURE__ */ React4.createElement(X, { size: 16 }))), /* @__PURE__ */ React4.createElement("form", { onSubmit: salvar, className: "space-y-3" }, /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement(Label, null, "Nome do neg\xF3cio ou do cliente"), /* @__PURE__ */ React4.createElement(Input, { autoFocus: true, value: nome, onChange: (e) => setNome(e.target.value), placeholder: "ex.: Salgados da L\xE9ia" })), /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement(Label, null, "Apelido (opcional \u2014 como voc\xEA quer ver na lista)"), /* @__PURE__ */ React4.createElement(Input, { value: apelido, onChange: (e) => setApelido(e.target.value), placeholder: "ex.: L\xE9ia" })), /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement(Label, null, "Tipo"), /* @__PURE__ */ React4.createElement(Select, { value: tipo, onChange: setTipo, options: [
+    { value: "mei", label: "MEI" },
+    { value: "informal", label: "Informal" }
+  ] })), /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement(Label, null, "O que o neg\xF3cio faz para ganhar dinheiro?"), /* @__PURE__ */ React4.createElement(
+    Select,
+    {
+      value: arquetipo,
+      onChange: setArquetipo,
+      placeholder: "escolha",
+      options: ARQUETIPOS.map((a) => ({ value: a.id, label: `${a.nome} \u2014 ${a.resumo}` }))
+    }
+  ), escolhido && /* @__PURE__ */ React4.createElement("div", { className: "text-[11px] mt-1.5", style: { color: "var(--muted)" } }, "ex.: ", escolhido.exemplos), /* @__PURE__ */ React4.createElement("div", { className: "text-[11px] mt-1.5", style: { color: "var(--muted)" } }, "Isto decide o plano de contas e as perguntas da entrevista. D\xE1 pra trocar depois, na aba Neg\xF3cio.")), erro && /* @__PURE__ */ React4.createElement("div", { className: "text-xs rounded-md px-3 py-2", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React4.createElement(Button, { type: "submit", disabled: salvando }, salvando ? "Criando\u2026" : "Criar neg\xF3cio")));
+}
+function Negocios({ onAbrirNegocio, onAbrirPainel }) {
+  const [negocios, setNegocios] = useState3(null);
+  const [mostrarForm, setMostrarForm] = useState3(false);
+  const [recemCriadoId, setRecemCriadoId] = useState3(null);
+  const [erro, setErro] = useState3("");
+  const [confirmacao, setConfirmacao] = useState3(false);
+  const carregar = useCallback(async () => {
+    const { data, error } = await supabase.from("negocios").select("id, nome, apelido, tipo, situacao, created_at, configuracao, arquetipo, dinheiro_misturado").order("created_at", { ascending: false });
+    if (error) {
+      setErro(error.message);
+      return;
+    }
+    setNegocios(data || []);
+  }, []);
+  useEffect3(() => {
+    carregar();
+  }, [carregar]);
+  const aoCriar = async (novoId) => {
+    setMostrarForm(false);
+    await carregar();
+    setRecemCriadoId(novoId);
+    setConfirmacao(true);
+    setTimeout(() => setConfirmacao(false), 2200);
+    setTimeout(() => setRecemCriadoId(null), 900);
+  };
+  return /* @__PURE__ */ React4.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React4.createElement("div", { className: "max-w-3xl mx-auto px-5 py-8" }, /* @__PURE__ */ React4.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React4.createElement("div", null, /* @__PURE__ */ React4.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Seus neg\xF3cios"), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "a prateleira")), /* @__PURE__ */ React4.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React4.createElement(Button, { variant: "ghost", onClick: onAbrirPainel }, /* @__PURE__ */ React4.createElement(ClipboardList, { size: 15 }), " Painel do M\xEAs"), !mostrarForm && /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Novo neg\xF3cio"), /* @__PURE__ */ React4.createElement(
+    "button",
+    {
+      onClick: () => supabase.auth.signOut(),
+      className: "text-xs inline-flex items-center gap-1.5 px-2 py-2 transition-opacity hover:opacity-70",
+      style: { color: "var(--muted)" },
+      "aria-label": "Sair",
+      title: "Sair da conta"
+    },
+    /* @__PURE__ */ React4.createElement(LogOut, { size: 15 })
+  ))), /* @__PURE__ */ React4.createElement("div", { className: "mb-4" }, /* @__PURE__ */ React4.createElement(Confirmacao, { texto: "Neg\xF3cio criado.", ativa: confirmacao })), mostrarForm && /* @__PURE__ */ React4.createElement(FormularioNovoNegocio, { onCriado: aoCriar, onFechar: () => setMostrarForm(false) }), erro && /* @__PURE__ */ React4.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), negocios === null && /* @__PURE__ */ React4.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026"), negocios !== null && negocios.length === 0 && !mostrarForm && /* @__PURE__ */ React4.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React4.createElement(Building2, { size: 28, className: "mx-auto mb-3", style: { color: "var(--muted)" } }), /* @__PURE__ */ React4.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum neg\xF3cio cadastrado ainda."), /* @__PURE__ */ React4.createElement("div", { className: "text-xs mt-1 mb-4", style: { color: "var(--muted)" } }, "O primeiro passo \xE9 criar o neg\xF3cio do seu primeiro cliente."), /* @__PURE__ */ React4.createElement(Button, { onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React4.createElement(Plus, { size: 15 }), " Criar o primeiro")), negocios !== null && negocios.length > 0 && /* @__PURE__ */ React4.createElement("div", { className: "grid gap-3 sm:grid-cols-2" }, negocios.map((n) => /* @__PURE__ */ React4.createElement(CardNegocio, { key: n.id, negocio: n, recemCriado: n.id === recemCriadoId, onAbrir: onAbrirNegocio })))));
+}
+
+// src/telas/ClienteNovo.jsx
+import React5, { useState as useState4, useEffect as useEffect4 } from "react";
+import { Plus as Plus2, Trash2, ArrowLeft, ArrowRight, HelpCircle, Send } from "lucide-react";
+
+// src/dominio/roteiro.mjs
+function perguntasPara(perguntas, { tipo, arquetipo, apenasEssenciais = false, blocos = null } = {}) {
+  return (perguntas || []).filter((p) => p.ativo !== false).filter((p) => !blocos || blocos.includes(p.bloco)).filter((p) => !apenasEssenciais || p.essencial).filter((p) => !p.tipos?.length || p.tipos.includes(tipo)).filter((p) => !p.arquetipos?.length || arquetipo && p.arquetipos.includes(arquetipo)).sort((a, b) => a.bloco - b.bloco || a.ordem - b.ordem);
+}
+
 // src/dominio/aberturaBalanco.mjs
 var uidPadrao = () => Math.random().toString(36).slice(2, 10);
 function diaAnterior(isoDate) {
@@ -823,6 +844,52 @@ function ListaItens({ titulo, porque, itens, onChange, comVencimento }) {
   const editar = (i, campo, v) => onChange(itens.map((it, idx) => idx === i ? { ...it, [campo]: v } : it));
   return /* @__PURE__ */ React5.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React5.createElement(Label, null, titulo), itens.map((item, i) => /* @__PURE__ */ React5.createElement("div", { key: i, className: "flex gap-2 mb-2 items-center animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React5.createElement(Input, { placeholder: "descri\xE7\xE3o", value: item.descricao, onChange: (e) => editar(i, "descricao", e.target.value), className: "flex-[2]" }), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "valor", value: item.valor, onChange: (e) => editar(i, "valor", e.target.value), className: "flex-1" }), comVencimento && /* @__PURE__ */ React5.createElement(Input, { type: "date", value: item.vencimento, onChange: (e) => editar(i, "vencimento", e.target.value), className: "flex-1" }), /* @__PURE__ */ React5.createElement("button", { type: "button", onClick: () => remover(i), className: "transition-opacity hover:opacity-70 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React5.createElement(Trash2, { size: 15 })))), /* @__PURE__ */ React5.createElement("button", { type: "button", onClick: add, className: "text-xs inline-flex items-center gap-1 mt-1 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React5.createElement(Plus2, { size: 13 }), " adicionar"), /* @__PURE__ */ React5.createElement(PorQueImporta, { texto: porque }));
 }
+function MandarParaOCliente({ negocioId, whatsapp }) {
+  const [link, setLink] = useState4("");
+  const [gerando, setGerando] = useState4(false);
+  const [copiado, setCopiado] = useState4(false);
+  const [erro, setErro] = useState4("");
+  const gerar = async () => {
+    setGerando(true);
+    setErro("");
+    const { data, error } = await supabase.from("formularios").insert({ negocio_id: negocioId, tipo: "onboarding" }).select("token").single();
+    setGerando(false);
+    if (error) {
+      setErro("N\xE3o consegui gerar o link \u2014 tenta de novo.");
+      return;
+    }
+    setLink(`${window.location.origin}${window.location.pathname}?f=${data.token}`);
+  };
+  const copiar = async () => {
+    await navigator.clipboard.writeText(
+      `Oi! Pra eu organizar as contas do seu neg\xF3cio, preenche essas perguntas r\xE1pidas quando puder:
+
+${link}
+
+Leva uns 10 minutos e d\xE1 pra parar no meio e voltar depois.`
+    );
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2200);
+  };
+  return /* @__PURE__ */ React5.createElement(Card, { className: "mb-6" }, /* @__PURE__ */ React5.createElement("div", { className: "flex items-center gap-2 mb-2" }, /* @__PURE__ */ React5.createElement(Send, { size: 15, style: { color: "var(--accent)" } }), /* @__PURE__ */ React5.createElement("span", { className: "font-medium", style: { color: "var(--ink)" } }, "N\xE3o d\xE1 para fazer agora?")), /* @__PURE__ */ React5.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)", lineHeight: 1.6 } }, "Manda o link e o cliente responde do celular, no tempo dele. Ele v\xEA uma pergunta por vez, pode parar no meio e voltar. Quando terminar, as respostas aparecem aqui.", /* @__PURE__ */ React5.createElement("br", null), "O balan\xE7o de abertura e o combinado continuam com voc\xEA \u2014 \xE9 onde o seu olho faz diferen\xE7a."), !link ? /* @__PURE__ */ React5.createElement(Button, { small: true, onClick: gerar, disabled: gerando }, gerando ? "Gerando\u2026" : "Gerar link do cliente") : /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement(
+    "div",
+    {
+      className: "text-[11px] rounded-md px-3 py-2 mb-2 break-all",
+      style: { background: "var(--paper)", color: "var(--muted)", fontFamily: "var(--font-mono)" }
+    },
+    link
+  ), /* @__PURE__ */ React5.createElement("div", { className: "flex items-center gap-2 flex-wrap" }, /* @__PURE__ */ React5.createElement(Button, { small: true, onClick: copiar }, copiado ? "Copiado!" : "Copiar mensagem pronta"), whatsapp && /* @__PURE__ */ React5.createElement(
+    "a",
+    {
+      href: `https://wa.me/${String(whatsapp).replace(/\D/g, "")}?text=${encodeURIComponent(`Oi! Pra eu organizar as contas do seu neg\xF3cio, preenche essas perguntas r\xE1pidas quando puder: ${link}`)}`,
+      target: "_blank",
+      rel: "noreferrer",
+      className: "text-xs underline",
+      style: { color: "var(--accent)" }
+    },
+    "abrir no WhatsApp"
+  ), /* @__PURE__ */ React5.createElement("span", { className: "text-[10px]", style: { color: "var(--muted)" } }, "vale 30 dias"))), erro && /* @__PURE__ */ React5.createElement("div", { className: "text-xs mt-2", style: { color: "var(--debit)" } }, erro));
+}
 function BlocoAbertura({ abertura, setAbertura, perguntas }) {
   const porBloco3 = (ordem) => perguntas.find((p) => p.bloco === 3 && p.ordem === ordem)?.porque_importa;
   return /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement("div", { className: "text-xs mb-5", style: { color: "var(--muted)" } }, "Todo cliente chega no meio da vida \u2014 esta \xE9 a foto do que ele tem e do que deve hoje. Valor aproximado est\xE1 de bom tamanho; tudo \xE9 corrig\xEDvel depois, com rastro."), /* @__PURE__ */ React5.createElement("div", { className: "grid grid-cols-2 gap-3 mb-6" }, /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement(Label, null, "Dinheiro em esp\xE9cie"), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: abertura.caixa, onChange: (e) => setAbertura({ ...abertura, caixa: e.target.value }) })), /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement(Label, null, "Na conta (banco)"), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "0,00", value: abertura.banco, onChange: (e) => setAbertura({ ...abertura, banco: e.target.value }) }))), /* @__PURE__ */ React5.createElement(PorQueImporta, { texto: porBloco3(1) }), /* @__PURE__ */ React5.createElement(
@@ -873,7 +940,12 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       if (!error) setPerguntas(data || []);
     });
   }, []);
-  const perguntasDoBloco = (n) => perguntas.filter((p) => p.bloco === n && p.destino !== "negocios.tipo");
+  const doBloco = (n) => perguntasPara(perguntas, {
+    tipo: negocio.tipo,
+    arquetipo: negocio.arquetipo,
+    apenasEssenciais: true,
+    blocos: [n]
+  }).filter((p) => p.destino !== "negocios.tipo");
   const numeroOuNulo = (v) => {
     const n = parseFloat(String(v).replace(",", "."));
     return Number.isFinite(n) && n > 0 ? n : null;
@@ -972,7 +1044,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       className: "h-1 flex-1 rounded-full transition-colors duration-300",
       style: { background: n <= bloco ? "var(--gold)" : "var(--rule-faint)" }
     }
-  ))), /* @__PURE__ */ React5.createElement(Card, { className: "mb-6" }, bloco === 3 ? /* @__PURE__ */ React5.createElement(BlocoAbertura, { abertura, setAbertura, perguntas }) : perguntasDoBloco(bloco).map((p) => /* @__PURE__ */ React5.createElement(
+  ))), bloco === 1 && /* @__PURE__ */ React5.createElement(MandarParaOCliente, { negocioId: negocio.id, whatsapp: negocio.whatsapp }), /* @__PURE__ */ React5.createElement(Card, { className: "mb-6" }, bloco === 3 ? /* @__PURE__ */ React5.createElement(BlocoAbertura, { abertura, setAbertura, perguntas }) : doBloco(bloco).map((p) => /* @__PURE__ */ React5.createElement(
     CampoRoteiro,
     {
       key: p.id,
@@ -2620,13 +2692,208 @@ function PainelDoMes({ onVoltar }) {
   })()));
 }
 
-// src/app/App.jsx
-function App() {
-  const [authSession, setAuthSession] = useState17(void 0);
-  const [dark] = useState17(true);
-  const [negocioAberto, setNegocioAberto] = useState17(null);
-  const [painelAberto, setPainelAberto] = useState17(false);
+// src/telas/FormularioPublico.jsx
+import React20, { useState as useState17, useEffect as useEffect10, useCallback as useCallback3 } from "react";
+import { Check as Check5, ArrowLeft as ArrowLeft4, ArrowRight as ArrowRight2 } from "lucide-react";
+var fmtBloco = {
+  1: "Sobre voc\xEA e o neg\xF3cio",
+  2: "Como o dinheiro anda",
+  3: "A foto de hoje",
+  4: "O ritmo do neg\xF3cio",
+  5: "O que voc\xEA quer"
+};
+function Capa({ negocio, total, jaRespondidas, onComecar }) {
+  const retomando = jaRespondidas > 0;
+  return /* @__PURE__ */ React20.createElement("div", { className: "text-center" }, /* @__PURE__ */ React20.createElement("div", { className: "text-[11px] uppercase mb-3", style: { color: "var(--gold)", letterSpacing: "0.18em", fontFamily: "var(--font-mono)" } }, "Contadoria"), /* @__PURE__ */ React20.createElement("h1", { className: "text-2xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, retomando ? `Bem-vindo de volta, ${negocio}` : `Vamos organizar o ${negocio}`), /* @__PURE__ */ React20.createElement("p", { className: "text-sm mb-2", style: { color: "var(--muted)", lineHeight: 1.6 } }, retomando ? `Voc\xEA j\xE1 respondeu ${jaRespondidas} de ${total}. Continua de onde parou.` : `S\xE3o ${total} perguntas r\xE1pidas sobre o seu neg\xF3cio. Leva uns 10 minutos.`), /* @__PURE__ */ React20.createElement("p", { className: "text-xs mb-8", style: { color: "var(--muted)", lineHeight: 1.6 } }, "Pode parar no meio e voltar depois \u2014 o que voc\xEA responder fica salvo.", /* @__PURE__ */ React20.createElement("br", null), "N\xE3o sabe algum n\xFAmero? Responde por alto, a gente acerta depois."), /* @__PURE__ */ React20.createElement(
+    "button",
+    {
+      onClick: onComecar,
+      className: "px-6 py-3 rounded-md text-sm font-semibold transition-transform active:scale-[0.98]",
+      style: { background: "linear-gradient(135deg, var(--gold-2), var(--gold))", color: "#171204" }
+    },
+    retomando ? "Continuar" : "Come\xE7ar"
+  ));
+}
+function Fim({ negocio, onRevisar }) {
+  return /* @__PURE__ */ React20.createElement("div", { className: "text-center" }, /* @__PURE__ */ React20.createElement(
+    "div",
+    {
+      className: "mx-auto mb-5 rounded-full flex items-center justify-center",
+      style: { width: 54, height: 54, background: "var(--credit-soft)" }
+    },
+    /* @__PURE__ */ React20.createElement(Check5, { size: 26, style: { color: "var(--credit)" } })
+  ), /* @__PURE__ */ React20.createElement("h1", { className: "text-2xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Pronto, obrigado!"), /* @__PURE__ */ React20.createElement("p", { className: "text-sm mb-8", style: { color: "var(--muted)", lineHeight: 1.7 } }, "J\xE1 recebi as suas respostas sobre o ", negocio, ".", /* @__PURE__ */ React20.createElement("br", null), "Agora eu monto a organiza\xE7\xE3o das suas contas e volto com o primeiro retrato do seu m\xEAs."), /* @__PURE__ */ React20.createElement("button", { onClick: onRevisar, className: "text-xs underline", style: { color: "var(--muted)" } }, "rever ou corrigir alguma resposta"));
+}
+function FormularioPublico({ token }) {
+  const [dados, setDados] = useState17(null);
+  const [erro, setErro] = useState17("");
+  const [etapa, setEtapa] = useState17("capa");
+  const [indice, setIndice] = useState17(0);
+  const [respostas, setRespostas] = useState17({});
+  const [salvando, setSalvando] = useState17(false);
   useEffect10(() => {
+    supabase.rpc("formulario_abrir", { p_token: token }).then(({ data, error }) => {
+      if (error) return setErro("N\xE3o consegui abrir este formul\xE1rio.");
+      if (!data?.ok) return setErro("Este link n\xE3o est\xE1 mais dispon\xEDvel. Pe\xE7a um novo para quem te enviou.");
+      setDados(data);
+      setRespostas(data.respostas || {});
+      if (data.concluido) setEtapa("fim");
+    });
+  }, [token]);
+  const perguntas = dados?.perguntas || [];
+  const atual = perguntas[indice];
+  const gravar = useCallback3(async (perguntaId, valor2) => {
+    setSalvando(true);
+    try {
+      await supabase.rpc("formulario_responder", { p_token: token, p_pergunta: perguntaId, p_resposta: valor2 ?? "" });
+    } catch {
+    }
+    setSalvando(false);
+  }, [token]);
+  const avancar = async () => {
+    if (atual) await gravar(atual.id, respostas[atual.id]);
+    if (indice + 1 < perguntas.length) return setIndice(indice + 1);
+    await supabase.rpc("formulario_concluir", { p_token: token });
+    setEtapa("fim");
+  };
+  const voltar = async () => {
+    if (atual) await gravar(atual.id, respostas[atual.id]);
+    setIndice(Math.max(0, indice - 1));
+  };
+  if (erro) {
+    return /* @__PURE__ */ React20.createElement(Moldura, null, /* @__PURE__ */ React20.createElement("div", { className: "text-center text-sm", style: { color: "var(--muted)" } }, erro));
+  }
+  if (!dados) {
+    return /* @__PURE__ */ React20.createElement(Moldura, null, /* @__PURE__ */ React20.createElement("div", { className: "text-center text-sm", style: { color: "var(--muted)" } }, "Abrindo\u2026"));
+  }
+  const respondidas = perguntas.filter((p) => String(respostas[p.id] ?? "").trim()).length;
+  if (etapa === "capa") {
+    return /* @__PURE__ */ React20.createElement(Moldura, null, /* @__PURE__ */ React20.createElement(
+      Capa,
+      {
+        negocio: dados.negocio,
+        total: perguntas.length,
+        jaRespondidas: respondidas,
+        onComecar: () => {
+          const primeiraVazia = perguntas.findIndex((p) => !String(respostas[p.id] ?? "").trim());
+          setIndice(primeiraVazia >= 0 ? primeiraVazia : 0);
+          setEtapa("perguntas");
+        }
+      }
+    ));
+  }
+  if (etapa === "fim") {
+    return /* @__PURE__ */ React20.createElement(Moldura, null, /* @__PURE__ */ React20.createElement(Fim, { negocio: dados.negocio, onRevisar: () => {
+      setIndice(0);
+      setEtapa("perguntas");
+    } }));
+  }
+  const valor = respostas[atual.id] ?? "";
+  const definir = (v) => setRespostas({ ...respostas, [atual.id]: v });
+  const fracao = perguntas.length ? (indice + 1) / perguntas.length : 1;
+  return /* @__PURE__ */ React20.createElement(Moldura, null, /* @__PURE__ */ React20.createElement("div", { className: "mb-1 flex justify-between text-[10px]", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, /* @__PURE__ */ React20.createElement("span", null, fmtBloco[atual.bloco] || ""), /* @__PURE__ */ React20.createElement("span", null, indice + 1, " de ", perguntas.length)), /* @__PURE__ */ React20.createElement("div", { className: "h-1 rounded-full mb-8", style: { background: "var(--rule-faint)" } }, /* @__PURE__ */ React20.createElement(
+    "div",
+    {
+      className: "h-1 rounded-full transition-all duration-300",
+      style: { width: `${fracao * 100}%`, background: "linear-gradient(90deg, var(--gold-2), var(--gold))" }
+    }
+  )), /* @__PURE__ */ React20.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React20.createElement("div", { className: "text-lg font-medium mb-2", style: { color: "var(--ink)", fontFamily: "var(--font-display)", lineHeight: 1.4 } }, atual.pergunta), atual.explicacao && /* @__PURE__ */ React20.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--accent-soft)", color: "var(--ink)", lineHeight: 1.6 } }, atual.explicacao), /* @__PURE__ */ React20.createElement(CampoResposta, { pergunta: atual, valor, onChange: definir, onEnter: avancar })), /* @__PURE__ */ React20.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React20.createElement(
+    "button",
+    {
+      onClick: voltar,
+      disabled: indice === 0,
+      className: "text-xs inline-flex items-center gap-1 disabled:opacity-30",
+      style: { color: "var(--muted)" }
+    },
+    /* @__PURE__ */ React20.createElement(ArrowLeft4, { size: 13 }),
+    " Voltar"
+  ), /* @__PURE__ */ React20.createElement("div", { className: "flex items-center gap-3" }, !String(valor).trim() && /* @__PURE__ */ React20.createElement("button", { onClick: avancar, className: "text-xs", style: { color: "var(--muted)" } }, "pular"), /* @__PURE__ */ React20.createElement(
+    "button",
+    {
+      onClick: avancar,
+      disabled: salvando,
+      className: "px-5 py-2.5 rounded-md text-sm font-semibold inline-flex items-center gap-1.5 transition-transform active:scale-[0.98] disabled:opacity-60",
+      style: { background: "linear-gradient(135deg, var(--gold-2), var(--gold))", color: "#171204" }
+    },
+    indice + 1 === perguntas.length ? "Terminei" : "Pr\xF3xima",
+    " ",
+    /* @__PURE__ */ React20.createElement(ArrowRight2, { size: 14 })
+  ))));
+}
+function CampoResposta({ pergunta, valor, onChange, onEnter }) {
+  const base = {
+    borderColor: "var(--rule-faint)",
+    background: "var(--paper)",
+    color: "var(--ink)"
+  };
+  if (pergunta.tipo_resposta === "sim_nao") {
+    return /* @__PURE__ */ React20.createElement("div", { className: "flex gap-2" }, [["sim", "Sim"], ["nao", "N\xE3o"]].map(([v, rotulo]) => /* @__PURE__ */ React20.createElement(
+      "button",
+      {
+        key: v,
+        onClick: () => onChange(v),
+        className: "flex-1 py-3 rounded-md border text-sm font-medium transition-all",
+        style: valor === v ? { background: "linear-gradient(135deg, var(--gold-2), var(--gold))", color: "#171204", borderColor: "transparent" } : { ...base, borderWidth: 1 }
+      },
+      rotulo
+    )));
+  }
+  if (pergunta.tipo_resposta === "texto_longo" || pergunta.tipo_resposta === "lista_valores") {
+    return /* @__PURE__ */ React20.createElement(
+      "textarea",
+      {
+        rows: 4,
+        value: valor,
+        onChange: (e) => onChange(e.target.value),
+        placeholder: pergunta.tipo_resposta === "lista_valores" ? "Pode escrever do seu jeito, um por linha" : "Escreva do seu jeito",
+        className: "w-full rounded-md border px-3 py-3 text-base",
+        style: base
+      }
+    );
+  }
+  const tipo = pergunta.tipo_resposta === "data" ? "date" : pergunta.tipo_resposta === "moeda" ? "text" : "text";
+  return /* @__PURE__ */ React20.createElement(
+    "input",
+    {
+      type: tipo,
+      value: valor,
+      onChange: (e) => onChange(e.target.value),
+      onKeyDown: (e) => {
+        if (e.key === "Enter") onEnter();
+      },
+      inputMode: pergunta.tipo_resposta === "moeda" ? "decimal" : void 0,
+      placeholder: pergunta.tipo_resposta === "moeda" ? "R$ 0,00" : "",
+      className: "w-full rounded-md border px-3 py-3 text-base",
+      style: base
+    }
+  );
+}
+function Moldura({ children }) {
+  return /* @__PURE__ */ React20.createElement(
+    "div",
+    {
+      className: "min-h-screen flex items-center justify-center px-5 py-10",
+      style: { background: "radial-gradient(120% 70% at 50% -10%, #1a1108 0%, transparent 55%), var(--paper)" }
+    },
+    /* @__PURE__ */ React20.createElement("div", { className: "w-full", style: { maxWidth: 460 } }, /* @__PURE__ */ React20.createElement(
+      "div",
+      {
+        className: "rounded-lg border p-6 sm:p-8",
+        style: { borderColor: "var(--rule-faint)", background: "var(--surface)" }
+      },
+      children
+    ), /* @__PURE__ */ React20.createElement("div", { className: "text-center text-[10px] mt-4", style: { color: "var(--muted)" } }, "Suas respostas s\xE3o vistas s\xF3 por quem cuida das suas contas."))
+  );
+}
+
+// src/app/App.jsx
+var TOKEN_FORMULARIO = new URLSearchParams(window.location.search).get("f");
+function App() {
+  const [authSession, setAuthSession] = useState18(void 0);
+  const [dark] = useState18(true);
+  const [negocioAberto, setNegocioAberto] = useState18(null);
+  const [painelAberto, setPainelAberto] = useState18(false);
+  useEffect11(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
       if (vivo) setAuthSession(data.session);
@@ -2640,14 +2907,17 @@ function App() {
     };
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
-  return /* @__PURE__ */ React20.createElement(React20.Fragment, null, /* @__PURE__ */ React20.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React20.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React20.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React20.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
+  if (TOKEN_FORMULARIO) {
+    return /* @__PURE__ */ React21.createElement(React21.Fragment, null, /* @__PURE__ */ React21.createElement(EstiloGlobal, { dark }), /* @__PURE__ */ React21.createElement(FormularioPublico, { token: TOKEN_FORMULARIO }));
+  }
+  return /* @__PURE__ */ React21.createElement(React21.Fragment, null, /* @__PURE__ */ React21.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React21.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React21.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React21.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
     /* `key={negocioAberto.id}` desmonta e remonta o Livro inteiro ao
        trocar de negócio — é o que elimina por construção a classe de
        bug H3 do ContLife (doc 26): sem isso, o estado em memória de
        um negócio podia vazar para dentro da chave do próximo por um
        instante, entre trocar o id e a carga nova terminar. */
-    /* @__PURE__ */ React20.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
-  ) : painelAberto ? /* @__PURE__ */ React20.createElement(PainelDoMes, { onVoltar: () => setPainelAberto(false) }) : /* @__PURE__ */ React20.createElement(Negocios, { onAbrirNegocio: setNegocioAberto, onAbrirPainel: () => setPainelAberto(true) }));
+    /* @__PURE__ */ React21.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+  ) : painelAberto ? /* @__PURE__ */ React21.createElement(PainelDoMes, { onVoltar: () => setPainelAberto(false) }) : /* @__PURE__ */ React21.createElement(Negocios, { onAbrirNegocio: setNegocioAberto, onAbrirPainel: () => setPainelAberto(true) }));
 }
 export {
   App as default

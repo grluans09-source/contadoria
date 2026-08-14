@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, ArrowLeft, ArrowRight, HelpCircle } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, ArrowRight, HelpCircle, Send } from "lucide-react";
 import { supabase } from "../dados/supabase.mjs";
 import { Card, Label, Input, Select, Button } from "../ui/primitivas.jsx";
 import { planoDeFabrica } from "../dominio/arquetipos.mjs";
+import { perguntasPara } from "../dominio/roteiro.mjs";
 import { montarLancamentoAbertura } from "../dominio/aberturaBalanco.mjs";
 
 /* O Roteiro do Cliente Novo — docs/05_ROTEIRO_DO_SERVICO.md §4 e
@@ -98,6 +99,69 @@ function ListaItens({ titulo, porque, itens, onChange, comVencimento }) {
   );
 }
 
+/* ── Mandar o roteiro para o cliente responder sozinho ──────────
+   Pedido do dono (14/ago): horário de dono de negócio pequeno raramente
+   bate com horário de estudante. Gera um link com token, válido 30 dias
+   (0012_formulario_publico.sql). */
+function MandarParaOCliente({ negocioId, whatsapp }) {
+  const [link, setLink] = useState("");
+  const [gerando, setGerando] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const gerar = async () => {
+    setGerando(true); setErro("");
+    const { data, error } = await supabase
+      .from("formularios")
+      .insert({ negocio_id: negocioId, tipo: "onboarding" })
+      .select("token").single();
+    setGerando(false);
+    if (error) { setErro("Não consegui gerar o link — tenta de novo."); return; }
+    setLink(`${window.location.origin}${window.location.pathname}?f=${data.token}`);
+  };
+
+  const copiar = async () => {
+    await navigator.clipboard.writeText(
+      `Oi! Pra eu organizar as contas do seu negócio, preenche essas perguntas rápidas quando puder:\n\n${link}\n\nLeva uns 10 minutos e dá pra parar no meio e voltar depois.`
+    );
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2200);
+  };
+
+  return (
+    <Card className="mb-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Send size={15} style={{ color: "var(--accent)" }} />
+        <span className="font-medium" style={{ color: "var(--ink)" }}>Não dá para fazer agora?</span>
+      </div>
+      <div className="text-xs mb-3" style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+        Manda o link e o cliente responde do celular, no tempo dele. Ele vê uma pergunta por vez,
+        pode parar no meio e voltar. Quando terminar, as respostas aparecem aqui.
+        <br />O balanço de abertura e o combinado continuam com você — é onde o seu olho faz diferença.
+      </div>
+      {!link ? (
+        <Button small onClick={gerar} disabled={gerando}>{gerando ? "Gerando…" : "Gerar link do cliente"}</Button>
+      ) : (
+        <div>
+          <div className="text-[11px] rounded-md px-3 py-2 mb-2 break-all"
+            style={{ background: "var(--paper)", color: "var(--muted)", fontFamily: "var(--font-mono)" }}>{link}</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button small onClick={copiar}>{copiado ? "Copiado!" : "Copiar mensagem pronta"}</Button>
+            {whatsapp && (
+              <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, "")}?text=${encodeURIComponent(`Oi! Pra eu organizar as contas do seu negócio, preenche essas perguntas rápidas quando puder: ${link}`)}`}
+                target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: "var(--accent)" }}>
+                abrir no WhatsApp
+              </a>
+            )}
+            <span className="text-[10px]" style={{ color: "var(--muted)" }}>vale 30 dias</span>
+          </div>
+        </div>
+      )}
+      {erro && <div className="text-xs mt-2" style={{ color: "var(--debit)" }}>{erro}</div>}
+    </Card>
+  );
+}
+
 /* ── Bloco 3 — a tela especializada do balanço de abertura ── */
 function BlocoAbertura({ abertura, setAbertura, perguntas }) {
   const porBloco3 = (ordem) => perguntas.find((p) => p.bloco === 3 && p.ordem === ordem)?.porque_importa;
@@ -157,9 +221,17 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       .then(({ data, error }) => { if (!error) setPerguntas(data || []); });
   }, []);
 
-  /* Bloco 1 pergunta sobre tipo MEI/informal já foi respondida na
-     criação do negócio (Negocios.jsx) — não repetir. */
-  const perguntasDoBloco = (n) => perguntas.filter((p) => p.bloco === n && p.destino !== "negocios.tipo");
+  /* O roteiro é ADAPTATIVO: filtra por tipo (MEI/informal) e arquétipo,
+     e na primeira passada mostra só o essencial — o resto vira
+     aprofundamento para os meses seguintes (docs/10). O filtro vive em
+     dominio/roteiro.mjs porque o formulário público usa exatamente o
+     mesmo; se cada tela filtrasse por conta, um dia divergiriam. */
+  const doBloco = (n) => perguntasPara(perguntas, {
+    tipo: negocio.tipo,
+    arquetipo: negocio.arquetipo,
+    apenasEssenciais: true,
+    blocos: [n],
+  }).filter((p) => p.destino !== "negocios.tipo");
 
   const numeroOuNulo = (v) => {
     const n = parseFloat(String(v).replace(",", "."));
@@ -297,11 +369,13 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
           ))}
         </div>
 
+        {bloco === 1 && <MandarParaOCliente negocioId={negocio.id} whatsapp={negocio.whatsapp} />}
+
         <Card className="mb-6">
           {bloco === 3 ? (
             <BlocoAbertura abertura={abertura} setAbertura={setAbertura} perguntas={perguntas} />
           ) : (
-            perguntasDoBloco(bloco).map((p) => (
+            doBloco(bloco).map((p) => (
               <CampoRoteiro key={p.id} pergunta={p} valor={respostas[p.id]}
                 onChange={(v) => setRespostas({ ...respostas, [p.id]: v })} />
             ))

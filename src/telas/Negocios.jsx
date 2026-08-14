@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Building2, Plus, X, LogOut, ClipboardList } from "lucide-react";
 import { supabase } from "../dados/supabase.mjs";
 import { resumoDoMesAtual } from "../dados/resumoNegocio.mjs";
+import { ARQUETIPOS, acharArquetipo } from "../dominio/arquetipos.mjs";
 import { Card, Label, Input, Select, Button, Confirmacao } from "../ui/primitivas.jsx";
 
 /* A prateleira (docs/04_MAPA_DO_APP.md §2). */
@@ -70,12 +71,16 @@ function FormularioNovoNegocio({ onCriado, onFechar }) {
   const [nome, setNome] = useState("");
   const [apelido, setApelido] = useState("");
   const [tipo, setTipo] = useState("mei");
+  const [arquetipo, setArquetipo] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+
+  const escolhido = acharArquetipo(arquetipo);
 
   const salvar = async (e) => {
     e.preventDefault();
     if (!nome.trim()) { setErro("Dá um nome pro negócio — pode ser só o nome do cliente."); return; }
+    if (!arquetipo) { setErro("Escolhe o que o negócio faz — é isso que monta o plano de contas certo pra ele."); return; }
     setSalvando(true);
     setErro("");
     try {
@@ -85,6 +90,12 @@ function FormularioNovoNegocio({ onCriado, onFechar }) {
         p_tipo: tipo,
       });
       if (error) throw error;
+      /* O arquétipo vai num update logo depois porque `criar_negocio` é
+         `security definer` e mudar a assinatura dela obrigaria a mexer
+         numa função que já está provada rodando. O update passa pela RLS
+         normal — quem acabou de criar já é contador do negócio. */
+      const { error: erroArq } = await supabase.from("negocios").update({ arquetipo }).eq("id", data);
+      if (erroArq) throw erroArq;
       onCriado(data);
     } catch (err) {
       setErro(err?.message || "Não consegui criar — tenta de novo.");
@@ -116,6 +127,19 @@ function FormularioNovoNegocio({ onCriado, onFechar }) {
             { value: "mei", label: "MEI" },
             { value: "informal", label: "Informal" },
           ]} />
+        </div>
+        <div>
+          <Label>O que o negócio faz para ganhar dinheiro?</Label>
+          <Select value={arquetipo} onChange={setArquetipo} placeholder="escolha"
+            options={ARQUETIPOS.map((a) => ({ value: a.id, label: `${a.nome} — ${a.resumo}` }))} />
+          {escolhido && (
+            <div className="text-[11px] mt-1.5" style={{ color: "var(--muted)" }}>
+              ex.: {escolhido.exemplos}
+            </div>
+          )}
+          <div className="text-[11px] mt-1.5" style={{ color: "var(--muted)" }}>
+            Isto decide o plano de contas e as perguntas da entrevista. Dá pra trocar depois, na aba Negócio.
+          </div>
         </div>
         {erro && <div className="text-xs rounded-md px-3 py-2" style={{ background: "var(--debit-soft)", color: "var(--debit)" }}>{erro}</div>}
         <Button type="submit" disabled={salvando}>{salvando ? "Criando…" : "Criar negócio"}</Button>
