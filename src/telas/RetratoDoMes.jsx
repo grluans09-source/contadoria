@@ -3,6 +3,7 @@ import { Card, Select, Button } from "../ui/primitivas.jsx";
 import { resultadoDoMes } from "../dominio/razao.mjs";
 import { quantoPodeTirar } from "../dominio/disponivel.mjs";
 import { cartaPendenteDeAvaliacao } from "../dominio/cartas.mjs";
+import { fluxoProjetado, aviseSobreOCaixa } from "../dominio/fluxoProjetado.mjs";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const fmtMes = (m) => {
@@ -10,6 +11,64 @@ const fmtMes = (m) => {
   return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 };
 const hojeISO = () => new Date().toISOString().slice(0, 10);
+
+/* ── O QUE VEM POR AÍ — a virada de retrospectivo para preditivo ──
+   O resto desta tela conta o que já aconteceu, e isso é commodity: todo
+   contador entrega. Esta seção responde a pergunta que ninguém responde
+   ao MEI — "o que vem por aí?" — e é a única aqui que muda o desfecho
+   em vez de explicá-lo (docs/09 §1.2).
+
+   Micronegócio não morre de prejuízo; morre de ficar sem dinheiro num
+   dia específico. */
+function OQueVemPorAi({ lancamentos, lancamentoLinhas, recorrentes, recorrenteLinhas }) {
+  const fluxo = useMemo(
+    () => fluxoProjetado({
+      lancamentos, lancamentoLinhas,
+      recorrentes: recorrentes || [], recorrenteLinhas: recorrenteLinhas || [],
+      hoje: hojeISO(), dias: 60,
+    }),
+    [lancamentos, lancamentoLinhas, recorrentes, recorrenteLinhas]
+  );
+  const aviso = useMemo(() => aviseSobreOCaixa(fluxo), [fluxo]);
+
+  /* Sem nada a vencer, não há projeção honesta a mostrar — e silêncio é
+     resposta válida (docs/09, P3). */
+  if (!fluxo.eventos.length) return null;
+
+  const corAviso = aviso?.gravidade === "aperto" ? "var(--debit)" : "var(--accent)";
+
+  return (
+    <Card className="mb-4">
+      <div className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+        O que vem por aí · próximos 60 dias
+      </div>
+
+      {aviso ? (
+        <>
+          <div className="text-sm font-medium mb-1" style={{ color: corAviso, lineHeight: 1.5 }}>
+            {aviso.frase}
+          </div>
+          <div className="text-xs mb-3" style={{ color: "var(--muted)" }}>{aviso.oQueFazer}</div>
+        </>
+      ) : (
+        <div className="text-sm mb-3" style={{ color: "var(--ink)" }}>
+          O caixa se mantém positivo no período — o menor ponto é {fmt(fluxo.menorSaldo.saldo)}.
+        </div>
+      )}
+
+      <div className="text-xs space-y-0.5" style={{ color: "var(--muted)" }}>
+        <div>{fmt(fluxo.saldoHoje)} em caixa e banco hoje</div>
+        {fluxo.entram > 0 && <div>+ {fmt(fluxo.entram)} a receber com vencimento no período</div>}
+        {fluxo.saem > 0 && <div>− {fmt(fluxo.saem)} a pagar e contas fixas no período</div>}
+      </div>
+
+      <div className="text-[11px] mt-3" style={{ color: "var(--muted)" }}>
+        Só entra o que já está prometido — venda futura não registrada não é contada, de
+        propósito.
+      </div>
+    </Card>
+  );
+}
 
 /* Carta de recomendações (docs/04 §9, docs/08 §4) — texto livre por
    mês + a pergunta "foi seguida?" sobre a carta anterior. Estado local
@@ -68,7 +127,7 @@ function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
    pergunta que ninguém mais responde ("quanto você pode tirar",
    docs/08 §2), e o rodapé que protege o limite profissional (docs/02
    §4.3). Nada de tabela de 30 linhas — o Balancete existe pra isso. */
-export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, onSalvarCarta, onAvaliarCartaSeguida }) {
+export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, onSalvarCarta, onAvaliarCartaSeguida }) {
   const mesesComMovimento = useMemo(() => {
     const meses = new Set(lancamentos.map((l) => (l.data || "").slice(0, 7)).filter(Boolean));
     return [...meses].sort().reverse();
@@ -137,6 +196,10 @@ export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, p
           É uma recomendação com base no que foi lançado, não uma garantia.
         </div>
       </Card>
+
+      <OQueVemPorAi
+        lancamentos={lancamentos} lancamentoLinhas={lancamentoLinhas}
+        recorrentes={recorrentes} recorrenteLinhas={recorrenteLinhas} />
 
       <CartaDeRecomendacoes mes={mes} cartas={cartas} onSalvar={onSalvarCarta} onAvaliarSeguida={onAvaliarCartaSeguida} />
 

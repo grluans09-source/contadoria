@@ -393,6 +393,7 @@ function planoBase() {
     { id: "outras_despesas", codigo: "5190", nome: "Outras despesas", tipo: "despesa", ordem: 90 }
   ];
 }
+var CONTAS_DINHEIRO = ["caixa", "banco"];
 
 // src/dominio/arquetipos.mjs
 var ARQUETIPOS = [
@@ -2012,6 +2013,100 @@ function cartaPendenteDeAvaliacao(cartas, mesAtual) {
   return candidatas[0] || null;
 }
 
+// src/dominio/fluxoProjetado.mjs
+var DIAS_PADRAO = 60;
+function addDias2(iso, n) {
+  const d = /* @__PURE__ */ new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function saldoDaConta(linhas, contaId) {
+  let s = 0;
+  for (const l of linhas) {
+    if (l.contaId !== contaId) continue;
+    s += l.tipo === "D" ? l.valor : -l.valor;
+  }
+  return s;
+}
+function ocorrenciasDe(recorrente, hoje, limite) {
+  const dia = Math.min(Math.max(Number(recorrente.diaVencimento) || 1, 1), 28);
+  const datas = [];
+  const inicio = /* @__PURE__ */ new Date(hoje + "T12:00:00");
+  for (let m = 0; m <= 3; m++) {
+    const d = new Date(inicio.getFullYear(), inicio.getMonth() + m, dia, 12);
+    const iso = d.toISOString().slice(0, 10);
+    if (iso > hoje && iso <= limite) datas.push(iso);
+  }
+  return datas;
+}
+function fluxoProjetado({ lancamentos, lancamentoLinhas, recorrentes = [], recorrenteLinhas = [], hoje, dias = DIAS_PADRAO }) {
+  const limite = addDias2(hoje, dias);
+  const linhas = lancamentoLinhas || [];
+  const saldoHoje = CONTAS_DINHEIRO.reduce((s, id) => s + saldoDaConta(linhas, id), 0);
+  const baixadas = new Set(linhas.filter((l) => l.baixaDe).map((l) => l.baixaDe));
+  const descricaoDe = new Map((lancamentos || []).map((l) => [l.id, l.descricao]));
+  const eventos = [];
+  for (const l of linhas) {
+    if (!l.vencimento || l.vencimento <= hoje || l.vencimento > limite) continue;
+    if (baixadas.has(l.id)) continue;
+    const rotulo = l.descricao || descricaoDe.get(l.lancamentoId) || "";
+    if (l.contaId === CONTA_A_RECEBER && l.tipo === "D") {
+      eventos.push({ data: l.vencimento, descricao: rotulo || "A receber", valor: l.valor, tipo: "entra" });
+    } else if (CONTAS_COMPROMISSO.includes(l.contaId) && l.tipo === "C") {
+      eventos.push({ data: l.vencimento, descricao: rotulo || "A pagar", valor: -l.valor, tipo: "sai" });
+    }
+  }
+  for (const rec of recorrentes) {
+    if (!rec.ativa) continue;
+    const pernas = recorrenteLinhas.filter((l) => l.recorrenteId === rec.id);
+    const saida = pernas.filter((l) => CONTAS_DINHEIRO.includes(l.contaId) && l.tipo === "C").reduce((s, l) => s + l.valor, 0);
+    if (!(saida > 0)) continue;
+    for (const data of ocorrenciasDe(rec, hoje, limite)) {
+      eventos.push({ data, descricao: rec.descricao, valor: -saida, tipo: "recorrente" });
+    }
+  }
+  eventos.sort((a, b) => a.data.localeCompare(b.data) || a.valor - b.valor);
+  const curva = [];
+  let saldo = saldoHoje;
+  let aperto = null;
+  let menorSaldo = { data: hoje, saldo: saldoHoje };
+  for (const ev of eventos) {
+    saldo = Math.round((saldo + ev.valor) * 100) / 100;
+    curva.push({ data: ev.data, saldo });
+    if (saldo < menorSaldo.saldo) menorSaldo = { data: ev.data, saldo };
+    if (saldo < 0 && !aperto) {
+      aperto = { data: ev.data, saldo, faltam: Math.round(Math.abs(saldo) * 100) / 100 };
+    }
+  }
+  const entram = eventos.filter((e) => e.valor > 0).reduce((s, e) => s + e.valor, 0);
+  const saem = eventos.filter((e) => e.valor < 0).reduce((s, e) => s - e.valor, 0);
+  return { saldoHoje, eventos, curva, aperto, menorSaldo, entram, saem };
+}
+function aviseSobreOCaixa(fluxo) {
+  if (fluxo.aperto) {
+    return {
+      gravidade: "aperto",
+      frase: `No dia ${fmtDia(fluxo.aperto.data)} o caixa fica negativo em ${fmtBRL(fluxo.aperto.faltam)} \u2014 \xE9 o dia em que o dinheiro acaba se nada mudar.`,
+      oQueFazer: "Antecipar recebimento, adiar um pagamento, ou segurar a retirada at\xE9 l\xE1."
+    };
+  }
+  if (fluxo.saem > 0 && fluxo.menorSaldo.saldo < fluxo.saem * 0.1) {
+    return {
+      gravidade: "apertado",
+      frase: `O caixa chega a ${fmtBRL(fluxo.menorSaldo.saldo)} no dia ${fmtDia(fluxo.menorSaldo.data)} \u2014 n\xE3o fica negativo, mas qualquer imprevisto vira aperto.`,
+      oQueFazer: "Vale evitar compra grande at\xE9 depois dessa data."
+    };
+  }
+  return null;
+}
+function fmtBRL(v) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+}
+function fmtDia(iso) {
+  const [, m, d] = iso.split("-");
+  return `${d}/${m}`;
+}
+
 // src/telas/RetratoDoMes.jsx
 var fmt9 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtMes2 = (m) => {
@@ -2019,6 +2114,23 @@ var fmtMes2 = (m) => {
   return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 };
 var hojeISO3 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+function OQueVemPorAi({ lancamentos, lancamentoLinhas, recorrentes, recorrenteLinhas }) {
+  const fluxo = useMemo7(
+    () => fluxoProjetado({
+      lancamentos,
+      lancamentoLinhas,
+      recorrentes: recorrentes || [],
+      recorrenteLinhas: recorrenteLinhas || [],
+      hoje: hojeISO3(),
+      dias: 60
+    }),
+    [lancamentos, lancamentoLinhas, recorrentes, recorrenteLinhas]
+  );
+  const aviso = useMemo7(() => aviseSobreOCaixa(fluxo), [fluxo]);
+  if (!fluxo.eventos.length) return null;
+  const corAviso = aviso?.gravidade === "aperto" ? "var(--debit)" : "var(--accent)";
+  return /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "O que vem por a\xED \xB7 pr\xF3ximos 60 dias"), aviso ? /* @__PURE__ */ React13.createElement(React13.Fragment, null, /* @__PURE__ */ React13.createElement("div", { className: "text-sm font-medium mb-1", style: { color: corAviso, lineHeight: 1.5 } }, aviso.frase), /* @__PURE__ */ React13.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, aviso.oQueFazer)) : /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-3", style: { color: "var(--ink)" } }, "O caixa se mant\xE9m positivo no per\xEDodo \u2014 o menor ponto \xE9 ", fmt9(fluxo.menorSaldo.saldo), "."), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt9(fluxo.saldoHoje), " em caixa e banco hoje"), fluxo.entram > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt9(fluxo.entram), " a receber com vencimento no per\xEDodo"), fluxo.saem > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt9(fluxo.saem), " a pagar e contas fixas no per\xEDodo")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "S\xF3 entra o que j\xE1 est\xE1 prometido \u2014 venda futura n\xE3o registrada n\xE3o \xE9 contada, de prop\xF3sito."));
+}
 function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
   const cartaDoMes = cartas.find((c) => c.mes === mes);
   const [texto, setTexto] = useState10(cartaDoMes?.texto || "");
@@ -2044,7 +2156,7 @@ function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
     }
   ), /* @__PURE__ */ React13.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React13.createElement(Button, { small: true, onClick: salvar }, "Salvar carta"), confirmado && /* @__PURE__ */ React13.createElement("span", { className: "text-xs", style: { color: "var(--credit)" } }, "Salvo.")));
 }
-function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, onSalvarCarta, onAvaliarCartaSeguida }) {
+function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, onSalvarCarta, onAvaliarCartaSeguida }) {
   const mesesComMovimento = useMemo7(() => {
     const meses = new Set(lancamentos.map((l) => (l.data || "").slice(0, 7)).filter(Boolean));
     return [...meses].sort().reverse();
@@ -2066,7 +2178,15 @@ function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodos
   );
   const diferenca = Math.round((r.resultado - r.variacaoCaixaBanco) * 100) / 100;
   const sobrouPositivo = r.resultado >= 0;
-  return /* @__PURE__ */ React13.createElement("div", { className: "max-w-lg" }, /* @__PURE__ */ React13.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React13.createElement(Select, { value: mes, onChange: setMes, options: opcoesMes })), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4", style: { background: "linear-gradient(160deg, var(--surface), var(--paper))" } }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, negocio.apelido || negocio.nome, " \xB7 ", fmtMes2(mes)), /* @__PURE__ */ React13.createElement("div", { className: "text-3xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: sobrouPositivo ? "var(--credit)" : "var(--debit)" } }, fmt9(r.resultado)), /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-1", style: { color: "var(--ink)" } }, "Entrou ", fmt9(r.receita), ", saiu ", fmt9(r.despesa), ", ", sobrouPositivo ? "sobrou" : "faltou", " ", fmt9(Math.abs(r.resultado)), "."), Math.abs(diferenca) >= 0.01 && /* @__PURE__ */ React13.createElement("div", { className: "text-xs mt-2", style: { color: "var(--muted)" } }, "O caixa e o banco se mexeram ", fmt9(r.variacaoCaixaBanco), " \u2014 a diferen\xE7a de ", fmt9(Math.abs(diferenca)), " ", "virou estoque, conta a receber, pagamento de d\xEDvida ou retirada. \xC9 o Balan\xE7o que mostra onde exatamente.")), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Quanto voc\xEA pode tirar"), /* @__PURE__ */ React13.createElement("div", { className: "text-2xl font-bold mb-2", style: { fontFamily: "var(--font-display)", color: "var(--accent)" } }, fmt9(disp.podeTirar)), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt9(disp.disponivelHoje), " dispon\xEDvel hoje em caixa e banco"), disp.aReceber > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt9(disp.aReceber), " a receber nos pr\xF3ximos 30 dias"), disp.compromissos > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt9(disp.compromissos), " em compromissos que vencem nos pr\xF3ximos 30 dias"), disp.reserva > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt9(disp.reserva), " de reserva m\xEDnima")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "\xC9 uma recomenda\xE7\xE3o com base no que foi lan\xE7ado, n\xE3o uma garantia.")), /* @__PURE__ */ React13.createElement(CartaDeRecomendacoes, { mes, cartas, onSalvar: onSalvarCarta, onAvaliarSeguida: onAvaliarCartaSeguida }), /* @__PURE__ */ React13.createElement("div", { className: "text-[10px] text-center", style: { color: "var(--muted)" } }, "Relat\xF3rio gerencial \u2014 n\xE3o \xE9 pe\xE7a cont\xE1bil oficial assinada."));
+  return /* @__PURE__ */ React13.createElement("div", { className: "max-w-lg" }, /* @__PURE__ */ React13.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React13.createElement(Select, { value: mes, onChange: setMes, options: opcoesMes })), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4", style: { background: "linear-gradient(160deg, var(--surface), var(--paper))" } }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, negocio.apelido || negocio.nome, " \xB7 ", fmtMes2(mes)), /* @__PURE__ */ React13.createElement("div", { className: "text-3xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: sobrouPositivo ? "var(--credit)" : "var(--debit)" } }, fmt9(r.resultado)), /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-1", style: { color: "var(--ink)" } }, "Entrou ", fmt9(r.receita), ", saiu ", fmt9(r.despesa), ", ", sobrouPositivo ? "sobrou" : "faltou", " ", fmt9(Math.abs(r.resultado)), "."), Math.abs(diferenca) >= 0.01 && /* @__PURE__ */ React13.createElement("div", { className: "text-xs mt-2", style: { color: "var(--muted)" } }, "O caixa e o banco se mexeram ", fmt9(r.variacaoCaixaBanco), " \u2014 a diferen\xE7a de ", fmt9(Math.abs(diferenca)), " ", "virou estoque, conta a receber, pagamento de d\xEDvida ou retirada. \xC9 o Balan\xE7o que mostra onde exatamente.")), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Quanto voc\xEA pode tirar"), /* @__PURE__ */ React13.createElement("div", { className: "text-2xl font-bold mb-2", style: { fontFamily: "var(--font-display)", color: "var(--accent)" } }, fmt9(disp.podeTirar)), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt9(disp.disponivelHoje), " dispon\xEDvel hoje em caixa e banco"), disp.aReceber > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt9(disp.aReceber), " a receber nos pr\xF3ximos 30 dias"), disp.compromissos > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt9(disp.compromissos), " em compromissos que vencem nos pr\xF3ximos 30 dias"), disp.reserva > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt9(disp.reserva), " de reserva m\xEDnima")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "\xC9 uma recomenda\xE7\xE3o com base no que foi lan\xE7ado, n\xE3o uma garantia.")), /* @__PURE__ */ React13.createElement(
+    OQueVemPorAi,
+    {
+      lancamentos,
+      lancamentoLinhas,
+      recorrentes,
+      recorrenteLinhas
+    }
+  ), /* @__PURE__ */ React13.createElement(CartaDeRecomendacoes, { mes, cartas, onSalvar: onSalvarCarta, onAvaliarSeguida: onAvaliarCartaSeguida }), /* @__PURE__ */ React13.createElement("div", { className: "text-[10px] text-center", style: { color: "var(--muted)" } }, "Relat\xF3rio gerencial \u2014 n\xE3o \xE9 pe\xE7a cont\xE1bil oficial assinada."));
 }
 
 // src/telas/PlanoContas.jsx
@@ -2650,6 +2770,8 @@ function Livro({ negocio, onVoltar }) {
       lancamentoLinhas: estado.lancamentoLinhas,
       periodosFechados: estado.periodosFechados,
       cartas: estado.cartas,
+      recorrentes: estado.recorrentes,
+      recorrenteLinhas: estado.recorrenteLinhas,
       onSalvarCarta: salvarCarta,
       onAvaliarCartaSeguida: avaliarCartaSeguida
     }

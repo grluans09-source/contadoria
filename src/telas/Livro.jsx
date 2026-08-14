@@ -495,6 +495,8 @@ export function Livro({ negocio, onVoltar }) {
             lancamentoLinhas={estado.lancamentoLinhas}
             periodosFechados={estado.periodosFechados}
             cartas={estado.cartas}
+            recorrentes={estado.recorrentes}
+            recorrenteLinhas={estado.recorrenteLinhas}
             onSalvarCarta={salvarCarta}
             onAvaliarCartaSeguida={avaliarCartaSeguida}
           />
