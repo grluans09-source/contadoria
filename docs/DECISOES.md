@@ -162,24 +162,59 @@ nunca some.
 
 ---
 
-# F · Propostas aguardando decisão do dono (14/ago)
+# F · Decisões tomadas sob a lente (14/ago)
 
-### F1 · Linha de base no onboarding — **PROPOSTA** ⭐ urgente
+### F0 · Prioridade por "valor no dia 1", não por profundidade — **DECIDIDO** (14/ago) 🆕
+**Decisão:** entre duas análises igualmente boas, constrói primeiro a que **funciona no
+primeiro mês de cliente**.
+**Por quê:** o dono tem **zero clientes**. Toda análise que exige 3 meses fechados (despesa
+fora do padrão, sazonalidade, comparativo) é inútil por um trimestre inteiro. Fluxo projetado,
+hora do dono e projeção do limite funcionam com o dado que a própria abertura captura.
+**Sinergia que decidiu o desempate:** essas três peças são também o que torna o **Diagnóstico
+Gratuito** devastador — mesmo trabalho resolvendo transformação do cliente E máquina de venda,
+que é o gargalo nº 1 (docs/09 §6).
+**Substitui:** a ordem original do plano, que colocava achados históricos antes da projeção.
+
+### F1 · Fluxo de caixa projetado — **IMPLEMENTADO** (14/ago) ✅
+`src/dominio/fluxoProjetado.mjs` · 13 testes · visível em Entregas.
+**Problema que resolve:** todo o resto do sistema é retrospectivo. Micronegócio não morre de
+prejuízo, morre de **ficar sem dinheiro num dia específico**.
+**Regra de honestidade:** **não projeta receita futura não registrada.** Chutar venda
+transformaria o aviso em ficção otimista, e este é o número que não pode mentir para cima.
+**Provado:** com R$1.000 em caixa, R$1.800 vencendo dia 20 e R$1.500 entrando dia 25, o
+"quanto pode tirar" diz **+R$700** e a projeção diz **negativo em R$800 no dia 20**. Não é
+contradição — é a diferença entre **saldo** e **sequência**. É assim que negócio quebra com
+lucro no papel.
+
+### F2 · Hora do dono e projeção do limite — **IMPLEMENTADO** (14/ago) ✅
+`src/dominio/valorDoTempo.mjs` · 14 testes.
+**Calibração medida, não suposta:** a intuição de que "R$2.000 tirando 60h/semana fica abaixo
+do mínimo por hora" está **ERRADA** — dá R$7,67/h contra R$7,37/h. A fronteira real com
+60h/semana fica por volta de **R$1.920** de retirada. Registrado em teste porque significa
+que o alerta dispara **menos** do que a intuição sugere — o que é bom (menos alarme falso).
+**A projeção do limite separa as duas faixas** porque acima de 20% o desenquadramento é
+retroativo a janeiro (docs/07 §4).
+
+---
+
+# F-bis · Propostas ainda aguardando decisão
+
+### F3 · Linha de base no onboarding — **PROPOSTA** ⭐ urgente
 Retrato imutável de como o cliente chegou. **Irrecuperável se adiado** — mesma lógica do campo
 "recomendação seguida?".
 
-### F2 · Achados com valor em R$, evidência e hipótese inocente — **PROPOSTA**
+### F4 · Achados com valor em R$, evidência e hipótese inocente — **PROPOSTA**
 Hoje o achado aponta e para. Falta quanto custou, quais lançamentos geraram, e a explicação
 legítima alternativa.
 
-### F3 · Recomendação como hipótese testável — **PROPOSTA**
+### F5 · Recomendação como hipótese testável — **PROPOSTA**
 Carta ganha *efeito esperado* e *efeito medido*. Mostra coincidência temporal; **nunca afirma
 causalidade**.
 
-### F4 · Meta do cliente alimentando a Carta — **PROPOSTA**
+### F6 · Meta do cliente alimentando a Carta — **PROPOSTA**
 Hoje o Bloco 5 é coletado e nunca usado. Desperdício de dado que já existe.
 
-### F5 · Registrar o que foi EVITADO, não só o recomendado — **PROPOSTA**
+### F7 · Registrar o que foi EVITADO, não só o recomendado — **PROPOSTA**
 A transformação mais valiosa (impedir a compra errada, evitar o desenquadramento) não deixa
 rastro. Sem registro, o valor não é percebido nem cobrado.
 
