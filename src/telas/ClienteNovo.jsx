@@ -32,6 +32,7 @@ const NOMES_BLOCO = {
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmtMoeda = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+const uid = () => Math.random().toString(36).slice(2, 10);
 
 /* ── "por que isso importa" — docs/05 §6, ao lado de cada campo ── */
 function PorQueImporta({ texto }) {
@@ -222,6 +223,51 @@ function ListaDividas({ itens, onChange }) {
   );
 }
 
+/* ── Contas fixas do Bloco 4 — vira RECORRENTE de verdade ───────
+   Pedido do dono (14/ago, Fase 5): "quais contas você paga todo mês"
+   deixou de ser texto livre jogado fora — cada item aqui cria um
+   template em `recorrentes` + `recorrente_linhas` (mesma tabela da tela
+   Recorrentes, src/telas/Recorrentes.jsx), então no segundo mês do
+   cliente essas contas já aparecem prontas para gerar o lançamento. */
+function BlocoContasFixas({ itens, onChange, opcoesDespesa }) {
+  const add = () => onChange([...itens, { descricao: "", valor: "", contaId: "", deOnde: "banco" }]);
+  const remover = (i) => onChange(itens.filter((_, idx) => idx !== i));
+  const editar = (i, campo, v) => onChange(itens.map((it, idx) => (idx === i ? { ...it, [campo]: v } : it)));
+
+  return (
+    <div className="mb-6">
+      <Label>Quais contas você paga todo mês (aluguel, internet, mensalidade)</Label>
+      {itens.map((item, i) => (
+        <div key={i} className="mb-2 pb-2" style={{ borderBottom: "1px solid var(--rule-faint)" }}>
+          <div className="flex gap-2 mb-2 items-center animate-[surgir_.2s_ease-out]">
+            <Input placeholder="descrição" value={item.descricao} onChange={(e) => editar(i, "descricao", e.target.value)} className="flex-[2]" />
+            <Input money placeholder="valor" value={item.valor} onChange={(e) => editar(i, "valor", e.target.value)} className="flex-1" />
+            <button type="button" onClick={() => remover(i)} className="transition-opacity hover:opacity-70 shrink-0" style={{ color: "var(--debit)" }} aria-label="Remover">
+              <Trash2 size={15} />
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-[2]">
+              <Select value={item.contaId} onChange={(v) => editar(i, "contaId", v)} placeholder="qual conta" options={opcoesDespesa} />
+            </div>
+            <div className="flex-1">
+              <Select value={item.deOnde} onChange={(v) => editar(i, "deOnde", v)}
+                options={[{ value: "banco", label: "sai do banco" }, { value: "caixa", label: "sai do caixa" }]} />
+            </div>
+          </div>
+        </div>
+      ))}
+      <button type="button" onClick={add} className="text-xs inline-flex items-center gap-1 mt-1 transition-opacity hover:opacity-70" style={{ color: "var(--accent)" }}>
+        <Plus size={13} /> adicionar conta fixa
+      </button>
+      <div className="text-[11px] mt-1.5" style={{ color: "var(--muted)" }}>
+        Cadastradas aqui, elas já aparecem prontas no mês seguinte — é o que faz o segundo mês do cliente ser rápido.
+        Não precisa ser exato nem completo hoje: dá para ajustar e acrescentar depois, na aba Recorrentes.
+      </div>
+    </div>
+  );
+}
+
 /* ── Bloco 3 — a foto de hoje, montada a partir do ARQUÉTIPO ────
    Os campos comuns valem para todo negócio; os específicos vêm de
    `camposAbertura` do arquétipo — é o que faz a facção ser perguntada
@@ -287,8 +333,17 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
   const [bloco, setBloco] = useState(1);
   const [respostas, setRespostas] = useState({});
   const [abertura, setAbertura] = useState({ caixa: "", banco: "", equipamentos: [], especificos: {}, aReceber: [], dividas: [] });
+  const [contasFixas, setContasFixas] = useState([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+
+  /* Contas de despesa disponíveis para os itens de "conta fixa" —
+     base + o que o arquétipo acrescenta (ex.: taxa de plataforma do
+     digital), mesmo plano que vai virar o plano de contas de verdade. */
+  const opcoesDespesa = planoDeFabrica(negocio.arquetipo)
+    .filter((c) => c.tipo === "despesa")
+    .sort((a, b) => a.codigo.localeCompare(b.codigo))
+    .map((c) => ({ value: c.id, label: `${c.codigo} — ${c.nome}` }));
 
   useEffect(() => {
     supabase.from("roteiro_perguntas").select("*").eq("ativo", true).order("bloco").order("ordem")
@@ -344,6 +399,25 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
     return itens;
   };
 
+  /* As contas fixas do Bloco 4 viram RECORRENTE de verdade — mesmo
+     desenho cabeçalho+linhas de `recorrentes`/`recorrente_linhas`
+     (docs/06 §1), já aceito por `aplicar_lote` (0008). Item sem conta,
+     sem valor ou sem descrição é ignorado: aqui é onboarding rápido,
+     não formulário obrigatório — o que ficar de fora dá para cadastrar
+     depois, na aba Recorrentes. */
+  const montarOpsRecorrentes = () => {
+    const ops = [];
+    for (const item of contasFixas) {
+      const valor = numeroOuNulo(item.valor);
+      if (!valor || !item.contaId || !item.descricao?.trim()) continue;
+      const recorrenteId = uid();
+      ops.push({ acao: "gravar", tabela: "recorrentes", valores: { id: recorrenteId, descricao: item.descricao.trim(), ativa: true } });
+      ops.push({ acao: "gravar", tabela: "recorrente_linhas", valores: { id: uid(), recorrente_id: recorrenteId, conta_id: item.contaId, tipo: "D", valor } });
+      ops.push({ acao: "gravar", tabela: "recorrente_linhas", valores: { id: uid(), recorrente_id: recorrenteId, conta_id: item.deOnde || "banco", tipo: "C", valor } });
+    }
+    return ops;
+  };
+
   const concluir = async () => {
     setErro("");
     const itens = montarItensAbertura();
@@ -384,6 +458,7 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
           acao: "gravar", tabela: "lancamento_linhas",
           valores: { id: l.id, lancamento_id: idAbertura, conta_id: l.contaId, tipo: l.tipo, valor: l.valor, descricao: l.descricao, vencimento: l.vencimento },
         })),
+        ...montarOpsRecorrentes(),
       ];
 
       const { error: erroLote } = await supabase.rpc("aplicar_lote", { p_negocio: negocio.id, p_ops: ops });
@@ -480,6 +555,14 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
           {bloco === 3 ? (
             <BlocoAbertura abertura={abertura} setAbertura={setAbertura} perguntas={perguntas}
               arquetipo={negocio.arquetipo} dinheiroMisturado={negocio.dinheiro_misturado} />
+          ) : bloco === 4 ? (
+            <>
+              {doBloco(4).map((p) => (
+                <CampoRoteiro key={p.id} pergunta={p} valor={respostas[p.id]}
+                  onChange={(v) => setRespostas({ ...respostas, [p.id]: v })} />
+              ))}
+              <BlocoContasFixas itens={contasFixas} onChange={setContasFixas} opcoesDespesa={opcoesDespesa} />
+            </>
           ) : (
             doBloco(bloco).map((p) => (
               <CampoRoteiro key={p.id} pergunta={p} valor={respostas[p.id]}

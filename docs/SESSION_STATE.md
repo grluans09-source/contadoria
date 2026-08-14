@@ -890,9 +890,26 @@ Também corrigido de passagem: `serve.mjs` não conhecia `.pdf` e servia como do
 
 ## ➡️ Próxima tarefa
 
-Os dez itens do "O QUE FALTA" original, os quatro itens de pós-produção, a publicação do
-site e a documentação de operação/vendas estão **todos completos**. Não há pendência de
-código conhecida.
+> Esta seção ficou parada em 13/ago. Desde então (14/ago) o projeto passou pelos
+> arquétipos de negócio, dinheiro misturado, roteiro adaptativo, formulário público,
+> fluxo de caixa projetado, hora do dono e retrato de entrada — tudo isso está
+> registrado em [`DECISOES.md`](DECISOES.md), não repetido aqui (é a fonte de verdade
+> do que vale hoje; este arquivo é só o diário cronológico, e reescrevê-lo por inteiro
+> é trabalho da Fase 8, ainda não feita).
+
+**Concluído em 14/ago:** Fase 5 do plano — o Bloco 4 do Roteiro do Cliente Novo (`ClienteNovo.jsx`)
+deixou de jogar fora "quais contas você paga todo mês": agora é uma lista estruturada
+(`BlocoContasFixas`) que cria `recorrentes` + `recorrente_linhas` de verdade, reaproveitando
+o mesmo desenho cabeçalho+linhas já usado pela aba Recorrentes — é o que faz o segundo mês do
+cliente ser rápido. Build limpo, 189 testes passando, bundle carregado e conferido no navegador
+sem erro (login/rendering); o clique-a-clique do Bloco 4 em si não foi exercido ao vivo — mesma
+limitação de sessão/login já registrada para o Retrato de Entrada.
+
+**Pendente, na ordem do plano** (`docs/DECISOES.md` e a lista de tarefas têm o detalhe de cada uma):
+- Fase 6 — aba Roteiro no Livro (aprofundamento pendente, editável a qualquer momento) + aviso nas Entregas
+- Fase 7 — achados que revelam a dor invisível (retirada acima do resultado, mercadoria parada com terceiro, taxa engolindo margem, sem receita no período)
+- Fase 8 — reescrever (substituindo, não acumulando) docs/10, docs/11, docs/05 §4, docs/06, regenerar PDF, `build && bump && publicar`
+- Fase 11 — memória do cliente (linha do tempo)
 
 O que resta é rotina, não tarefa:
 - Reconferir `parametros_fiscais` todo janeiro (salário mínimo muda, DAS sobe) e antes do
