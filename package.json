@@ -14,10 +14,12 @@
     "migrar": "node supabase/aplicar-migracoes.mjs",
     "conferir": "node supabase/conferir.mjs",
     "backup": "node supabase/backup.mjs",
-    "publicar": "node scripts/publicar.mjs"
+    "publicar": "node scripts/publicar.mjs",
+    "pdf": "node scripts/gerar-pdf.mjs"
   },
   "devDependencies": {
-    "esbuild": "0.21.5"
+    "esbuild": "0.21.5",
+    "pdfkit": "^0.19.1"
   },
   "engines": {
     "node": ">=18"

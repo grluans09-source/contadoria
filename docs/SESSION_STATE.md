@@ -837,10 +837,56 @@ já tem a mudança nova — os dois podem divergir silenciosamente.
 
 ---
 
+## ✅ Manual de Operação e Go-to-Market, em PDF (13/ago)
+
+O Luan decidiu focar na Contadoria e deixar o ContLife de lado por ora ("esse tem mais chance
+de me dar renda mais rápido"), e pediu material completo: o que o sistema entrega, como usar,
+qual o público, como vender, quanto cobrar. Escrito como **Markdown em `docs/` + gerador de
+PDF** — a fonte da verdade é o texto, o PDF é só uma saída, e regenerar é um comando.
+
+| Arquivo | O que é |
+|---|---|
+| `docs/10_MANUAL_DE_OPERACAO.md` | operação: os 4 públicos, as 3 gavetas de entrega, o limite profissional, o sistema tela por tela, o ciclo do mês, cliente novo passo a passo, contabilidade na prática (os 10 lançamentos que cobrem 90% de um MEI), manutenção, trilha de estudo |
+| `docs/11_GO_TO_MARKET.md` | vendas: o achado de mercado, os 4 segmentos com pitch e preço, o Diagnóstico Gratuito, preço em 3 degraus, canais em ordem de eficácia, scripts, objeções, o combinado, métricas, plano de 90 dias, riscos |
+| `scripts/gerar-pdf.mjs` | `npm run pdf` — Markdown para PDF em JS puro (pdfkit), capa preta e ouro, miolo marfim |
+| `pdf/*.pdf` | a saída: 19 e 18 páginas |
+
+### O achado de mercado que sustenta o go-to-market
+
+Pesquisado, não suposto: **a Agilize declara não atender MEI** e a Contabilizei parte de
+R$ 195/mês focada em ME. O contador tradicional cobra R$ 50–200 entregando basicamente a guia
+do DAS. **O MEI está desatendido pelos dois lados** — porque a LC 128/2008 o dispensou de
+contador, e o mercado inteiro é construído para vender conformidade. Sem conformidade a
+vender, ninguém atende. Essa é a brecha: não vender contabilidade, vender clareza.
+
+Isso mudou a estrutura de preço proposta: R$ 120 / **R$ 180** / R$ 320 em três degraus (o do
+meio é o alvo), ancorada em valor — não competindo com o contador de R$ 60, que entrega outra
+coisa.
+
+### Dois bugs de renderização pegos conferindo o PDF gerado
+
+Não bastava gerar — extraí o texto de volta do PDF (descompactando os streams e decodificando
+os operadores `TJ`) para conferir o que saiu de verdade:
+
+1. **Setas sumindo:** `→` não existe no WinAnsiEncoding e estava sendo removida pelo filtro de
+   emoji — "Caixa de Entrada → Revisão" virava "Caixa de Entrada  Revisão", perdendo a
+   instrução. Corrigido mapeando para `->`.
+2. **Equação contábil quebrada:** o menos de `Ativo = Passivo + PL + Receita − Despesa` era
+   U+2212 (sinal de menos matemático), fora do WinAnsi — saía como caractere de controle no
+   meio da fórmula. Corrigido mapeando para hífen comum.
+
+Lição registrada no código: símbolo que **carrega sentido** precisa de equivalente, não de
+remoção. Só emoji decorativo pode sumir.
+
+Também corrigido de passagem: `serve.mjs` não conhecia `.pdf` e servia como download.
+
+---
+
 ## ➡️ Próxima tarefa
 
-Os dez itens do "O QUE FALTA" original, os quatro itens de pós-produção e a publicação do
-site estão **todos completos**. Não há pendência de código conhecida.
+Os dez itens do "O QUE FALTA" original, os quatro itens de pós-produção, a publicação do
+site e a documentação de operação/vendas estão **todos completos**. Não há pendência de
+código conhecida.
 
 O que resta é rotina, não tarefa:
 - Reconferir `parametros_fiscais` todo janeiro (salário mínimo muda, DAS sobe) e antes do

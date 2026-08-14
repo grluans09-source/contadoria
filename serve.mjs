@@ -39,6 +39,7 @@ const TIPOS = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".ico": "image/x-icon",
+  ".pdf": "application/pdf",
 };
 
 const servidor = http.createServer((req, res) => {
