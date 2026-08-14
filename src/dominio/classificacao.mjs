@@ -38,6 +38,61 @@ export function sugerirConta(descricaoBruta, regras) {
 }
 
 /**
+ * O item é PESSOAL, e o dinheiro é misturado — então ele não some do
+ * livro: vira movimento de patrimônio.
+ *
+ * POR QUE ISTO EXISTE (achado de 13/ago/2026)
+ * ------------------------------------------------------------
+ * Antes, "é pessoal" apenas marcava o item e NÃO gerava lançamento
+ * nenhum. Para quem tem conta separada isso está certo — a transação é
+ * de uma conta que o livro não acompanha. Mas para quem usa o mesmo
+ * dinheiro pra tudo (o cenário mais comum, docs/03 §2.2), o saldo de
+ * caixa do livro passava a mentir: o dinheiro saiu de verdade e o livro
+ * continuava achando que estava lá. A conciliação nunca mais fechava.
+ *
+ * Com o dinheiro misturado, TODO o dinheiro entrou como capital do
+ * negócio na abertura. Logo:
+ *   · dinheiro pessoal SAINDO  = Retirada do titular (reduz patrimônio)
+ *   · dinheiro pessoal ENTRANDO = Aporte do titular  (aumenta patrimônio)
+ *
+ * O segundo caso é real e fácil de esquecer: ele recebe de outro
+ * trabalho e deposita na mesma conta. Isso não é receita do negócio —
+ * lançar como receita inflaria o faturamento e, num MEI, poderia
+ * disparar alarme falso do teto.
+ *
+ * É também o que torna possível o achado mais forte do sistema: no fim
+ * do mês, a conta de Retiradas mostra quanto ele realmente tirou.
+ *
+ * @param {{data, descricaoBruta, valor, contaOrigemId}} item
+ */
+export function construirMovimentoPessoal(item, gerarId = uidPadrao) {
+  if (!item.contaOrigemId) throw new Error("item sem conta de origem — não dá para saber de qual conta o dinheiro saiu ou entrou");
+  const valorAbs = Math.abs(item.valor);
+  if (!(valorAbs > 0)) throw new Error(`item com valor inválido: ${item.valor}`);
+
+  const entrou = item.valor > 0;
+  const idLancamento = gerarId();
+  const contaPatrimonio = entrou ? "capital_titular" : "retiradas_titular";
+
+  return {
+    lancamento: {
+      id: idLancamento,
+      data: item.data,
+      dataCompetencia: item.data,
+      descricao: entrou ? `Aporte do titular — ${item.descricaoBruta}` : `Retirada do titular — ${item.descricaoBruta}`,
+      origem: "manual",
+      documento: null,
+    },
+    linhas: [
+      /* Retirada DEBITA a conta de patrimônio (reduz o PL) e CREDITA o
+         trânsito (o dinheiro saiu). Aporte é o inverso. */
+      { id: gerarId(), lancamentoId: idLancamento, contaId: contaPatrimonio, tipo: entrou ? "C" : "D", valor: valorAbs, descricao: item.descricaoBruta, vencimento: null, baixaDe: null },
+      { id: gerarId(), lancamentoId: idLancamento, contaId: item.contaOrigemId, tipo: entrou ? "D" : "C", valor: valorAbs, descricao: null, vencimento: null, baixaDe: null },
+    ],
+  };
+}
+
+/**
  * Monta o lançamento de 2 linhas que classifica um item da Caixa de
  * Entrada: uma perna na conta de TRÂNSITO (caixa ou banco — de onde o
  * dinheiro veio/foi, já sabida desde a importação), outra na conta de

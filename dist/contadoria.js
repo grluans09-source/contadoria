@@ -433,7 +433,7 @@ function Negocios({ onAbrirNegocio, onAbrirPainel }) {
   const [erro, setErro] = useState3("");
   const [confirmacao, setConfirmacao] = useState3(false);
   const carregar = useCallback(async () => {
-    const { data, error } = await supabase.from("negocios").select("id, nome, apelido, tipo, situacao, created_at, configuracao").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("negocios").select("id, nome, apelido, tipo, situacao, created_at, configuracao, arquetipo, dinheiro_misturado").order("created_at", { ascending: false });
     if (error) {
       setErro(error.message);
       return;
@@ -469,17 +469,16 @@ import React5, { useState as useState4, useEffect as useEffect4 } from "react";
 import { Plus as Plus2, Trash2, ArrowLeft, ArrowRight, HelpCircle } from "lucide-react";
 
 // src/dominio/planoContas.mjs
-function planoDeFabrica() {
+function planoBase() {
   return [
     // ── 1. Ativo ──────────────────────────────────────────────
     { id: "caixa", codigo: "1101", nome: "Caixa", tipo: "ativo", subtipo: "circulante", ordem: 1 },
     { id: "banco", codigo: "1102", nome: "Banco", tipo: "ativo", subtipo: "circulante", ordem: 2 },
     { id: "maquininha_receber", codigo: "1103", nome: "A receber de maquininha", tipo: "ativo", subtipo: "circulante", ordem: 3 },
     { id: "clientes", codigo: "1104", nome: "Clientes", tipo: "ativo", subtipo: "circulante", ordem: 4 },
-    { id: "estoque", codigo: "1105", nome: "Estoque", tipo: "ativo", subtipo: "circulante", ordem: 5 },
-    { id: "equipamentos", codigo: "1106", nome: "Equipamentos", tipo: "ativo", subtipo: "nao_circulante", ordem: 6 },
-    { id: "veiculos", codigo: "1107", nome: "Ve\xEDculos", tipo: "ativo", subtipo: "nao_circulante", ordem: 7 },
-    { id: "deprec_acum", codigo: "1108", nome: "Deprecia\xE7\xE3o acumulada", tipo: "ativo", subtipo: "contra", ordem: 8 },
+    { id: "equipamentos", codigo: "1150", nome: "Equipamentos", tipo: "ativo", subtipo: "nao_circulante", ordem: 50 },
+    { id: "veiculos", codigo: "1151", nome: "Ve\xEDculos", tipo: "ativo", subtipo: "nao_circulante", ordem: 51 },
+    { id: "deprec_acum", codigo: "1152", nome: "Deprecia\xE7\xE3o acumulada", tipo: "ativo", subtipo: "contra", ordem: 52 },
     // ── 2. Passivo ────────────────────────────────────────────
     { id: "fornecedores", codigo: "2101", nome: "Fornecedores", tipo: "passivo", subtipo: "circulante", ordem: 1 },
     { id: "das_a_pagar", codigo: "2102", nome: "DAS a pagar", tipo: "passivo", subtipo: "circulante", ordem: 2 },
@@ -489,25 +488,243 @@ function planoDeFabrica() {
     { id: "capital_titular", codigo: "3101", nome: "Capital do titular", tipo: "pl", ordem: 1 },
     { id: "retiradas_titular", codigo: "3102", nome: "Retiradas do titular", tipo: "pl", ordem: 2 },
     { id: "lucros_acumulados", codigo: "3103", nome: "Lucros acumulados", tipo: "pl", ordem: 3 },
-    // ── 4. Receitas ───────────────────────────────────────────
-    { id: "venda_mercadorias", codigo: "4101", nome: "Venda de mercadorias", tipo: "receita", ordem: 1 },
-    { id: "prestacao_servicos", codigo: "4102", nome: "Presta\xE7\xE3o de servi\xE7os", tipo: "receita", ordem: 2 },
-    { id: "outras_receitas", codigo: "4103", nome: "Outras receitas", tipo: "receita", ordem: 3 },
-    // ── 5. Despesas ───────────────────────────────────────────
-    { id: "cmv", codigo: "5101", nome: "CMV", tipo: "despesa", ordem: 1 },
-    { id: "aluguel", codigo: "5102", nome: "Aluguel", tipo: "despesa", ordem: 2 },
-    { id: "energia", codigo: "5103", nome: "Energia", tipo: "despesa", ordem: 3 },
-    { id: "agua", codigo: "5104", nome: "\xC1gua", tipo: "despesa", ordem: 4 },
-    { id: "internet_telefone", codigo: "5105", nome: "Internet e telefone", tipo: "despesa", ordem: 5 },
-    { id: "taxa_maquininha", codigo: "5106", nome: "Taxa de maquininha", tipo: "despesa", ordem: 6 },
-    { id: "combustivel", codigo: "5107", nome: "Combust\xEDvel", tipo: "despesa", ordem: 7 },
-    { id: "material_consumo", codigo: "5108", nome: "Material de consumo", tipo: "despesa", ordem: 8 },
-    { id: "marketing", codigo: "5109", nome: "Marketing", tipo: "despesa", ordem: 9 },
-    { id: "das_despesa", codigo: "5110", nome: "DAS", tipo: "despesa", ordem: 10 },
-    { id: "depreciacao", codigo: "5111", nome: "Deprecia\xE7\xE3o", tipo: "despesa", ordem: 11 },
-    { id: "tarifas_bancarias", codigo: "5112", nome: "Tarifas banc\xE1rias", tipo: "despesa", ordem: 12 },
-    { id: "outras_despesas", codigo: "5113", nome: "Outras despesas", tipo: "despesa", ordem: 13 }
+    // ── 4. Receita ────────────────────────────────────────────
+    /* A receita PRINCIPAL vem do arquétipo — ver escolha 4 acima. */
+    { id: "outras_receitas", codigo: "4190", nome: "Outras receitas", tipo: "receita", ordem: 90 },
+    // ── 5. Despesa ────────────────────────────────────────────
+    { id: "aluguel", codigo: "5101", nome: "Aluguel", tipo: "despesa", ordem: 1 },
+    { id: "energia", codigo: "5102", nome: "Energia", tipo: "despesa", ordem: 2 },
+    { id: "agua", codigo: "5103", nome: "\xC1gua", tipo: "despesa", ordem: 3 },
+    { id: "internet_telefone", codigo: "5104", nome: "Internet e telefone", tipo: "despesa", ordem: 4 },
+    { id: "taxa_maquininha", codigo: "5105", nome: "Taxa de maquininha", tipo: "despesa", ordem: 5 },
+    { id: "combustivel", codigo: "5106", nome: "Combust\xEDvel", tipo: "despesa", ordem: 6 },
+    { id: "material_consumo", codigo: "5107", nome: "Material de consumo", tipo: "despesa", ordem: 7 },
+    { id: "marketing", codigo: "5108", nome: "Marketing", tipo: "despesa", ordem: 8 },
+    { id: "das_despesa", codigo: "5109", nome: "DAS", tipo: "despesa", ordem: 9 },
+    { id: "depreciacao", codigo: "5110", nome: "Deprecia\xE7\xE3o", tipo: "despesa", ordem: 10 },
+    { id: "tarifas_bancarias", codigo: "5111", nome: "Tarifas banc\xE1rias", tipo: "despesa", ordem: 11 },
+    { id: "outras_despesas", codigo: "5190", nome: "Outras despesas", tipo: "despesa", ordem: 90 }
   ];
+}
+
+// src/dominio/arquetipos.mjs
+var ARQUETIPOS = [
+  {
+    id: "revenda",
+    nome: "Revenda",
+    resumo: "Compra pronto e vende sem transformar",
+    exemplos: "loja, sacoleira, distribuidora, revenda online, mercadinho",
+    contasExtras: [
+      { id: "estoque", codigo: "1120", nome: "Estoque de mercadorias", tipo: "ativo", subtipo: "circulante", ordem: 20 },
+      { id: "venda_mercadorias", codigo: "4101", nome: "Venda de mercadorias", tipo: "receita", ordem: 1 },
+      { id: "cmv", codigo: "5120", nome: "Custo da mercadoria vendida", tipo: "despesa", ordem: 20 },
+      { id: "frete_compras", codigo: "5121", nome: "Frete sobre compras", tipo: "despesa", ordem: 21 }
+    ],
+    camposAbertura: [
+      {
+        chave: "estoque",
+        contaId: "estoque",
+        tipo: "D",
+        rotulo: "Mercadoria parada (valor de custo aproximado)",
+        porque: "\xC9 dinheiro seu que est\xE1 na prateleira em vez de estar no caixa. Saber quanto \xE9 costuma ser o primeiro susto \u2014 e \xE9 a base para descobrir o que gira devagar."
+      }
+    ],
+    achados: ["taxa_engolindo_margem"]
+  },
+  {
+    id: "producao",
+    nome: "Produ\xE7\xE3o pr\xF3pria",
+    resumo: "Transforma insumo em produto e vende",
+    exemplos: "salgados, bolos, marmita, costura, artesanato, marcenaria",
+    contasExtras: [
+      { id: "estoque_insumos", codigo: "1121", nome: "Estoque de insumos", tipo: "ativo", subtipo: "circulante", ordem: 21 },
+      { id: "estoque_produtos", codigo: "1122", nome: "Produto pronto", tipo: "ativo", subtipo: "circulante", ordem: 22 },
+      { id: "venda_producao", codigo: "4102", nome: "Venda de produ\xE7\xE3o pr\xF3pria", tipo: "receita", ordem: 2 },
+      { id: "insumos", codigo: "5122", nome: "Insumos e mat\xE9ria-prima", tipo: "despesa", ordem: 22 },
+      { id: "embalagem", codigo: "5123", nome: "Embalagem", tipo: "despesa", ordem: 23 },
+      { id: "perda_producao", codigo: "5124", nome: "Perda e quebra", tipo: "despesa", ordem: 24 }
+    ],
+    camposAbertura: [
+      {
+        chave: "estoque_insumos",
+        contaId: "estoque_insumos",
+        tipo: "D",
+        rotulo: "Insumo/mat\xE9ria-prima parada (valor aproximado)",
+        porque: "Farinha, tecido, madeira \u2014 o que j\xE1 foi comprado e ainda n\xE3o virou produto."
+      },
+      {
+        chave: "estoque_produtos",
+        contaId: "estoque_produtos",
+        tipo: "D",
+        rotulo: "Produto pronto ainda n\xE3o vendido",
+        porque: "J\xE1 custou insumo e tempo, mas ainda n\xE3o virou dinheiro."
+      }
+    ],
+    achados: ["taxa_engolindo_margem"]
+  },
+  {
+    id: "servico_mao_obra",
+    nome: "Servi\xE7o com m\xE3o de obra",
+    resumo: "Vende o pr\xF3prio trabalho, com ou sem material",
+    exemplos: "eletricista, pedreiro, encanador, pintor, mec\xE2nico, consertos, diarista",
+    contasExtras: [
+      { id: "prestacao_servicos", codigo: "4103", nome: "Presta\xE7\xE3o de servi\xE7os", tipo: "receita", ordem: 3 },
+      { id: "venda_material_aplicado", codigo: "4104", nome: "Material cobrado do cliente", tipo: "receita", ordem: 4 },
+      { id: "material_aplicado", codigo: "5130", nome: "Material aplicado em servi\xE7o", tipo: "despesa", ordem: 30 },
+      { id: "ferramentas", codigo: "5131", nome: "Ferramentas e manuten\xE7\xE3o", tipo: "despesa", ordem: 31 },
+      { id: "deslocamento", codigo: "5132", nome: "Deslocamento", tipo: "despesa", ordem: 32 },
+      { id: "ajudante", codigo: "5133", nome: "Ajudante / di\xE1ria de terceiro", tipo: "despesa", ordem: 33 }
+    ],
+    camposAbertura: [
+      {
+        chave: "material_obra",
+        contaId: "estoque_insumos",
+        tipo: "D",
+        rotulo: "Material j\xE1 comprado para servi\xE7o ainda n\xE3o feito",
+        porque: "Material comprado para uma obra que ainda n\xE3o aconteceu \xE9 dinheiro adiantado, n\xE3o despesa do m\xEAs.",
+        contaExtra: { id: "estoque_insumos", codigo: "1121", nome: "Material para servi\xE7o", tipo: "ativo", subtipo: "circulante", ordem: 21 }
+      }
+    ],
+    achados: ["sem_receita_no_periodo"]
+  },
+  {
+    id: "servico_recorrente",
+    nome: "Servi\xE7o recorrente",
+    resumo: "Contrato ou mensalidade que se repete",
+    exemplos: "manuten\xE7\xE3o mensal, limpeza, aulas, mensalista, assessoria",
+    contasExtras: [
+      { id: "mensalidades", codigo: "4105", nome: "Mensalidades", tipo: "receita", ordem: 5 },
+      { id: "servicos_avulsos", codigo: "4106", nome: "Servi\xE7os avulsos", tipo: "receita", ordem: 6 }
+    ],
+    camposAbertura: [],
+    achados: []
+  },
+  {
+    id: "digital",
+    nome: "Digital / online",
+    resumo: "Vende pela internet, produto digital ou servi\xE7o remoto",
+    exemplos: "infoproduto, sistema, freelancer digital, social media, e-commerce pr\xF3prio",
+    contasExtras: [
+      { id: "saldo_plataforma", codigo: "1105", nome: "Saldo em plataforma", tipo: "ativo", subtipo: "circulante", ordem: 5 },
+      { id: "vendas_online", codigo: "4107", nome: "Vendas online", tipo: "receita", ordem: 7 },
+      { id: "assinaturas", codigo: "4108", nome: "Assinaturas", tipo: "receita", ordem: 8 },
+      { id: "taxa_plataforma", codigo: "5140", nome: "Taxa de plataforma", tipo: "despesa", ordem: 40 },
+      { id: "anuncios", codigo: "5141", nome: "An\xFAncios e tr\xE1fego pago", tipo: "despesa", ordem: 41 },
+      { id: "ferramentas_software", codigo: "5142", nome: "Ferramentas e assinaturas de software", tipo: "despesa", ordem: 42 }
+    ],
+    camposAbertura: [
+      {
+        chave: "saldo_plataforma",
+        contaId: "saldo_plataforma",
+        tipo: "D",
+        rotulo: "Dinheiro parado em plataforma (Hotmart, Mercado Pago, PagSeguro\u2026)",
+        porque: "J\xE1 \xE9 dinheiro dele, mas ainda n\xE3o caiu na conta. Some do controle de quem s\xF3 olha o extrato do banco."
+      }
+    ],
+    achados: ["taxa_engolindo_margem"]
+  },
+  {
+    id: "beneficiamento",
+    nome: "Beneficiamento / terceiriza\xE7\xE3o",
+    resumo: "Manda material para terceiro trabalhar e depois vende",
+    exemplos: "manda tecido para costureira, pe\xE7a para pintura, madeira para corte, facc\xE7\xE3o",
+    contasExtras: [
+      { id: "estoque", codigo: "1120", nome: "Estoque de mercadorias", tipo: "ativo", subtipo: "circulante", ordem: 20 },
+      /* A conta que este arquétipo existe para ter: o que saiu da mão
+         dele mas ainda é dele. Sem ela, o valor some do balanço no
+         período em que está com o terceiro — e é justamente o período
+         de maior risco. */
+      { id: "mercadoria_com_terceiros", codigo: "1123", nome: "Mercadoria com terceiros", tipo: "ativo", subtipo: "circulante", ordem: 23 },
+      { id: "venda_mercadorias", codigo: "4101", nome: "Venda de mercadorias", tipo: "receita", ordem: 1 },
+      { id: "servico_terceiros", codigo: "5150", nome: "Servi\xE7o de terceiros", tipo: "despesa", ordem: 50 },
+      { id: "perda_beneficiamento", codigo: "5151", nome: "Perda no beneficiamento", tipo: "despesa", ordem: 51 }
+    ],
+    camposAbertura: [
+      {
+        chave: "mercadoria_com_terceiros",
+        contaId: "mercadoria_com_terceiros",
+        tipo: "D",
+        rotulo: "Mercadoria que est\xE1 na m\xE3o de terceiro agora",
+        porque: "\xC9 seu, mas n\xE3o est\xE1 com voc\xEA. Se sumir ou estragar, a perda \xE9 sua \u2014 e quase ningu\xE9m controla quanto tem parado l\xE1 fora."
+      },
+      {
+        chave: "estoque",
+        contaId: "estoque",
+        tipo: "D",
+        rotulo: "Mercadoria pronta parada com voc\xEA",
+        porque: "O que j\xE1 voltou do terceiro e ainda n\xE3o foi vendido."
+      }
+    ],
+    achados: ["mercadoria_parada_com_terceiro"]
+  },
+  {
+    id: "intermediacao",
+    nome: "Intermedia\xE7\xE3o / comiss\xE3o",
+    resumo: "Vende o produto de outro e fica com a comiss\xE3o",
+    exemplos: "representante, revendedor comissionado, corretor, dropshipping",
+    contasExtras: [
+      /* O par de contas que impede o erro mais caro deste arquétipo:
+         o dinheiro que ele recebe e vai repassar NÃO é receita dele —
+         é obrigação com terceiro. Lançar o bruto como receita infla o
+         faturamento e pode disparar alarme falso do teto do MEI. */
+      { id: "valores_a_repassar", codigo: "1106", nome: "Valores recebidos a repassar", tipo: "ativo", subtipo: "circulante", ordem: 6 },
+      { id: "repasses_a_pagar", codigo: "2105", nome: "Repasses a pagar", tipo: "passivo", subtipo: "circulante", ordem: 5 },
+      { id: "comissoes", codigo: "4109", nome: "Comiss\xF5es recebidas", tipo: "receita", ordem: 9 }
+    ],
+    camposAbertura: [
+      {
+        chave: "repasses_a_pagar",
+        contaId: "repasses_a_pagar",
+        tipo: "C",
+        rotulo: "Dinheiro que voc\xEA j\xE1 recebeu e ainda vai repassar",
+        porque: "Esse dinheiro est\xE1 na sua conta mas n\xE3o \xE9 seu. Tratar como receita infla o faturamento e atrapalha o controle do limite do MEI."
+      }
+    ],
+    achados: []
+  },
+  {
+    id: "locacao",
+    nome: "Loca\xE7\xE3o",
+    resumo: "Aluga equipamento, espa\xE7o ou ve\xEDculo",
+    exemplos: "aluguel de ferramenta, som, brinquedo, espa\xE7o, ve\xEDculo",
+    contasExtras: [
+      { id: "equipamentos_locacao", codigo: "1153", nome: "Equipamentos para loca\xE7\xE3o", tipo: "ativo", subtipo: "nao_circulante", ordem: 53 },
+      { id: "alugueis_recebidos", codigo: "4110", nome: "Alugu\xE9is recebidos", tipo: "receita", ordem: 10 },
+      { id: "manutencao_equipamentos", codigo: "5160", nome: "Manuten\xE7\xE3o de equipamentos", tipo: "despesa", ordem: 60 },
+      { id: "seguro", codigo: "5161", nome: "Seguro", tipo: "despesa", ordem: 61 }
+    ],
+    camposAbertura: [
+      {
+        chave: "equipamentos_locacao",
+        contaId: "equipamentos_locacao",
+        tipo: "D",
+        rotulo: "Equipamentos que voc\xEA aluga (valor aproximado de hoje)",
+        porque: "\xC9 o ativo que gera a receita do neg\xF3cio. Sem ele registrado, n\xE3o d\xE1 para saber se o aluguel paga o equipamento."
+      }
+    ],
+    achados: []
+  }
+];
+var IDS_ARQUETIPOS = ARQUETIPOS.map((a) => a.id);
+function acharArquetipo(id) {
+  return ARQUETIPOS.find((a) => a.id === id) || null;
+}
+function planoDeFabrica(arquetipoId) {
+  const arq = acharArquetipo(arquetipoId);
+  const contas = [...planoBase()];
+  const jaTem = new Set(contas.map((c) => c.id));
+  for (const extra of arq?.contasExtras || []) {
+    if (jaTem.has(extra.id)) continue;
+    contas.push(extra);
+    jaTem.add(extra.id);
+  }
+  for (const campo of arq?.camposAbertura || []) {
+    if (campo.contaExtra && !jaTem.has(campo.contaExtra.id)) {
+      contas.push(campo.contaExtra);
+      jaTem.add(campo.contaExtra.id);
+    }
+  }
+  return contas.map((c) => ({ ...c, subtipo: c.subtipo ?? null, ativa: true }));
 }
 
 // src/dominio/aberturaBalanco.mjs
@@ -705,7 +922,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       const { data: linhasAntigas } = await supabase.from("lancamento_linhas").select("id").eq("negocio_id", negocio.id).eq("lancamento_id", idAbertura);
       const ops = [
         ...(linhasAntigas || []).map((l) => ({ acao: "apagar", tabela: "lancamento_linhas", chave: { id: l.id } })),
-        ...planoDeFabrica().map((c) => ({
+        ...planoDeFabrica(negocio.arquetipo).map((c) => ({
           acao: "gravar",
           tabela: "contas",
           valores: { id: c.id, codigo: c.codigo, nome: c.nome, tipo: c.tipo, subtipo: c.subtipo ?? null, ordem: c.ordem, ativa: true }
@@ -1204,7 +1421,7 @@ function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdicao }) {
 
 // src/telas/CaixaEntrada.jsx
 import React10, { useState as useState8, useMemo as useMemo4 } from "react";
-import { Upload, Check as Check2, X as X4, HelpCircle as HelpCircle2 } from "lucide-react";
+import { Upload, Check as Check2, X as X4, HelpCircle as HelpCircle2, ArrowUpFromLine } from "lucide-react";
 
 // src/dominio/importarExtrato.mjs
 function parseOFX(text) {
@@ -1251,6 +1468,30 @@ function sugerirConta(descricaoBruta, regras) {
   if (!candidatas.length) return null;
   candidatas.sort((a, b) => b.padrao.length - a.padrao.length || (b.acertos || 0) - (a.acertos || 0));
   return candidatas[0];
+}
+function construirMovimentoPessoal(item, gerarId = uidPadrao2) {
+  if (!item.contaOrigemId) throw new Error("item sem conta de origem \u2014 n\xE3o d\xE1 para saber de qual conta o dinheiro saiu ou entrou");
+  const valorAbs = Math.abs(item.valor);
+  if (!(valorAbs > 0)) throw new Error(`item com valor inv\xE1lido: ${item.valor}`);
+  const entrou = item.valor > 0;
+  const idLancamento = gerarId();
+  const contaPatrimonio = entrou ? "capital_titular" : "retiradas_titular";
+  return {
+    lancamento: {
+      id: idLancamento,
+      data: item.data,
+      dataCompetencia: item.data,
+      descricao: entrou ? `Aporte do titular \u2014 ${item.descricaoBruta}` : `Retirada do titular \u2014 ${item.descricaoBruta}`,
+      origem: "manual",
+      documento: null
+    },
+    linhas: [
+      /* Retirada DEBITA a conta de patrimônio (reduz o PL) e CREDITA o
+         trânsito (o dinheiro saiu). Aporte é o inverso. */
+      { id: gerarId(), lancamentoId: idLancamento, contaId: contaPatrimonio, tipo: entrou ? "C" : "D", valor: valorAbs, descricao: item.descricaoBruta, vencimento: null, baixaDe: null },
+      { id: gerarId(), lancamentoId: idLancamento, contaId: item.contaOrigemId, tipo: entrou ? "D" : "C", valor: valorAbs, descricao: null, vencimento: null, baixaDe: null }
+    ]
+  };
 }
 function construirLancamentoDeClassificacao(item, contaCategoriaId, gerarId = uidPadrao2) {
   if (!item.contaOrigemId) throw new Error("item sem conta de origem \u2014 n\xE3o d\xE1 para saber qual conta de tr\xE2nsito debitar/creditar");
@@ -1347,7 +1588,7 @@ function ImportarExtrato({ onImportar }) {
     }
   ), erro && /* @__PURE__ */ React10.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React10.createElement(Button, { onClick: processar }, "Processar")) : /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, linhas.length, " linha(s) encontrada(s) \u2014 confira antes de importar:"), /* @__PURE__ */ React10.createElement("div", { className: "max-h-56 overflow-y-auto mb-3 text-xs" }, linhas.map((l, i) => /* @__PURE__ */ React10.createElement("div", { key: i, className: "flex justify-between py-1", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("span", { style: { color: "var(--muted)" } }, fmtData3(l.data)), /* @__PURE__ */ React10.createElement("span", { className: "flex-1 mx-2 truncate" }, l.descricaoBruta), /* @__PURE__ */ React10.createElement("span", { className: "tabular-nums" }, fmt6(l.valor))))), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React10.createElement(Button, { onClick: confirmar }, "Importar ", linhas.length, " linha(s)"), /* @__PURE__ */ React10.createElement(Button, { variant: "ghost", onClick: () => setLinhas(null) }, "Cancelar"))));
 }
-function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida }) {
+function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida, dinheiroMisturado }) {
   const [classificando, setClassificando] = useState8(false);
   const sugestao = useMemo4(() => sugerirConta(item.descricaoBruta, regras), [item.descricaoBruta, regras]);
   const [contaId, setContaId] = useState8(sugestao?.contaId || "");
@@ -1358,11 +1599,11 @@ function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida
     const aceito = onClassificar({ item, contaCategoriaId: contaId, padrao: padrao.trim() || item.descricaoBruta });
     if (aceito !== false) setClassificando(false);
   };
-  return /* @__PURE__ */ React10.createElement(Card, { pad: "apertado", className: "mb-2" }, /* @__PURE__ */ React10.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React10.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React10.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData3(item.data), " \xB7 ", item.contaOrigemId === "banco" ? "Banco" : "Caixa"), /* @__PURE__ */ React10.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, item.descricaoBruta), sugestao && !classificando && /* @__PURE__ */ React10.createElement("div", { className: "text-[10px] mt-0.5", style: { color: "var(--accent)" } }, "sugest\xE3o: ", contas.find((c) => c.id === sugestao.contaId)?.nome)), /* @__PURE__ */ React10.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: item.valor >= 0 ? "var(--credit)" : "var(--debit)" } }, fmt6(item.valor))), classificando ? /* @__PURE__ */ React10.createElement("div", { className: "mt-3 pt-3 space-y-2", style: { borderTop: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Categoria"), /* @__PURE__ */ React10.createElement(Select, { value: contaId, onChange: setContaId, placeholder: "escolha a conta", options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Padr\xE3o para lembrar da pr\xF3xima vez"), /* @__PURE__ */ React10.createElement(Input, { value: padrao, onChange: (e) => setPadrao(e.target.value) })), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 pt-1" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: confirmar, disabled: !contaId }, "Confirmar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => setClassificando(false) }, "Cancelar"))) : /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 mt-2" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: () => setClassificando(true) }, /* @__PURE__ */ React10.createElement(Check2, { size: 12 }), " Classificar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onPessoal(item) }, /* @__PURE__ */ React10.createElement(X4, { size: 12 }), " \xC9 pessoal"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onDuvida(item) }, /* @__PURE__ */ React10.createElement(HelpCircle2, { size: 12 }), " N\xE3o sei")));
+  return /* @__PURE__ */ React10.createElement(Card, { pad: "apertado", className: "mb-2" }, /* @__PURE__ */ React10.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React10.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React10.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData3(item.data), " \xB7 ", item.contaOrigemId === "banco" ? "Banco" : "Caixa"), /* @__PURE__ */ React10.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, item.descricaoBruta), sugestao && !classificando && /* @__PURE__ */ React10.createElement("div", { className: "text-[10px] mt-0.5", style: { color: "var(--accent)" } }, "sugest\xE3o: ", contas.find((c) => c.id === sugestao.contaId)?.nome)), /* @__PURE__ */ React10.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: item.valor >= 0 ? "var(--credit)" : "var(--debit)" } }, fmt6(item.valor))), classificando ? /* @__PURE__ */ React10.createElement("div", { className: "mt-3 pt-3 space-y-2", style: { borderTop: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Categoria"), /* @__PURE__ */ React10.createElement(Select, { value: contaId, onChange: setContaId, placeholder: "escolha a conta", options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Padr\xE3o para lembrar da pr\xF3xima vez"), /* @__PURE__ */ React10.createElement(Input, { value: padrao, onChange: (e) => setPadrao(e.target.value) })), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 pt-1" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: confirmar, disabled: !contaId }, "Confirmar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => setClassificando(false) }, "Cancelar"))) : /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 mt-2 flex-wrap items-center" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: () => setClassificando(true) }, /* @__PURE__ */ React10.createElement(Check2, { size: 12 }), " Classificar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onPessoal(item) }, dinheiroMisturado ? /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement(ArrowUpFromLine, { size: 12 }), " ", item.valor > 0 ? "Aporte pessoal" : "Retirada") : /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement(X4, { size: 12 }), " \xC9 pessoal")), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onDuvida(item) }, /* @__PURE__ */ React10.createElement(HelpCircle2, { size: 12 }), " N\xE3o sei"), dinheiroMisturado && /* @__PURE__ */ React10.createElement("span", { className: "text-[10px]", style: { color: "var(--muted)" } }, item.valor > 0 ? "entra como aporte, n\xE3o como receita" : "vira retirada \u2014 n\xE3o some do livro")));
 }
-function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, onClassificar, onPessoal, onDuvida }) {
+function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, onClassificar, onPessoal, onDuvida, dinheiroMisturado }) {
   const pendentes = entradaItens.filter((i) => i.situacao === "pendente" || i.situacao === "duvida");
-  return /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(ImportarExtrato, { onImportar }), /* @__PURE__ */ React10.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, pendentes.length, " item(ns) esperando classifica\xE7\xE3o"), pendentes.length === 0 ? /* @__PURE__ */ React10.createElement(Card, { className: "text-center py-10" }, /* @__PURE__ */ React10.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nada esperando \u2014 importe um extrato acima.")) : pendentes.map((item) => /* @__PURE__ */ React10.createElement(
+  return /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(ImportarExtrato, { onImportar }), dinheiroMisturado && /* @__PURE__ */ React10.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--accent-soft)", color: "var(--ink)" } }, "Este cliente usa o mesmo dinheiro para tudo. Gasto pessoal aqui vira ", /* @__PURE__ */ React10.createElement("strong", null, "retirada"), " e dinheiro pessoal que entra vira ", /* @__PURE__ */ React10.createElement("strong", null, "aporte"), " \u2014 nada \xE9 ignorado, sen\xE3o o saldo do livro para de bater com a conta dele."), /* @__PURE__ */ React10.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, pendentes.length, " item(ns) esperando classifica\xE7\xE3o"), pendentes.length === 0 ? /* @__PURE__ */ React10.createElement(Card, { className: "text-center py-10" }, /* @__PURE__ */ React10.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nada esperando \u2014 importe um extrato acima.")) : pendentes.map((item) => /* @__PURE__ */ React10.createElement(
     ItemPendente,
     {
       key: item.id,
@@ -1371,7 +1612,8 @@ function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, o
       regras: regrasClassificacao,
       onClassificar,
       onPessoal,
-      onDuvida
+      onDuvida,
+      dinheiroMisturado
     }
   )));
 }
@@ -2017,6 +2259,22 @@ function Livro({ negocio, onVoltar }) {
       entradaItens: prev.entradaItens.map((i) => i.id === item.id ? { ...i, situacao } : i)
     }));
   }, []);
+  const marcarPessoal = useCallback2((item) => {
+    if (!negocio.dinheiro_misturado) return marcarSituacao(item, "pessoal");
+    if (mesEstaFechado(item.data)) {
+      setErro(`O m\xEAs de ${mesDe(item.data)} j\xE1 est\xE1 fechado \u2014 reabra na aba Revis\xE3o antes de lan\xE7ar esta retirada.`);
+      return false;
+    }
+    const { lancamento, linhas } = construirMovimentoPessoal(item);
+    setEstado((prev) => ({
+      ...prev,
+      lancamentos: [...prev.lancamentos, lancamento],
+      lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
+      entradaItens: prev.entradaItens.map((i) => i.id === item.id ? { ...i, situacao: "pessoal", lancamentoId: lancamento.id } : i),
+      trilha: [...prev.trilha, { tipo: item.valor > 0 ? "aporte" : "retirada", descricao: item.descricaoBruta }]
+    }));
+    return true;
+  }, [negocio.dinheiro_misturado, marcarSituacao, mesEstaFechado]);
   const classificarItem = useCallback2(({ item, contaCategoriaId, padrao }) => {
     if (mesEstaFechado(item.data)) {
       setErro(`O m\xEAs de ${mesDe(item.data)} j\xE1 est\xE1 fechado \u2014 reabra na aba Revis\xE3o antes de classificar este item.`);
@@ -2189,8 +2447,9 @@ function Livro({ negocio, onVoltar }) {
       regrasClassificacao: estado.regrasClassificacao,
       onImportar: importarItens,
       onClassificar: classificarItem,
-      onPessoal: (item) => marcarSituacao(item, "pessoal"),
-      onDuvida: (item) => marcarSituacao(item, "duvida")
+      onPessoal: marcarPessoal,
+      onDuvida: (item) => marcarSituacao(item, "duvida"),
+      dinheiroMisturado: negocio.dinheiro_misturado
     }
   ), aba === "lancar" && /* @__PURE__ */ React18.createElement(
     Lancar,

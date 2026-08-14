@@ -16,7 +16,7 @@ import { PlanoContas } from "./PlanoContas.jsx";
 import { ConfigNegocio } from "./ConfigNegocio.jsx";
 import { Recorrentes } from "./Recorrentes.jsx";
 import { Baixas } from "./Baixas.jsx";
-import { construirLancamentoDeClassificacao } from "../dominio/classificacao.mjs";
+import { construirLancamentoDeClassificacao, construirMovimentoPessoal } from "../dominio/classificacao.mjs";
 import { gerarLancamentosDoMes } from "../dominio/recorrentes.mjs";
 import { construirBaixa } from "../dominio/baixas.mjs";
 
@@ -176,6 +176,30 @@ export function Livro({ negocio, onVoltar }) {
       entradaItens: prev.entradaItens.map((i) => (i.id === item.id ? { ...i, situacao } : i)),
     }));
   }, []);
+
+  /* "É pessoal" com DINHEIRO MISTURADO não pode ser "some do livro" —
+     o dinheiro saiu de verdade da conta que o livro acompanha (achado de
+     13/ago). Vira movimento de patrimônio: retirada quando sai, aporte
+     quando entra. Com conta separada, o comportamento antigo continua
+     certo: a transação é de uma conta que não está no livro. */
+  const marcarPessoal = useCallback((item) => {
+    if (!negocio.dinheiro_misturado) return marcarSituacao(item, "pessoal");
+
+    if (mesEstaFechado(item.data)) {
+      setErro(`O mês de ${mesDe(item.data)} já está fechado — reabra na aba Revisão antes de lançar esta retirada.`);
+      return false;
+    }
+
+    const { lancamento, linhas } = construirMovimentoPessoal(item);
+    setEstado((prev) => ({
+      ...prev,
+      lancamentos: [...prev.lancamentos, lancamento],
+      lancamentoLinhas: [...prev.lancamentoLinhas, ...linhas],
+      entradaItens: prev.entradaItens.map((i) => (i.id === item.id ? { ...i, situacao: "pessoal", lancamentoId: lancamento.id } : i)),
+      trilha: [...prev.trilha, { tipo: item.valor > 0 ? "aporte" : "retirada", descricao: item.descricaoBruta }],
+    }));
+    return true;
+  }, [negocio.dinheiro_misturado, marcarSituacao, mesEstaFechado]);
 
   /* Classificar faz TRÊS coisas de uma vez, no mesmo setEstado — o
      lançamento (2 linhas), o item marcado como resolvido, e a regra
@@ -416,8 +440,9 @@ export function Livro({ negocio, onVoltar }) {
             regrasClassificacao={estado.regrasClassificacao}
             onImportar={importarItens}
             onClassificar={classificarItem}
-            onPessoal={(item) => marcarSituacao(item, "pessoal")}
+            onPessoal={marcarPessoal}
             onDuvida={(item) => marcarSituacao(item, "duvida")}
+            dinheiroMisturado={negocio.dinheiro_misturado}
           />
         )}
         {aba === "lancar" && (

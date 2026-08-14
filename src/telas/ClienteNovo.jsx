@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Plus, Trash2, ArrowLeft, ArrowRight, HelpCircle } from "lucide-react";
 import { supabase } from "../dados/supabase.mjs";
 import { Card, Label, Input, Select, Button } from "../ui/primitivas.jsx";
-import { planoDeFabrica } from "../dominio/planoContas.mjs";
+import { planoDeFabrica } from "../dominio/arquetipos.mjs";
 import { montarLancamentoAbertura } from "../dominio/aberturaBalanco.mjs";
 
 /* O Roteiro do Cliente Novo — docs/05_ROTEIRO_DO_SERVICO.md §4 e
@@ -221,7 +221,7 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
 
       const ops = [
         ...(linhasAntigas || []).map((l) => ({ acao: "apagar", tabela: "lancamento_linhas", chave: { id: l.id } })),
-        ...planoDeFabrica().map((c) => ({
+        ...planoDeFabrica(negocio.arquetipo).map((c) => ({
           acao: "gravar", tabela: "contas",
           valores: { id: c.id, codigo: c.codigo, nome: c.nome, tipo: c.tipo, subtipo: c.subtipo ?? null, ordem: c.ordem, ativa: true },
         })),

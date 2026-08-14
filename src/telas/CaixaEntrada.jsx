@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Upload, Check, X, HelpCircle } from "lucide-react";
+import { Upload, Check, X, HelpCircle, ArrowUpFromLine } from "lucide-react";
 import { Card, Label, Input, Select, Button } from "../ui/primitivas.jsx";
 import { parseOFX, parseCSVText, toISO } from "../dominio/importarExtrato.mjs";
 import { sugerirConta } from "../dominio/classificacao.mjs";
@@ -96,7 +96,7 @@ function ImportarExtrato({ onImportar }) {
 }
 
 /* ── Um item pendente — os três destinos possíveis ── */
-function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida }) {
+function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida, dinheiroMisturado }) {
   const [classificando, setClassificando] = useState(false);
   const sugestao = useMemo(() => sugerirConta(item.descricaoBruta, regras), [item.descricaoBruta, regras]);
   const [contaId, setContaId] = useState(sugestao?.contaId || "");
@@ -143,10 +143,19 @@ function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida
           </div>
         </div>
       ) : (
-        <div className="flex gap-2 mt-2">
+        <div className="flex gap-2 mt-2 flex-wrap items-center">
           <Button small onClick={() => setClassificando(true)}><Check size={12} /> Classificar</Button>
-          <Button small variant="ghost" onClick={() => onPessoal(item)}><X size={12} /> É pessoal</Button>
+          <Button small variant="ghost" onClick={() => onPessoal(item)}>
+            {dinheiroMisturado
+              ? <><ArrowUpFromLine size={12} /> {item.valor > 0 ? "Aporte pessoal" : "Retirada"}</>
+              : <><X size={12} /> É pessoal</>}
+          </Button>
           <Button small variant="ghost" onClick={() => onDuvida(item)}><HelpCircle size={12} /> Não sei</Button>
+          {dinheiroMisturado && (
+            <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+              {item.valor > 0 ? "entra como aporte, não como receita" : "vira retirada — não some do livro"}
+            </span>
+          )}
         </div>
       )}
     </Card>
@@ -154,12 +163,19 @@ function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida
 }
 
 /* A Caixa de Entrada — o gargalo real do serviço (docs/03 §5, docs/04 §5). */
-export function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, onClassificar, onPessoal, onDuvida }) {
+export function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, onClassificar, onPessoal, onDuvida, dinheiroMisturado }) {
   const pendentes = entradaItens.filter((i) => i.situacao === "pendente" || i.situacao === "duvida");
 
   return (
     <div>
       <ImportarExtrato onImportar={onImportar} />
+      {dinheiroMisturado && (
+        <div className="text-xs rounded-md px-3 py-2 mb-3" style={{ background: "var(--accent-soft)", color: "var(--ink)" }}>
+          Este cliente usa o mesmo dinheiro para tudo. Gasto pessoal aqui vira <strong>retirada</strong> e
+          dinheiro pessoal que entra vira <strong>aporte</strong> — nada é ignorado, senão o saldo do livro
+          para de bater com a conta dele.
+        </div>
+      )}
       <div className="text-xs mb-3" style={{ color: "var(--muted)" }}>
         {pendentes.length} item(ns) esperando classificação
       </div>
@@ -170,7 +186,8 @@ export function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImpo
       ) : (
         pendentes.map((item) => (
           <ItemPendente key={item.id} item={item} contas={contas} regras={regrasClassificacao}
-            onClassificar={onClassificar} onPessoal={onPessoal} onDuvida={onDuvida} />
+            onClassificar={onClassificar} onPessoal={onPessoal} onDuvida={onDuvida}
+            dinheiroMisturado={dinheiroMisturado} />
         ))
       )}
     </div>
