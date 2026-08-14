@@ -1,5 +1,11 @@
 # Estado da sessão
 
+> ⚠️ **A partir de 14/ago/2026 este arquivo é o DIÁRIO** — o que aconteceu, em ordem.
+> **A fonte de verdade do que VALE HOJE é [`DECISOES.md`](DECISOES.md)**, com estados
+> (DECIDIDO · PRINCÍPIO · REGRA · PROPOSTA · HIPÓTESE · SUBSTITUÍDA · DESCARTADA).
+> Se os dois discordarem, **`DECISOES.md` ganha**.
+> Os princípios de produto vivem em [`09_PRINCIPIOS_DE_VALOR.md`](09_PRINCIPIOS_DE_VALOR.md).
+
 > **Leia este arquivo primeiro, sempre.** Ele existe para a próxima sessão retomar sem ler
 > a conversa anterior. Sobrescreva ao encerrar qualquer sessão: o que foi feito, o que ficou
 > pendente, a próxima tarefa recomendada, e **o que aguarda decisão do Luan**.

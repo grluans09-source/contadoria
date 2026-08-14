@@ -31,7 +31,7 @@ const DOCS = path.join(RAIZ, "docs");
 const SAIDA = path.join(RAIZ, "pdf");
 
 /* Documentos que viram PDF. Acrescentar aqui quando houver outro. */
-const DOCUMENTOS = ["10_MANUAL_DE_OPERACAO.md", "11_GO_TO_MARKET.md"];
+const DOCUMENTOS = ["09_PRINCIPIOS_DE_VALOR.md", "10_MANUAL_DE_OPERACAO.md", "11_GO_TO_MARKET.md"];
 
 /* ── Paleta ──────────────────────────────────────────────────
    Capa escura (o momento de marca), miolo claro. Relatório que se lê
