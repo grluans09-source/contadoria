@@ -345,10 +345,35 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
     .sort((a, b) => a.codigo.localeCompare(b.codigo))
     .map((c) => ({ value: c.id, label: `${c.codigo} — ${c.nome}` }));
 
+  /* BUG achado em teste de ponta a ponta (15/ago): esta tela nunca
+     carregava `roteiro_respostas` já existentes — só as perguntas. Para
+     um cadastro novo do zero não fazia diferença nenhuma, mas quebra em
+     silêncio justamente o caminho que o Formulário Público existe para
+     servir: o cliente responde sozinho pelo link (docs/DECISOES.md E4),
+     as respostas ficam gravadas no banco, e quando o contador abre o
+     Roteiro do Cliente Novo para completar os Blocos 3 e 6, a tela
+     aparecia como se nada tivesse sido respondido — inclusive as
+     perguntas `retrato.*`. Como o retrato de entrada em `concluir()` lê
+     de `respostas` (o estado em memória, não o banco), o resultado seria
+     um retrato de entrada **vazio, write-once, sem conserto depois** —
+     justamente para o cliente que usou o caminho que mais precisa dele
+     (docs/09 P6: "medir o antes, ou não haverá depois"). */
   useEffect(() => {
-    supabase.from("roteiro_perguntas").select("*").eq("ativo", true).order("bloco").order("ordem")
-      .then(({ data, error }) => { if (!error) setPerguntas(data || []); });
-  }, []);
+    let vivo = true;
+    Promise.all([
+      supabase.from("roteiro_perguntas").select("*").eq("ativo", true).order("bloco").order("ordem"),
+      supabase.from("roteiro_respostas").select("pergunta_id, resposta").eq("negocio_id", negocio.id),
+    ]).then(([{ data: perguntasData, error: e1 }, { data: respostasData, error: e2 }]) => {
+      if (!vivo) return;
+      if (!e1) setPerguntas(perguntasData || []);
+      if (!e2 && respostasData?.length) {
+        const existentes = {};
+        for (const r of respostasData) existentes[r.pergunta_id] = r.resposta;
+        setRespostas((prev) => ({ ...existentes, ...prev }));
+      }
+    });
+    return () => { vivo = false; };
+  }, [negocio.id]);
 
   /* O roteiro é ADAPTATIVO: filtra por tipo (MEI/informal) e arquétipo,
      e na primeira passada mostra só o essencial — o resto vira
