@@ -208,6 +208,14 @@ editáveis em `ConfigNegocio.jsx` — duplicar criaria duas telas gravando o mes
 **Não verificado ao vivo no navegador** (mesma limitação de sessão/login do F3/F8) — build
 limpo, 189 testes, bundle carregado sem erro de render.
 
+### F10 · Achados que revelam a dor invisível — **IMPLEMENTADO** (14/ago) ✅
+`src/dominio/achados.mjs`: `retiradaAcimaDoResultado` (universal, roda desde o dia 1, sem
+depender de mês fechado — é o mesmo achado da retirada de F0/F1, agora também na Revisão, não
+só no Retrato), `mercadoriaParadaComTerceiro`, `taxaEngolindoMargem`, `semReceitaNoPeriodo`.
+Os três últimos só rodam se o arquétipo do negócio os declarar (`achadosDe`) — 13 testes.
+**Cobre parcialmente F4** (valor em R$, sim; evidência anexada e hipótese inocente como texto
+explícito ao lado do achado, ainda não — F4 continua PROPOSTA para essa parte).
+
 ### F2 · Hora do dono e projeção do limite — **IMPLEMENTADO** (14/ago) ✅
 `src/dominio/valorDoTempo.mjs` · 14 testes.
 **Calibração medida, não suposta:** a intuição de que "R$2.000 tirando 60h/semana fica abaixo
@@ -284,10 +292,6 @@ mensal (Livro, Caixa de Entrada, Revisão, Entregas) já estava prático desde 1
 
 O que resta é MELHORA, não bloqueio — o sistema funciona sem, entrega menos:
 
-- **Fase 7 · Achados que revelam a dor invisível** — **PENDENTE** (retirada acima do
-  resultado, mercadoria parada com terceiro, taxa engolindo margem, sem receita no período).
-  Prioridade menor por design (F0): a maior parte exige meses fechados, e o dono tem zero
-  clientes hoje — fluxo projetado e hora do dono (F1, F2) já cobrem o "funciona no dia 1".
 - **Fase 8 · Docs e PDF atualizados, substituindo o que mudou** — **EM ANDAMENTO** (14/ago).
   `docs/10_MANUAL_DE_OPERACAO.md`, `docs/11_GO_TO_MARKET.md`, `docs/05_ROTEIRO_DO_SERVICO.md`
   §4 e `docs/06_MODELO_DE_DADOS.md` ainda descrevem o sistema de antes dos arquétipos.
