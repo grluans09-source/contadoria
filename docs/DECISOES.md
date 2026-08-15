@@ -186,6 +186,17 @@ transformaria o aviso em ficção otimista, e este é o número que não pode me
 contradição — é a diferença entre **saldo** e **sequência**. É assim que negócio quebra com
 lucro no papel.
 
+### F8 · Recorrentes reais no onboarding — **IMPLEMENTADO** (14/ago) ✅
+`src/telas/ClienteNovo.jsx` (`BlocoContasFixas`) · reaproveita `recorrentes` +
+`recorrente_linhas` já provados pela aba Recorrentes (docs/05 §7).
+**Problema que resolvia mal:** "quais contas você paga todo mês" era coletado no Bloco 4 e
+virava texto solto em `roteiro_respostas` — nunca gerava lançamento nenhum. O segundo mês do
+cliente repetia trabalho que a primeira conversa já tinha feito.
+**Item sem conta, valor ou descrição é ignorado, não bloqueia** — onboarding é rápido; o que
+faltar dá para completar depois na própria aba Recorrentes.
+**Não verificado ao vivo no navegador** (mesma limitação de sessão/login do F3) — build limpo,
+189 testes, bundle carregado e conferido sem erro de render.
+
 ### F2 · Hora do dono e projeção do limite — **IMPLEMENTADO** (14/ago) ✅
 `src/dominio/valorDoTempo.mjs` · 14 testes.
 **Calibração medida, não suposta:** a intuição de que "R$2.000 tirando 60h/semana fica abaixo
@@ -245,6 +256,43 @@ rastro. Sem registro, o valor não é percebido nem cobrado.
 
 ---
 
+# I · O que falta até estar pronto para uso com cliente real (14/ago) 🆕
+
+> Esta seção é o checklist de prontidão. **Reescrever ao concluir cada item — nunca deixar
+> desatualizada.** Separado em BLOQUEIA (o produto mente ou quebra sem isso) e MELHORA (o
+> produto funciona sem, mas entrega menos).
+
+**Hoje dá para receber o primeiro cliente de verdade:** cadastro por arquétipo, roteiro
+adaptativo, formulário público, balanço de abertura com dívidas classificadas, dinheiro
+misturado tratado como retirada, recorrentes reais, fluxo de caixa projetado, hora do dono,
+retrato de entrada. O ciclo de escrituração mensal (Livro, Caixa de Entrada, Revisão,
+Entregas) já estava prático desde 13/ago.
+
+### BLOQUEIA a segunda conversa fazer sentido
+
+- **Fase 6 · Aba de aprofundamento no Livro** — **PENDENTE**. Hoje as perguntas marcadas
+  `essencial = false` (E3) **não têm nenhuma tela que as mostre depois da primeira
+  conversa** — ficam órfãs para sempre assim que `onboarded = true`. A decisão de duas
+  camadas (E3) só funciona de verdade quando isto existir. Inclui o aviso nas Entregas
+  ("faltam 6 perguntas de aprofundamento do João") para o Luan preparar a conversa do mês.
+  **É o item mais urgente depois deste registro.**
+
+### MELHORA a entrega, não bloqueia usar o sistema hoje
+
+- **Fase 7 · Achados que revelam a dor invisível** — **PENDENTE** (retirada acima do
+  resultado, mercadoria parada com terceiro, taxa engolindo margem, sem receita no período).
+  Prioridade menor por design (F0): a maior parte exige meses fechados, e o dono tem zero
+  clientes hoje — fluxo projetado e hora do dono (F1, F2) já cobrem o "funciona no dia 1".
+- **Fase 8 · Docs e PDF atualizados, substituindo o que mudou** — **EM ANDAMENTO** (14/ago).
+  `docs/10_MANUAL_DE_OPERACAO.md`, `docs/11_GO_TO_MARKET.md`, `docs/05_ROTEIRO_DO_SERVICO.md`
+  §4 e `docs/06_MODELO_DE_DADOS.md` ainda descrevem o sistema de antes dos arquétipos.
+  Materiais de venda e operação desatualizados não travam o uso interno, mas travam
+  qualquer conversa com cliente ou pedido de ajuda que dependa do PDF.
+- **Fase 11 · Memória do cliente (linha do tempo)** — **PENDENTE**. Valor cresce com o
+  tempo — não faz falta no mês 1, faz falta na conversa do ano 2 (docs/08 §4).
+
+---
+
 # G · Em aberto e descartado
 
 ### G1 · Concentração de faturamento por cliente — **EM ABERTO**
@@ -279,4 +327,4 @@ O formulário público (E4) é escrita-apenas e não contradiz isto.
 | Plano de contas único | Por arquétipo (C7) | Eletricista recebia CMV |
 | Roteiro igual para MEI e informal | Adaptativo por tipo e arquétipo (C7, C8) | Informal era perguntado sobre MEI |
 | Beneficiamento sem CMV | Com CMV | Vende mercadoria; sem CMV a margem infla |
-| Recorrentes como texto livre no Bloco 4 | Vira cadastro real *(a implementar)* | Dado era coletado e jogado fora |
+| Recorrentes como texto livre no Bloco 4 | Vira cadastro real (F8) | Dado era coletado e jogado fora |
