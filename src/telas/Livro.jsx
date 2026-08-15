@@ -17,6 +17,7 @@ import { ConfigNegocio } from "./ConfigNegocio.jsx";
 import { Recorrentes } from "./Recorrentes.jsx";
 import { Baixas } from "./Baixas.jsx";
 import { Roteiro } from "./Roteiro.jsx";
+import { Memoria } from "./Memoria.jsx";
 import { construirLancamentoDeClassificacao, construirMovimentoPessoal } from "../dominio/classificacao.mjs";
 import { gerarLancamentosDoMes } from "../dominio/recorrentes.mjs";
 import { construirBaixa } from "../dominio/baixas.mjs";
@@ -61,6 +62,7 @@ const ABAS = [
   { id: "baixas", label: "A receber/pagar" },
   { id: "revisao", label: "Revisão" },
   { id: "entregas", label: "Entregas" },
+  { id: "memoria", label: "Memória" },
   { id: "roteiro", label: "Roteiro" },
   { id: "plano", label: "Plano de contas" },
   { id: "recorrentes", label: "Recorrentes" },
@@ -534,6 +536,16 @@ export function Livro({ negocio, onVoltar }) {
               ? pendentesDeAprofundamento(roteiro.perguntas, roteiro.respostasPorPerguntaId, { tipo: negocio.tipo, arquetipo: negocio.arquetipo }).length
               : 0}
             onAbrirRoteiro={() => setAba("roteiro")}
+          />
+        )}
+        {aba === "memoria" && (
+          <Memoria
+            negocio={negocio}
+            contas={estado.contas}
+            lancamentos={estado.lancamentos}
+            lancamentoLinhas={estado.lancamentoLinhas}
+            periodosFechados={estado.periodosFechados}
+            cartas={estado.cartas}
           />
         )}
         {aba === "roteiro" && (
