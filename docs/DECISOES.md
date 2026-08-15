@@ -216,6 +216,16 @@ Os três últimos só rodam se o arquétipo do negócio os declarar (`achadosDe`
 **Cobre parcialmente F4** (valor em R$, sim; evidência anexada e hipótese inocente como texto
 explícito ao lado do achado, ainda não — F4 continua PROPOSTA para essa parte).
 
+### F11 · Docs 05/06/10/11 substituídos, PDFs regenerados (Fase 8) — **IMPLEMENTADO** (14/ago) ✅
+`docs/05_ROTEIRO_DO_SERVICO.md`, `docs/06_MODELO_DE_DADOS.md`, `docs/10_MANUAL_DE_OPERACAO.md`,
+`docs/11_GO_TO_MARKET.md` reescritos nas partes desatualizadas pelos arquétipos, dinheiro
+misturado, roteiro adaptativo, formulário público, retrato de entrada e recorrentes reais —
+substituindo, não acrescentando ao lado. `pdf/10` e `pdf/11` regenerados (`npm run pdf`).
+**Achado no meio do trabalho:** duas referências ficaram desatualizadas porque a Fase 6 (aba
+Roteiro) foi concluída depois que a reescrita começou em segundo plano — corrigidas antes do
+commit. Lição: doc gerado por agente em paralelo precisa de uma segunda passada contra o
+estado mais recente antes de publicar, não só contra o estado de quando começou.
+
 ### F2 · Hora do dono e projeção do limite — **IMPLEMENTADO** (14/ago) ✅
 `src/dominio/valorDoTempo.mjs` · 14 testes.
 **Calibração medida, não suposta:** a intuição de que "R$2.000 tirando 60h/semana fica abaixo
@@ -292,13 +302,10 @@ mensal (Livro, Caixa de Entrada, Revisão, Entregas) já estava prático desde 1
 
 O que resta é MELHORA, não bloqueio — o sistema funciona sem, entrega menos:
 
-- **Fase 8 · Docs e PDF atualizados, substituindo o que mudou** — **EM ANDAMENTO** (14/ago).
-  `docs/10_MANUAL_DE_OPERACAO.md`, `docs/11_GO_TO_MARKET.md`, `docs/05_ROTEIRO_DO_SERVICO.md`
-  §4 e `docs/06_MODELO_DE_DADOS.md` ainda descrevem o sistema de antes dos arquétipos.
-  Materiais de venda e operação desatualizados não travam o uso interno, mas travam
-  qualquer conversa com cliente ou pedido de ajuda que dependa do PDF.
 - **Fase 11 · Memória do cliente (linha do tempo)** — **PENDENTE**. Valor cresce com o
   tempo — não faz falta no mês 1, faz falta na conversa do ano 2 (docs/08 §4).
+
+**Fase 8 concluída (14/ago) — ver F11 abaixo.**
 
 ---
 
