@@ -12,11 +12,16 @@ const fmtMes = (m) => {
 };
 
 const fmtData = (d) => (d ? d.split("-").reverse().join("/") : "—");
+const hojeISO = () => new Date().toISOString().slice(0, 10);
 
 function textoAchado(a) {
   if (a.tipo === "mes_sem_movimento") return `${fmtMes(a.mes)} não tem nenhum lançamento — mês pulado no meio da história`;
   if (a.tipo === "despesa_fora_padrao") return `${a.contaNome} em ${fmtMes(a.mes)}: ${fmt(a.valor)} — bem acima da média de meses fechados (${fmt(a.media)})`;
   if (a.tipo === "receita_sem_dinheiro") return `"${a.descricao}" (${fmtData(a.data)}) — receita registrada sem dinheiro nem a receber em lugar nenhum`;
+  if (a.tipo === "retirada_acima_do_resultado") return `Em ${fmtMes(a.mes)}, a retirada (${fmt(a.retirada)}) já passou o que o negócio gerou (${fmt(a.resultado)}) em ${fmt(a.diferenca)}`;
+  if (a.tipo === "mercadoria_parada_com_terceiro") return `${fmt(a.valor)} em mercadoria parada com terceiro há ${a.dias} dias (desde ${fmtData(a.desde)})`;
+  if (a.tipo === "taxa_engolindo_margem") return `A taxa comeu ${fmt(a.valor)} em ${fmtMes(a.mes)} — ${a.percentual}% da receita (${fmt(a.receita)})`;
+  if (a.tipo === "sem_receita_no_periodo") return `${a.diasSemReceita} de ${a.diaHoje} dias de ${fmtMes(a.mes)} sem nenhuma receita lançada (${a.fracaoPercentual}%)`;
   return "";
 }
 
@@ -125,12 +130,12 @@ function Trilha({ trilha }) {
 }
 
 /* A Revisão — o papel de auditor e o selo do mês (docs/04 §7-8). */
-export function Revisao({ contas, lancamentos, lancamentoLinhas, periodosFechados, trilha, onFechar, onReabrir }) {
+export function Revisao({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, trilha, onFechar, onReabrir }) {
   const checks = useMemo(() => mesaDeRevisao(contas, lancamentos, lancamentoLinhas), [contas, lancamentos, lancamentoLinhas]);
   const mesaPassa = podeFecharPeriodo(checks);
   const achados = useMemo(
-    () => encontrarAchados(contas, lancamentos, lancamentoLinhas, periodosFechados),
-    [contas, lancamentos, lancamentoLinhas, periodosFechados]
+    () => encontrarAchados(contas, lancamentos, lancamentoLinhas, periodosFechados, { arquetipo: negocio?.arquetipo, hoje: hojeISO() }),
+    [contas, lancamentos, lancamentoLinhas, periodosFechados, negocio?.arquetipo]
   );
 
   return (

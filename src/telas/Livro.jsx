@@ -508,6 +508,7 @@ export function Livro({ negocio, onVoltar }) {
         )}
         {aba === "revisao" && (
           <Revisao
+            negocio={negocio}
             contas={estado.contas}
             lancamentos={estado.lancamentos}
             lancamentoLinhas={estado.lancamentoLinhas}
