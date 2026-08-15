@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { CheckCircle2, AlertTriangle, Lock, Unlock, Search } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Lock, Unlock, Search, HelpCircle } from "lucide-react";
 import { Card, Select, Button } from "../ui/primitivas.jsx";
 import { mesaDeRevisao, podeFecharPeriodo } from "../dominio/revisao.mjs";
 import { encontrarAchados } from "../dominio/achados.mjs";
@@ -25,6 +25,41 @@ function textoAchado(a) {
   return "";
 }
 
+/* Cada achado traz `hipoteseInocente` (F4, docs/DECISOES.md): a
+   explicação legítima alternativa, ao lado do achado — não embaixo de
+   um clique escondido demais, mas também não gritando junto do
+   número. Mesmo padrão "por que importa" já usado no roteiro. */
+function LinhaDeAchado({ a }) {
+  const [aberto, setAberto] = useState(false);
+  const nEvidencia = a.evidencia?.length || 0;
+  return (
+    <div className="text-sm">
+      <div className="flex items-start gap-2">
+        <AlertTriangle size={15} style={{ color: "var(--debit)", marginTop: 2, flexShrink: 0 }} />
+        <span style={{ color: "var(--ink)" }}>{textoAchado(a)}</span>
+      </div>
+      <div className="flex items-center gap-3 mt-1 ml-[23px]">
+        {nEvidencia > 0 && (
+          <span className="text-[10px]" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+            {nEvidencia} lançamento{nEvidencia > 1 ? "s" : ""} — ver no Diário
+          </span>
+        )}
+        {a.hipoteseInocente && (
+          <button type="button" onClick={() => setAberto((v) => !v)}
+            className="text-[10px] inline-flex items-center gap-1 transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }}>
+            <HelpCircle size={10} /> pode não ser problema?
+          </button>
+        )}
+      </div>
+      {aberto && a.hipoteseInocente && (
+        <div className="text-xs mt-1.5 ml-[23px] rounded-md px-3 py-2 animate-[surgir_.2s_ease-out]" style={{ background: "var(--accent-soft)", color: "var(--ink)" }}>
+          {a.hipoteseInocente}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Achados({ achados }) {
   return (
     <Card className="mb-6">
@@ -34,13 +69,8 @@ function Achados({ achados }) {
       {achados.length === 0 ? (
         <div className="text-sm" style={{ color: "var(--muted)" }}>Nada fora do padrão encontrado.</div>
       ) : (
-        <div className="space-y-2">
-          {achados.map((a, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm">
-              <AlertTriangle size={15} style={{ color: "var(--debit)", marginTop: 2, flexShrink: 0 }} />
-              <span style={{ color: "var(--ink)" }}>{textoAchado(a)}</span>
-            </div>
-          ))}
+        <div className="space-y-3">
+          {achados.map((a, i) => <LinhaDeAchado key={i} a={a} />)}
         </div>
       )}
     </Card>

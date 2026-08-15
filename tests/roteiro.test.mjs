@@ -1,7 +1,7 @@
 /* Testes de src/dominio/roteiro.mjs. Rode com `npm test`. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { perguntasPara, pendentesDeAprofundamento, progresso, BLOCOS_DO_CLIENTE } from "../src/dominio/roteiro.mjs";
+import { perguntasPara, pendentesDeAprofundamento, progresso, BLOCOS_DO_CLIENTE, respostaPorDestino } from "../src/dominio/roteiro.mjs";
 
 const PERGUNTAS = [
   { id: "p1", bloco: 1, ordem: 1, pergunta: "Quando abriu o MEI?", tipos: ["mei"], arquetipos: null, essencial: true, ativo: true },
@@ -82,6 +82,14 @@ test("pendentesDeAprofundamento só lista o que falta e não é essencial", () =
 test("resposta em branco conta como não respondida", () => {
   const pend = pendentesDeAprofundamento(PERGUNTAS, { p6: "   " }, { tipo: "mei", arquetipo: null });
   assert.ok(pend.map((p) => p.id).includes("p6"));
+});
+
+test("respostaPorDestino: acha pela coluna destino, não pelo texto — devolve null se pergunta ou resposta não existir", () => {
+  const perguntas = [{ id: "m1", destino: "carta.meta" }, { id: "m2", destino: "roteiro_respostas" }];
+  assert.equal(respostaPorDestino(perguntas, { m1: "Comprar uma máquina nova" }, "carta.meta"), "Comprar uma máquina nova");
+  assert.equal(respostaPorDestino(perguntas, {}, "carta.meta"), null, "pergunta existe mas sem resposta ainda");
+  assert.equal(respostaPorDestino(perguntas, { m1: "   " }, "carta.meta"), null, "resposta em branco conta como sem resposta");
+  assert.equal(respostaPorDestino(perguntas, { m1: "x" }, "retrato.meta"), null, "destino que não existe na lista");
 });
 
 test("progresso conta respondidas sobre total", () => {

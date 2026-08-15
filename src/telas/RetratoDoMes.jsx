@@ -75,7 +75,7 @@ function OQueVemPorAi({ lancamentos, lancamentoLinhas, recorrentes, recorrenteLi
    de digitação (mesmo padrão de ConfigNegocio/PlanoContas: só entra no
    loop reativo do Livro no "Salvar"), recarregado sempre que o mês
    escolhido muda. */
-function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
+function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida, metaDoCliente }) {
   const cartaDoMes = cartas.find((c) => c.mes === mes);
   const [texto, setTexto] = useState(cartaDoMes?.texto || "");
   const [confirmado, setConfirmado] = useState(false);
@@ -103,6 +103,13 @@ function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
             <button onClick={() => onAvaliarSeguida(pendente.mes, true)} className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-70" style={{ background: "var(--credit-soft)", color: "var(--credit)" }}>Sim</button>
             <button onClick={() => onAvaliarSeguida(pendente.mes, false)} className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-70" style={{ background: "var(--debit-soft)", color: "var(--debit)" }}>Não</button>
           </div>
+        </div>
+      )}
+
+      {metaDoCliente && (
+        <div className="text-xs rounded-md px-3 py-2 mb-3" style={{ background: "var(--rule-faint)", color: "var(--muted)", lineHeight: 1.6 }}>
+          A meta que ele contou lá no início: <em>"{metaDoCliente}"</em> — vale olhar se a
+          recomendação deste mês aproxima ou afasta disso.
         </div>
       )}
 
@@ -142,7 +149,7 @@ function AvisoAprofundamento({ quantidade, onAbrir }) {
    pergunta que ninguém mais responde ("quanto você pode tirar",
    docs/08 §2), e o rodapé que protege o limite profissional (docs/02
    §4.3). Nada de tabela de 30 linhas — o Balancete existe pra isso. */
-export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, onSalvarCarta, onAvaliarCartaSeguida, pendentesDeAprofundamento, onAbrirRoteiro }) {
+export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, onSalvarCarta, onAvaliarCartaSeguida, metaDoCliente, pendentesDeAprofundamento, onAbrirRoteiro }) {
   const mesesComMovimento = useMemo(() => {
     const meses = new Set(lancamentos.map((l) => (l.data || "").slice(0, 7)).filter(Boolean));
     return [...meses].sort().reverse();
@@ -218,7 +225,7 @@ export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, p
         lancamentos={lancamentos} lancamentoLinhas={lancamentoLinhas}
         recorrentes={recorrentes} recorrenteLinhas={recorrenteLinhas} />
 
-      <CartaDeRecomendacoes mes={mes} cartas={cartas} onSalvar={onSalvarCarta} onAvaliarSeguida={onAvaliarCartaSeguida} />
+      <CartaDeRecomendacoes mes={mes} cartas={cartas} onSalvar={onSalvarCarta} onAvaliarSeguida={onAvaliarCartaSeguida} metaDoCliente={metaDoCliente} />
 
       <div className="text-[10px] text-center" style={{ color: "var(--muted)" }}>
         Relatório gerencial — não é peça contábil oficial assinada.

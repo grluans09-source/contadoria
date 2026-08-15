@@ -57,6 +57,17 @@ export function pendentesDeAprofundamento(perguntas, respostasPorPerguntaId, opc
     });
 }
 
+/** A resposta de UMA pergunta específica, achada por `destino` — nunca
+ *  por texto (C8: texto é editável de propósito). Usado por telas que
+ *  precisam de UM campo conhecido do roteiro (ex.: a meta do cliente
+ *  alimentando a Carta, `destino = 'carta.meta'`, F6). */
+export function respostaPorDestino(perguntas, respostasPorPerguntaId, destino) {
+  const pergunta = (perguntas || []).find((p) => p.destino === destino);
+  if (!pergunta) return null;
+  const resposta = respostasPorPerguntaId?.[pergunta.id];
+  return resposta != null && String(resposta).trim() !== "" ? resposta : null;
+}
+
 /** Progresso de preenchimento, para a barra do formulário do cliente. */
 export function progresso(perguntas, respostasPorPerguntaId) {
   const total = perguntas.length;

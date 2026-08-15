@@ -228,3 +228,30 @@ test("encontrarAchados: achado de arquétipo só aparece quando o arquétipo o d
   const comBeneficiamento = encontrarAchados(CONTAS, lancamentos, linhas, [], { arquetipo: "beneficiamento", hoje: "2026-08-20" });
   assert.ok(comBeneficiamento.some((a) => a.tipo === "mercadoria_parada_com_terceiro"));
 });
+
+/* ── F4 (14/ago): evidência e hipótese inocente ────────────────── */
+
+test("retiradaAcimaDoResultado: evidência traz o(s) lançamento(s) de retirada do mês", () => {
+  const lancamentos = [{ id: "venda", data: "2026-08-05" }, { id: "saque", data: "2026-08-10" }];
+  const linhas = [
+    { id: "l1", lancamentoId: "venda", contaId: "caixa", tipo: "D", valor: 2800 }, { id: "l2", lancamentoId: "venda", contaId: "venda", tipo: "C", valor: 2800 },
+    { id: "l3", lancamentoId: "saque", contaId: "retiradas_titular", tipo: "D", valor: 4100 }, { id: "l4", lancamentoId: "saque", contaId: "caixa", tipo: "C", valor: 4100 },
+  ];
+  const achados = retiradaAcimaDoResultado(CONTAS, lancamentos, linhas, [], "2026-08-20");
+  assert.deepEqual(achados[0].evidencia, ["saque"]);
+});
+
+test("receitasSemDinheiro: evidência é o próprio lançamento suspeito", () => {
+  const lancamentos = [{ id: "a", data: "2026-08-05", descricao: "Lançamento estranho" }];
+  const linhas = [{ id: "l1", lancamentoId: "a", contaId: "capital_titular", tipo: "D", valor: 100 }, { id: "l2", lancamentoId: "a", contaId: "venda", tipo: "C", valor: 100 }];
+  const achados = receitasSemDinheiro(CONTAS, lancamentos, linhas);
+  assert.deepEqual(achados[0].evidencia, ["a"]);
+});
+
+test("encontrarAchados: todo achado sai com hipoteseInocente anexada", () => {
+  const lancamentos = [{ id: "a", data: "2026-08-05", descricao: "X" }];
+  const linhas = [{ id: "l1", lancamentoId: "a", contaId: "capital_titular", tipo: "D", valor: 100 }, { id: "l2", lancamentoId: "a", contaId: "venda", tipo: "C", valor: 100 }];
+  const achados = encontrarAchados(CONTAS, lancamentos, linhas, []);
+  const receitaSemDinheiro = achados.find((a) => a.tipo === "receita_sem_dinheiro");
+  assert.ok(receitaSemDinheiro.hipoteseInocente?.length > 0);
+});

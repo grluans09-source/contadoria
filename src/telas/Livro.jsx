@@ -21,7 +21,7 @@ import { Memoria } from "./Memoria.jsx";
 import { construirLancamentoDeClassificacao, construirMovimentoPessoal } from "../dominio/classificacao.mjs";
 import { gerarLancamentosDoMes } from "../dominio/recorrentes.mjs";
 import { construirBaixa } from "../dominio/baixas.mjs";
-import { pendentesDeAprofundamento } from "../dominio/roteiro.mjs";
+import { pendentesDeAprofundamento, respostaPorDestino } from "../dominio/roteiro.mjs";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const mesDe = (dataIso) => (dataIso || "").slice(0, 7);
@@ -532,6 +532,7 @@ export function Livro({ negocio, onVoltar }) {
             recorrenteLinhas={estado.recorrenteLinhas}
             onSalvarCarta={salvarCarta}
             onAvaliarCartaSeguida={avaliarCartaSeguida}
+            metaDoCliente={roteiro ? respostaPorDestino(roteiro.perguntas, roteiro.respostasPorPerguntaId, "carta.meta") : null}
             pendentesDeAprofundamento={roteiro
               ? pendentesDeAprofundamento(roteiro.perguntas, roteiro.respostasPorPerguntaId, { tipo: negocio.tipo, arquetipo: negocio.arquetipo }).length
               : 0}

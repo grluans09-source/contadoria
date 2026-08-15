@@ -68,6 +68,19 @@ function saldoDaContaNoMes(contaId, mes, lancamentos, lancamentoLinhas) {
   return saldo;
 }
 
+/** Os lançamentos que compõem o saldo de uma conta num mês — a
+ *  EVIDÊNCIA de um achado (P4, docs/09): não basta apontar o número,
+ *  tem que dar pra clicar e ver de onde ele veio. */
+function idsDeContaNoMes(contaId, tipoLinha, mes, lancamentos, lancamentoLinhas) {
+  const idsDoMes = new Set(lancamentos.filter((l) => (l.data || "").slice(0, 7) === mes).map((l) => l.id));
+  const ids = new Set();
+  for (const linha of lancamentoLinhas) {
+    if (linha.contaId !== contaId || linha.tipo !== tipoLinha || !idsDoMes.has(linha.lancamentoId)) continue;
+    ids.add(linha.lancamentoId);
+  }
+  return [...ids];
+}
+
 /**
  * Despesas do(s) mês(es) ABERTO(S) muito acima da média dos mesmos
  * meses FECHADOS — só roda se existir pelo menos 1 mês fechado (docs/04
@@ -93,7 +106,10 @@ export function despesasForaDoPadrao(contas, lancamentos, lancamentoLinhas, peri
     for (const mes of mesesAbertos) {
       const atual = saldoDaContaNoMes(conta.id, mes, lancamentos, lancamentoLinhas);
       if (atual > media * multiplicador) {
-        achados.push({ tipo: "despesa_fora_padrao", contaId: conta.id, contaNome: conta.nome, mes, valor: atual, media });
+        achados.push({
+          tipo: "despesa_fora_padrao", contaId: conta.id, contaNome: conta.nome, mes, valor: atual, media,
+          evidencia: idsDeContaNoMes(conta.id, "D", mes, lancamentos, lancamentoLinhas),
+        });
       }
     }
   }
@@ -118,7 +134,7 @@ export function receitasSemDinheiro(contas, lancamentos, lancamentoLinhas) {
     if (!temReceita) continue;
     const temDinheiro = linhas.some((l) => CONTAS_DINHEIRO_OU_A_RECEBER.has(l.contaId));
     if (!temDinheiro) {
-      achados.push({ tipo: "receita_sem_dinheiro", lancamentoId: lanc.id, descricao: lanc.descricao, data: lanc.data });
+      achados.push({ tipo: "receita_sem_dinheiro", lancamentoId: lanc.id, descricao: lanc.descricao, data: lanc.data, evidencia: [lanc.id] });
     }
   }
   return achados;
@@ -172,7 +188,10 @@ export function retiradaAcimaDoResultado(contas, lancamentos, lancamentoLinhas, 
   const { resultado } = resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes);
   if (retirada <= resultado) return [];
 
-  return [{ tipo: "retirada_acima_do_resultado", mes, retirada, resultado, diferenca: Math.round((retirada - resultado) * 100) / 100 }];
+  return [{
+    tipo: "retirada_acima_do_resultado", mes, retirada, resultado, diferenca: Math.round((retirada - resultado) * 100) / 100,
+    evidencia: idsDeContaNoMes("retiradas_titular", "D", mes, lancamentos, lancamentoLinhas),
+  }];
 }
 
 /**
@@ -186,7 +205,14 @@ export function mercadoriaParadaComTerceiro(contas, lancamentos, lancamentoLinha
   if (saldo <= 0 || !desde) return [];
   const dias = diasEntre(desde, hoje);
   if (dias < diasMinimo) return [];
-  return [{ tipo: "mercadoria_parada_com_terceiro", valor: saldo, desde, dias }];
+
+  const porLancamento = new Map(lancamentos.map((l) => [l.id, l]));
+  const evidencia = lancamentoLinhas
+    .filter((l) => l.contaId === "mercadoria_com_terceiros" && l.tipo === "D")
+    .filter((l) => (porLancamento.get(l.lancamentoId)?.data || "") >= desde)
+    .map((l) => l.lancamentoId);
+
+  return [{ tipo: "mercadoria_parada_com_terceiro", valor: saldo, desde, dias, evidencia: [...new Set(evidencia)] }];
 }
 
 /**
@@ -203,7 +229,10 @@ export function taxaEngolindoMargem(contas, lancamentos, lancamentoLinhas, mes, 
   if (receita <= 0) return [];
   const percentual = taxa / receita;
   if (percentual < percentualLimite) return [];
-  return [{ tipo: "taxa_engolindo_margem", mes, contaId: contaTaxaId, valor: taxa, receita, percentual: Math.round(percentual * 1000) / 10 }];
+  return [{
+    tipo: "taxa_engolindo_margem", mes, contaId: contaTaxaId, valor: taxa, receita, percentual: Math.round(percentual * 1000) / 10,
+    evidencia: idsDeContaNoMes(contaTaxaId, "D", mes, lancamentos, lancamentoLinhas),
+  }];
 }
 
 /**
@@ -239,7 +268,27 @@ export function semReceitaNoPeriodo(contas, lancamentos, lancamentoLinhas, hoje,
    que o negócio É (arquetipos.mjs descreve só QUE achados se aplicam). */
 const CONTA_TAXA_POR_ARQUETIPO = { revenda: "taxa_maquininha", producao: "taxa_maquininha", digital: "taxa_plataforma" };
 
-/** Junta todas as checagens numa lista só, pronta pra tela.
+/**
+ * A explicação legítima alternativa de cada achado (P4, docs/09:
+ * "observação vira decisão" só quando quem lê também vê o outro lado
+ * possível). Estática por tipo — não é o TEXTO do achado, é o
+ * contrapeso: o que fazer o achado parecer sem ser problema de
+ * verdade. Fica separada dos geradores porque é sempre a mesma frase
+ * para o mesmo tipo, custaria repetir em cada função.
+ */
+const HIPOTESE_INOCENTE = {
+  mes_sem_movimento: "Pode ser um mês de negócio sazonal parado de propósito, ou um lançamento esquecido — vale perguntar antes de estranhar.",
+  despesa_fora_padrao: "Pode ser uma compra grande única (equipamento, estoque, manutenção) que não se repete todo mês, não necessariamente um problema.",
+  receita_sem_dinheiro: "Pode ser correção de um lançamento anterior, permuta ou venda com troca — nem toda receita sem contrapartida em dinheiro é erro.",
+  retirada_acima_do_resultado: "Pode ser uso de uma reserva de meses anteriores (ele guardou e agora está usando), não necessariamente insustentável.",
+  mercadoria_parada_com_terceiro: "Pode ser um prazo de produção normal, combinado com o parceiro — vale confirmar o prazo esperado antes de tratar como atraso.",
+  taxa_engolindo_margem: "Pode ser um mês de vendas totais baixas, o que infla o percentual sem a taxa em si ter mudado.",
+  sem_receita_no_periodo: "Pode ser férias combinadas ou trabalho em andamento ainda não faturado, não necessariamente ociosidade.",
+};
+
+/** Junta todas as checagens numa lista só, pronta pra tela — cada
+ *  achado sai com `hipoteseInocente` já anexada (P4) e, quando
+ *  aplicável, `evidencia` com os lançamentos que o formam.
  *  `opcoes.arquetipo` decide quais dos achados de Fase 7 rodam
  *  (docs/DECISOES.md: "cada um só roda se o arquétipo o declarar"). */
 export function encontrarAchados(contas, lancamentos, lancamentoLinhas, periodosFechados, opcoes = {}) {
@@ -263,5 +312,5 @@ export function encontrarAchados(contas, lancamentos, lancamentoLinhas, periodos
     achados.push(...semReceitaNoPeriodo(contas, lancamentos, lancamentoLinhas, hoje));
   }
 
-  return achados;
+  return achados.map((a) => ({ ...a, hipoteseInocente: HIPOTESE_INOCENTE[a.tipo] || null }));
 }
