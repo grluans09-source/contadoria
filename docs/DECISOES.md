@@ -241,6 +241,18 @@ Tela **só leitura** — nada aqui grava nada.
 **Não verificado ao vivo no navegador** (mesma limitação de sessão/login de F3/F8/F9) — build
 limpo, 210 testes, bundle carregado sem erro de render.
 
+### F13 · Registrar o que foi EVITADO (F7) — **IMPLEMENTADO** (14/ago) ✅
+Migração `0017_evitados.sql` (tabela `evitados`, mesmo desenho de `recorrentes`: lista, não
+célula de texto) · `src/dominio/evitados.mjs` · card "O que evitamos" nas Entregas · aparece
+também na Memória, por mês. 6 testes novos.
+**Por quê:** "a transformação mais valiosa (impedir a compra errada, evitar o
+desenquadramento) não deixa rastro. Sem registro, o valor não é percebido nem cobrado."
+**Deliberadamente manual, não detectado pelo sistema** — diferente dos achados (F10), que são
+inferidos das contas, "o que evitei" só o Luan sabe (é uma conversa que não deixou lançamento).
+Valor estimado é opcional: nem toda transformação evitada tem número claro, e inventar um
+seria pior que não somar (P3).
+Migração aplicada e conferida contra o banco real.
+
 ### F2 · Hora do dono e projeção do limite — **IMPLEMENTADO** (14/ago) ✅
 `src/dominio/valorDoTempo.mjs` · 14 testes.
 **Calibração medida, não suposta:** a intuição de que "R$2.000 tirando 60h/semana fica abaixo
@@ -283,20 +295,21 @@ sem duplicata, sem chave faltando.
 `saldoDeConta` já devolve o sinal correto para conta de PL — patrimônio negativo tem que sair
 negativo (docs/06 §4).
 
-### F4 · Achados com valor em R$, evidência e hipótese inocente — **PROPOSTA**
-Hoje o achado aponta e para. Falta quanto custou, quais lançamentos geraram, e a explicação
-legítima alternativa.
+### F4 · Achados com valor em R$, evidência e hipótese inocente — **IMPLEMENTADO** (14/ago) ✅
+Ver F10 abaixo (implementação) e F11 acima (evidência + hipótese inocente, feito depois).
 
-### F5 · Recomendação como hipótese testável — **PROPOSTA**
+### F5 · Recomendação como hipótese testável — **PROPOSTA, ainda não implementada**
 Carta ganha *efeito esperado* e *efeito medido*. Mostra coincidência temporal; **nunca afirma
-causalidade**.
+causalidade**. Não entrou nesta rodada porque "efeito medido" exige comparar o mês da carta
+com meses seguintes — só fica honesto com pelo menos 2-3 meses de histórico depois da
+recomendação, e o dono ainda tem zero clientes (mesmo raciocínio de F0). Revisitar quando
+houver o primeiro cliente com 3 meses fechados.
 
-### F6 · Meta do cliente alimentando a Carta — **PROPOSTA**
-Hoje o Bloco 5 é coletado e nunca usado. Desperdício de dado que já existe.
+### F6 · Meta do cliente alimentando a Carta — **IMPLEMENTADO** (14/ago) ✅
+Ver F13 abaixo.
 
-### F7 · Registrar o que foi EVITADO, não só o recomendado — **PROPOSTA**
-A transformação mais valiosa (impedir a compra errada, evitar o desenquadramento) não deixa
-rastro. Sem registro, o valor não é percebido nem cobrado.
+### F7 · Registrar o que foi EVITADO, não só o recomendado — **IMPLEMENTADO** (14/ago) ✅
+Ver F13 abaixo.
 
 ---
 
