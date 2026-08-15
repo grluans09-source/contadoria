@@ -197,6 +197,17 @@ faltar dá para completar depois na própria aba Recorrentes.
 **Não verificado ao vivo no navegador** (mesma limitação de sessão/login do F3) — build limpo,
 189 testes, bundle carregado e conferido sem erro de render.
 
+### F9 · Aba Roteiro para completar o aprofundamento depois — **IMPLEMENTADO** (14/ago) ✅
+`src/telas/Roteiro.jsx` · aviso em `RetratoDoMes.jsx`.
+**Problema que resolvia mal:** as perguntas `essencial = false` (E3) não tinham nenhuma tela
+que as mostrasse depois da primeira conversa — ficavam órfãs para sempre assim que
+`onboarded = true`. A decisão de duas camadas só funcionava pela metade sem isto.
+**Fora da aba, de propósito:** Bloco 3 (balanço, tela própria), perguntas `negocios.*` (já
+editáveis em `ConfigNegocio.jsx` — duplicar criaria duas telas gravando o mesmo campo) e
+`retrato.*` (write-once — editar aqui divergiria do que foi congelado, em silêncio).
+**Não verificado ao vivo no navegador** (mesma limitação de sessão/login do F3/F8) — build
+limpo, 189 testes, bundle carregado sem erro de render.
+
 ### F2 · Hora do dono e projeção do limite — **IMPLEMENTADO** (14/ago) ✅
 `src/dominio/valorDoTempo.mjs` · 14 testes.
 **Calibração medida, não suposta:** a intuição de que "R$2.000 tirando 60h/semana fica abaixo
@@ -262,22 +273,16 @@ rastro. Sem registro, o valor não é percebido nem cobrado.
 > desatualizada.** Separado em BLOQUEIA (o produto mente ou quebra sem isso) e MELHORA (o
 > produto funciona sem, mas entrega menos).
 
-**Hoje dá para receber o primeiro cliente de verdade:** cadastro por arquétipo, roteiro
-adaptativo, formulário público, balanço de abertura com dívidas classificadas, dinheiro
-misturado tratado como retirada, recorrentes reais, fluxo de caixa projetado, hora do dono,
-retrato de entrada. O ciclo de escrituração mensal (Livro, Caixa de Entrada, Revisão,
-Entregas) já estava prático desde 13/ago.
+**Hoje dá para receber o primeiro cliente de verdade E fazer a segunda conversa fazer
+sentido:** cadastro por arquétipo, roteiro adaptativo, formulário público, balanço de
+abertura com dívidas classificadas, dinheiro misturado tratado como retirada, recorrentes
+reais, fluxo de caixa projetado, hora do dono, retrato de entrada, e agora (F9) o
+aprofundamento tem onde ser respondido depois da primeira conversa. O ciclo de escrituração
+mensal (Livro, Caixa de Entrada, Revisão, Entregas) já estava prático desde 13/ago.
 
-### BLOQUEIA a segunda conversa fazer sentido
+### Nada bloqueia usar o sistema com cliente real hoje
 
-- **Fase 6 · Aba de aprofundamento no Livro** — **PENDENTE**. Hoje as perguntas marcadas
-  `essencial = false` (E3) **não têm nenhuma tela que as mostre depois da primeira
-  conversa** — ficam órfãs para sempre assim que `onboarded = true`. A decisão de duas
-  camadas (E3) só funciona de verdade quando isto existir. Inclui o aviso nas Entregas
-  ("faltam 6 perguntas de aprofundamento do João") para o Luan preparar a conversa do mês.
-  **É o item mais urgente depois deste registro.**
-
-### MELHORA a entrega, não bloqueia usar o sistema hoje
+O que resta é MELHORA, não bloqueio — o sistema funciona sem, entrega menos:
 
 - **Fase 7 · Achados que revelam a dor invisível** — **PENDENTE** (retirada acima do
   resultado, mercadoria parada com terceiro, taxa engolindo margem, sem receita no período).
