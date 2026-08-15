@@ -128,6 +128,16 @@ export const COLECOES = {
     chave: ["mes"],
   },
 
+  /* O que foi EVITADO, não recomendado para o futuro (docs/DECISOES.md
+     F7, 0017_evitados.sql). Lista, não célula de texto — o mesmo
+     desenho de `recorrentes`: vários fatos possíveis no mesmo mês. */
+  evitados: {
+    tabela: "evitados",
+    forma: "lista",
+    campos: ["id", "mes", "descricao", "valorEstimado"],
+    chave: ["id"],
+  },
+
   /* Array de "mes:AAAA-MM" ou "ano:AAAA" (docs/06 §5). */
   periodosFechados: {
     tabela: "periodos_fechados",

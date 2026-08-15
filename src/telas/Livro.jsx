@@ -353,6 +353,17 @@ export function Livro({ negocio, onVoltar }) {
     }));
   }, []);
 
+  /* O que foi EVITADO, não recomendado para o futuro (F7). Fato datado,
+     não parágrafo — por isso lista, mesmo desenho de recorrentes, e
+     não um campo a mais na Carta. */
+  const adicionarEvitado = useCallback((mes, descricao, valorEstimado) => {
+    setEstado((prev) => ({
+      ...prev,
+      evitados: [...prev.evitados, { id: uid(), mes, descricao, valorEstimado: valorEstimado || null }],
+      trilha: [...prev.trilha, { tipo: "evitado", descricao }],
+    }));
+  }, []);
+
   /* Baixa: liga um recebimento/pagamento à fatura específica (docs/08
      §2). É um lançamento de verdade, então respeita a mesma trava de
      mês fechado dos demais. */
@@ -530,8 +541,10 @@ export function Livro({ negocio, onVoltar }) {
             cartas={estado.cartas}
             recorrentes={estado.recorrentes}
             recorrenteLinhas={estado.recorrenteLinhas}
+            evitados={estado.evitados}
             onSalvarCarta={salvarCarta}
             onAvaliarCartaSeguida={avaliarCartaSeguida}
+            onAdicionarEvitado={adicionarEvitado}
             metaDoCliente={roteiro ? respostaPorDestino(roteiro.perguntas, roteiro.respostasPorPerguntaId, "carta.meta") : null}
             pendentesDeAprofundamento={roteiro
               ? pendentesDeAprofundamento(roteiro.perguntas, roteiro.respostasPorPerguntaId, { tipo: negocio.tipo, arquetipo: negocio.arquetipo }).length
@@ -547,6 +560,7 @@ export function Livro({ negocio, onVoltar }) {
             lancamentoLinhas={estado.lancamentoLinhas}
             periodosFechados={estado.periodosFechados}
             cartas={estado.cartas}
+            evitados={estado.evitados}
           />
         )}
         {aba === "roteiro" && (

@@ -84,7 +84,7 @@ export function medidoAgora(contas, lancamentos, lancamentoLinhas, periodosFecha
  * evento por mês FECHADO, cada um já com o resultado e a carta (se
  * houver) daquele mês.
  */
-export function linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas }) {
+export function linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, evitados }) {
   const eventos = [];
 
   if (negocio?.retrato_de_entrada) {
@@ -94,7 +94,8 @@ export function linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, p
   for (const mes of mesesFechadosDe(periodosFechados)) {
     const resultado = resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes);
     const carta = (cartas || []).find((c) => c.mes === mes) || null;
-    eventos.push({ tipo: "mes", data: `${mes}-01`, mes, resultado, carta });
+    const evitadosDoMesEvento = (evitados || []).filter((e) => e.mes === mes);
+    eventos.push({ tipo: "mes", data: `${mes}-01`, mes, resultado, carta, evitados: evitadosDoMesEvento });
   }
 
   return eventos.sort((a, b) => (a.data || "").localeCompare(b.data || ""));

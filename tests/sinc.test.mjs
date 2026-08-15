@@ -26,7 +26,7 @@ const arquivosMigracao = () => readdirSync(MIGRACOES_DIR).filter((f) => f.endsWi
 const vazio = {
   contas: [], lancamentos: [], lancamentoLinhas: [], entradaItens: [],
   regrasClassificacao: [], lixeira: [], trilha: [],
-  recorrentes: [], recorrenteLinhas: [], cartas: [],
+  recorrentes: [], recorrenteLinhas: [], cartas: [], evitados: [],
   periodosFechados: [], conciliacoes: [],
 };
 
@@ -47,6 +47,7 @@ function estadoCheio() {
     recorrentes: [{ id: "rec1", descricao: "Aluguel", ativa: true }],
     recorrenteLinhas: [{ id: "rl1", recorrenteId: "rec1", contaId: "c1", tipo: "D", valor: 400 }],
     cartas: [{ mes: "2026-07", texto: "Trocar de fornecedor", seguida: true }],
+    evitados: [{ id: "ev1", mes: "2026-07", descricao: "Evitou comprar equipamento sem precisar", valorEstimado: 1200 }],
     periodosFechados: ["mes:2026-07"],
     conciliacoes: ["l1"],
   };
@@ -98,6 +99,7 @@ const SERVIDOR_CUIDA = {
   conciliacoes: ["conferido_em"],
   recorrentes: ["criado_em"],
   cartas: ["atualizado_em"],
+  evitados: ["criado_em"],
 };
 
 /* ============================================================

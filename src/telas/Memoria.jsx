@@ -48,7 +48,7 @@ function EventoAbertura({ retrato }) {
   );
 }
 
-function EventoMes({ mes, resultado, carta }) {
+function EventoMes({ mes, resultado, carta, evitados }) {
   const positivo = resultado.resultado >= 0;
   return (
     <Card className="mb-3" pad="apertado">
@@ -66,14 +66,21 @@ function EventoMes({ mes, resultado, carta }) {
       ) : (
         <div className="text-xs" style={{ color: "var(--muted)" }}>Sem carta registrada neste mês.</div>
       )}
+      {evitados?.length > 0 && (
+        <div className="text-xs mt-1.5 space-y-0.5" style={{ color: "var(--credit)", lineHeight: 1.6 }}>
+          {evitados.map((e) => (
+            <div key={e.id}>evitou: {e.descricao}{e.valorEstimado > 0 ? ` (${fmt(e.valorEstimado)})` : ""}</div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
 
-export function Memoria({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas }) {
+export function Memoria({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, evitados }) {
   const eventos = useMemo(
-    () => linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas }),
-    [negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas]
+    () => linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, evitados }),
+    [negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, evitados]
   );
 
   const comparacao = useMemo(() => {
@@ -112,7 +119,7 @@ export function Memoria({ negocio, contas, lancamentos, lancamentoLinhas, period
         {eventos.map((ev, i) => (
           ev.tipo === "abertura"
             ? <EventoAbertura key={i} retrato={ev.retrato} />
-            : <EventoMes key={i} mes={ev.mes} resultado={ev.resultado} carta={ev.carta} />
+            : <EventoMes key={i} mes={ev.mes} resultado={ev.resultado} carta={ev.carta} evitados={ev.evitados} />
         ))}
       </div>
     </div>

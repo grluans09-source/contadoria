@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Card, Select, Button } from "../ui/primitivas.jsx";
+import { Card, Select, Button, Input } from "../ui/primitivas.jsx";
 import { resultadoDoMes } from "../dominio/razao.mjs";
 import { quantoPodeTirar } from "../dominio/disponivel.mjs";
 import { cartaPendenteDeAvaliacao } from "../dominio/cartas.mjs";
 import { fluxoProjetado, aviseSobreOCaixa } from "../dominio/fluxoProjetado.mjs";
+import { totalEvitado, evitadosDoMes } from "../dominio/evitados.mjs";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const fmtMes = (m) => {
@@ -129,6 +130,63 @@ function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida, metaDoC
   );
 }
 
+/* O que foi EVITADO, não recomendado para o futuro (F7, docs/DECISOES.md).
+   "A transformação mais valiosa não deixa rastro sozinha" — este card
+   é o rastro. Fato datado e opcionalmente com valor, não texto livre
+   de mês (por isso lista, não campo a mais na Carta). */
+function OQueEvitamos({ mes, evitados, onAdicionar }) {
+  const [descricao, setDescricao] = useState("");
+  const [valor, setValor] = useState("");
+  const [confirmado, setConfirmado] = useState(false);
+
+  const doMes = useMemo(() => evitadosDoMes(evitados, mes), [evitados, mes]);
+  const total = useMemo(() => totalEvitado(evitados), [evitados]);
+
+  const adicionar = () => {
+    if (!descricao.trim()) return;
+    const v = parseFloat(String(valor).replace(",", "."));
+    onAdicionar(mes, descricao.trim(), Number.isFinite(v) && v > 0 ? v : null);
+    setDescricao(""); setValor("");
+    setConfirmado(true);
+    setTimeout(() => setConfirmado(false), 2000);
+  };
+
+  return (
+    <Card className="mb-4">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+        <div className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+          O que evitamos
+        </div>
+        {total > 0 && <div className="text-xs" style={{ color: "var(--credit)" }}>{fmt(total)} evitado desde o início</div>}
+      </div>
+
+      {doMes.length > 0 && (
+        <div className="space-y-1.5 mb-3">
+          {doMes.map((e) => (
+            <div key={e.id} className="text-sm flex items-start justify-between gap-2" style={{ color: "var(--ink)" }}>
+              <span>{e.descricao}</span>
+              {e.valorEstimado > 0 && <span className="shrink-0" style={{ color: "var(--credit)" }}>{fmt(e.valorEstimado)}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Input placeholder="ex.: evitou comprar equipamento sem precisar" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="flex-[2]" />
+        <Input money placeholder="valor (opcional)" value={valor} onChange={(e) => setValor(e.target.value)} className="flex-1" />
+      </div>
+      <div className="flex items-center gap-3 mt-2">
+        <Button small onClick={adicionar} disabled={!descricao.trim()}>Registrar</Button>
+        {confirmado && <span className="text-xs" style={{ color: "var(--credit)" }}>Registrado.</span>}
+      </div>
+      <div className="text-[11px] mt-2" style={{ color: "var(--muted)" }}>
+        A transformação que impede um erro não deixa rastro sozinha — registrar aqui é o que
+        permite mostrar isso daqui a um ano.
+      </div>
+    </Card>
+  );
+}
+
 /* Aviso de aprofundamento pendente (Fase 6, 14/ago) — antes da conversa
    do mês é a hora certa de lembrar, não durante ou depois dela. Some
    sozinho quando não há pendência: silêncio é resposta válida (P3). */
@@ -149,7 +207,7 @@ function AvisoAprofundamento({ quantidade, onAbrir }) {
    pergunta que ninguém mais responde ("quanto você pode tirar",
    docs/08 §2), e o rodapé que protege o limite profissional (docs/02
    §4.3). Nada de tabela de 30 linhas — o Balancete existe pra isso. */
-export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, onSalvarCarta, onAvaliarCartaSeguida, metaDoCliente, pendentesDeAprofundamento, onAbrirRoteiro }) {
+export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, evitados, onSalvarCarta, onAvaliarCartaSeguida, onAdicionarEvitado, metaDoCliente, pendentesDeAprofundamento, onAbrirRoteiro }) {
   const mesesComMovimento = useMemo(() => {
     const meses = new Set(lancamentos.map((l) => (l.data || "").slice(0, 7)).filter(Boolean));
     return [...meses].sort().reverse();
@@ -226,6 +284,8 @@ export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, p
         recorrentes={recorrentes} recorrenteLinhas={recorrenteLinhas} />
 
       <CartaDeRecomendacoes mes={mes} cartas={cartas} onSalvar={onSalvarCarta} onAvaliarSeguida={onAvaliarCartaSeguida} metaDoCliente={metaDoCliente} />
+
+      <OQueEvitamos mes={mes} evitados={evitados} onAdicionar={onAdicionarEvitado} />
 
       <div className="text-[10px] text-center" style={{ color: "var(--muted)" }}>
         Relatório gerencial — não é peça contábil oficial assinada.

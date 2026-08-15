@@ -100,3 +100,24 @@ test("linhaDoTempo: junta a carta certa a cada mês, com o campo `seguida`", () 
   assert.equal(eventos[0].carta.texto, "Trocar de fornecedor");
   assert.equal(eventos[0].carta.seguida, true);
 });
+
+test("linhaDoTempo: junta só os evitados DAQUELE mês a cada evento", () => {
+  const lancamentos = [{ id: "jun", data: "2026-06-05" }, { id: "jul", data: "2026-07-05" }];
+  const linhas = [
+    { id: "l1", lancamentoId: "jun", contaId: "caixa", tipo: "D", valor: 100 }, { id: "l2", lancamentoId: "jun", contaId: "venda", tipo: "C", valor: 100 },
+    { id: "l3", lancamentoId: "jul", contaId: "caixa", tipo: "D", valor: 200 }, { id: "l4", lancamentoId: "jul", contaId: "venda", tipo: "C", valor: 200 },
+  ];
+  const evitados = [
+    { id: "e1", mes: "2026-06", descricao: "Evitou compra errada", valorEstimado: 500 },
+    { id: "e2", mes: "2026-07", descricao: "Evitou desenquadramento" },
+  ];
+  const eventos = linhaDoTempo({
+    negocio: {}, contas: CONTAS, lancamentos, lancamentoLinhas: linhas,
+    periodosFechados: ["mes:2026-06", "mes:2026-07"], cartas: [], evitados,
+  });
+  const junho = eventos.find((e) => e.mes === "2026-06");
+  const julho = eventos.find((e) => e.mes === "2026-07");
+  assert.equal(junho.evitados.length, 1);
+  assert.equal(junho.evitados[0].id, "e1");
+  assert.equal(julho.evitados[0].id, "e2");
+});
