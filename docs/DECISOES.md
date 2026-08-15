@@ -226,6 +226,21 @@ Roteiro) foi concluída depois que a reescrita começou em segundo plano — cor
 commit. Lição: doc gerado por agente em paralelo precisa de uma segunda passada contra o
 estado mais recente antes de publicar, não só contra o estado de quando começou.
 
+### F12 · Memória do cliente — a linha do tempo (Fase 11) — **IMPLEMENTADO** (14/ago) ✅
+`src/dominio/memoria.mjs` (`linhaDoTempo`, `medidoAgora`) · `src/telas/Memoria.jsx` · 8 testes.
+Prometida em `08_DIFERENCIAL.md` §4 desde 11/ago e nunca construída — o próprio doc já dizia
+"custo quase zero: a trilha, as respostas do roteiro e o histórico das cartas já estão no
+modelo, falta só juntar numa tela". Foi exatamente isso: nada novo gravado, só junção.
+**O que a aba mostra:** o retrato de entrada (F3) como primeiro evento, depois um evento por
+**mês fechado** (mês aberto fica de fora — ainda é presente, não história, P3) com o
+resultado do mês e a carta daquele mês com o selo seguida/não seguida/pendente. No topo, se
+existir retrato de entrada, reaproveita `compararComAEntrada` (já existia para o Retrato do
+Mês) contra o `medidoAgora` — a mesma frase forte ("você disse que tirava X, hoje é Y") agora
+também aparece aqui, com o "agora" ancorado no último mês fechado, não no mês em aberto.
+Tela **só leitura** — nada aqui grava nada.
+**Não verificado ao vivo no navegador** (mesma limitação de sessão/login de F3/F8/F9) — build
+limpo, 210 testes, bundle carregado sem erro de render.
+
 ### F2 · Hora do dono e projeção do limite — **IMPLEMENTADO** (14/ago) ✅
 `src/dominio/valorDoTempo.mjs` · 14 testes.
 **Calibração medida, não suposta:** a intuição de que "R$2.000 tirando 60h/semana fica abaixo
@@ -300,12 +315,9 @@ mensal (Livro, Caixa de Entrada, Revisão, Entregas) já estava prático desde 1
 
 ### Nada bloqueia usar o sistema com cliente real hoje
 
-O que resta é MELHORA, não bloqueio — o sistema funciona sem, entrega menos:
-
-- **Fase 11 · Memória do cliente (linha do tempo)** — **PENDENTE**. Valor cresce com o
-  tempo — não faz falta no mês 1, faz falta na conversa do ano 2 (docs/08 §4).
-
-**Fase 8 concluída (14/ago) — ver F11 abaixo.**
+**Todo o plano original (Fases 1-11) está implementado.** O que resta agora é o que só o uso
+com cliente real vai revelar — não dá para planejar às cegas o que a prática vai ensinar
+(G1, G2 e o resto da seção G abaixo registram o que já se sabe estar fora do escopo atual).
 
 ---
 
