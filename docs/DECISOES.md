@@ -160,6 +160,17 @@ Ciclo permanente: **ANALISAR → DECIDIR → IMPLEMENTAR → REGISTRAR → ATUAL
 Toda decisão importante entra neste arquivo, com estado. Decisão trocada vira SUBSTITUÍDA,
 nunca some.
 
+### E6 · Créditos do Netlify são da conta, não do site — **REGRA** (15/ago) 🆕
+A conta `grluans09-source` é plano gratuito (300 créditos/mês, ~15 por deploy de produção),
+e o teto é **compartilhado** entre `contadoria-luan`, `contlife-beta` e qualquer outro site
+da conta — inclusive um já apagado (o crédito gasto por ele no ciclo não volta).
+**Sintoma:** `netlify deploy` devolve `JSONHTTPError: Forbidden` /
+`Account credit usage exceeded`. **Não é token expirado** — confira antes em
+`app.netlify.com/teams/grluans09-source/billing`. Ciclo reseta uma vez por mês (~dia 27-28).
+**Consequência prática:** publicar depois de cada correção pequena esgota o mês rápido —
+juntar várias mudanças num só `npm run publicar` estica o orçamento de deploys entre os
+projetos que dividem a conta. Documentado também em `scripts/publicar.mjs`.
+
 ---
 
 # F · Decisões tomadas sob a lente (14/ago)

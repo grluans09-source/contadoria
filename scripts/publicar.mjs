@@ -6,7 +6,22 @@
 
    Uso:  npm run publicar
    Precisa de netlify/.access-token (gitignored) — mesmo padrão dos
-   tokens do Supabase: nunca no código, nunca no chat de novo. */
+   tokens do Supabase: nunca no código, nunca no chat de novo.
+
+   ⚠️ OS CRÉDITOS SÃO DA CONTA INTEIRA, NÃO SÓ DESTE SITE (15/ago/2026)
+   A conta grluans09-source no Netlify é plano gratuito: 300 créditos/mês,
+   ~15 por deploy de produção — e esse teto é COMPARTILHADO entre todos
+   os sites da conta (contadoria-luan, contlife-beta, e qualquer outro
+   que exista ou já tenha existido ali — apagar um site não devolve os
+   créditos já gastos por ele no ciclo). Se `netlify deploy` devolver
+   "JSONHTTPError: Forbidden" / "Account credit usage exceeded", quase
+   certo que é isso, não o token: confira em
+   app.netlify.com/teams/grluans09-source/billing antes de desconfiar
+   de token expirado. O ciclo reseta uma vez por mês (dia do onboarding
+   da conta — ~dia 27-28). Sem custo pra esperar; ou upgrade do plano
+   se for urgente (decisão do dono, nunca automática).
+   Lição prática: publicar depois de CADA correção pequena esgota o mês
+   rápido — junte várias mudanças e publique uma vez só. */
 
 import fs from "node:fs";
 import path from "node:path";
