@@ -817,6 +817,12 @@ function pendentesDeAprofundamento(perguntas, respostasPorPerguntaId, opcoes) {
     return r === void 0 || r === null || String(r).trim() === "";
   });
 }
+function respostaPorDestino(perguntas, respostasPorPerguntaId, destino) {
+  const pergunta = (perguntas || []).find((p) => p.destino === destino);
+  if (!pergunta) return null;
+  const resposta = respostasPorPerguntaId?.[pergunta.id];
+  return resposta != null && String(resposta).trim() !== "" ? resposta : null;
+}
 
 // src/dominio/valorDoTempo.mjs
 var SEMANAS_POR_MES = 4.345;
@@ -1410,6 +1416,15 @@ var COLECOES = {
     padroes: { texto: "" },
     chave: ["mes"]
   },
+  /* O que foi EVITADO, não recomendado para o futuro (docs/DECISOES.md
+     F7, 0017_evitados.sql). Lista, não célula de texto — o mesmo
+     desenho de `recorrentes`: vários fatos possíveis no mesmo mês. */
+  evitados: {
+    tabela: "evitados",
+    forma: "lista",
+    campos: ["id", "mes", "descricao", "valorEstimado"],
+    chave: ["id"]
+  },
   /* Array de "mes:AAAA-MM" ou "ano:AAAA" (docs/06 §5). */
   periodosFechados: {
     tabela: "periodos_fechados",
@@ -1993,7 +2008,7 @@ function Conciliacao({ lancamentos, lancamentoLinhas, conciliacoes, onAlternar }
 
 // src/telas/Revisao.jsx
 import React12, { useMemo as useMemo6, useState as useState9 } from "react";
-import { CheckCircle2, AlertTriangle, Lock, Unlock, Search } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Lock, Unlock, Search, HelpCircle as HelpCircle3 } from "lucide-react";
 
 // src/dominio/revisao.mjs
 function mesaDeRevisao(contas, lancamentos, lancamentoLinhas) {
@@ -2090,6 +2105,15 @@ function saldoDaContaNoMes(contaId, mes, lancamentos, lancamentoLinhas) {
   }
   return saldo;
 }
+function idsDeContaNoMes(contaId, tipoLinha, mes, lancamentos, lancamentoLinhas) {
+  const idsDoMes = new Set(lancamentos.filter((l) => (l.data || "").slice(0, 7) === mes).map((l) => l.id));
+  const ids = /* @__PURE__ */ new Set();
+  for (const linha of lancamentoLinhas) {
+    if (linha.contaId !== contaId || linha.tipo !== tipoLinha || !idsDoMes.has(linha.lancamentoId)) continue;
+    ids.add(linha.lancamentoId);
+  }
+  return [...ids];
+}
 function despesasForaDoPadrao(contas, lancamentos, lancamentoLinhas, periodosFechados, multiplicador = 2) {
   const mesesFechados = (periodosFechados || []).filter((p) => p.startsWith("mes:")).map((p) => p.slice(4));
   if (!mesesFechados.length) return [];
@@ -2106,7 +2130,15 @@ function despesasForaDoPadrao(contas, lancamentos, lancamentoLinhas, periodosFec
     for (const mes of mesesAbertos) {
       const atual = saldoDaContaNoMes(conta.id, mes, lancamentos, lancamentoLinhas);
       if (atual > media * multiplicador) {
-        achados.push({ tipo: "despesa_fora_padrao", contaId: conta.id, contaNome: conta.nome, mes, valor: atual, media });
+        achados.push({
+          tipo: "despesa_fora_padrao",
+          contaId: conta.id,
+          contaNome: conta.nome,
+          mes,
+          valor: atual,
+          media,
+          evidencia: idsDeContaNoMes(conta.id, "D", mes, lancamentos, lancamentoLinhas)
+        });
       }
     }
   }
@@ -2126,7 +2158,7 @@ function receitasSemDinheiro(contas, lancamentos, lancamentoLinhas) {
     if (!temReceita) continue;
     const temDinheiro = linhas.some((l) => CONTAS_DINHEIRO_OU_A_RECEBER.has(l.contaId));
     if (!temDinheiro) {
-      achados.push({ tipo: "receita_sem_dinheiro", lancamentoId: lanc.id, descricao: lanc.descricao, data: lanc.data });
+      achados.push({ tipo: "receita_sem_dinheiro", lancamentoId: lanc.id, descricao: lanc.descricao, data: lanc.data, evidencia: [lanc.id] });
     }
   }
   return achados;
@@ -2156,7 +2188,14 @@ function retiradaAcimaDoResultado(contas, lancamentos, lancamentoLinhas, periodo
   if (retirada <= 0) return [];
   const { resultado } = resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes);
   if (retirada <= resultado) return [];
-  return [{ tipo: "retirada_acima_do_resultado", mes, retirada, resultado, diferenca: Math.round((retirada - resultado) * 100) / 100 }];
+  return [{
+    tipo: "retirada_acima_do_resultado",
+    mes,
+    retirada,
+    resultado,
+    diferenca: Math.round((retirada - resultado) * 100) / 100,
+    evidencia: idsDeContaNoMes("retiradas_titular", "D", mes, lancamentos, lancamentoLinhas)
+  }];
 }
 function mercadoriaParadaComTerceiro(contas, lancamentos, lancamentoLinhas, hoje, diasMinimo = 15) {
   if (!contas.some((c) => c.id === "mercadoria_com_terceiros")) return [];
@@ -2164,7 +2203,9 @@ function mercadoriaParadaComTerceiro(contas, lancamentos, lancamentoLinhas, hoje
   if (saldo <= 0 || !desde) return [];
   const dias = diasEntre(desde, hoje);
   if (dias < diasMinimo) return [];
-  return [{ tipo: "mercadoria_parada_com_terceiro", valor: saldo, desde, dias }];
+  const porLancamento = new Map(lancamentos.map((l) => [l.id, l]));
+  const evidencia = lancamentoLinhas.filter((l) => l.contaId === "mercadoria_com_terceiros" && l.tipo === "D").filter((l) => (porLancamento.get(l.lancamentoId)?.data || "") >= desde).map((l) => l.lancamentoId);
+  return [{ tipo: "mercadoria_parada_com_terceiro", valor: saldo, desde, dias, evidencia: [...new Set(evidencia)] }];
 }
 function taxaEngolindoMargem(contas, lancamentos, lancamentoLinhas, mes, contaTaxaId, percentualLimite = 0.08) {
   if (!contaTaxaId || !contas.some((c) => c.id === contaTaxaId)) return [];
@@ -2174,7 +2215,15 @@ function taxaEngolindoMargem(contas, lancamentos, lancamentoLinhas, mes, contaTa
   if (receita <= 0) return [];
   const percentual = taxa / receita;
   if (percentual < percentualLimite) return [];
-  return [{ tipo: "taxa_engolindo_margem", mes, contaId: contaTaxaId, valor: taxa, receita, percentual: Math.round(percentual * 1e3) / 10 }];
+  return [{
+    tipo: "taxa_engolindo_margem",
+    mes,
+    contaId: contaTaxaId,
+    valor: taxa,
+    receita,
+    percentual: Math.round(percentual * 1e3) / 10,
+    evidencia: idsDeContaNoMes(contaTaxaId, "D", mes, lancamentos, lancamentoLinhas)
+  }];
 }
 function semReceitaNoPeriodo(contas, lancamentos, lancamentoLinhas, hoje, fracaoMinima = 0.4) {
   const mes = (hoje || "").slice(0, 7);
@@ -2195,6 +2244,15 @@ function semReceitaNoPeriodo(contas, lancamentos, lancamentoLinhas, hoje, fracao
   return [{ tipo: "sem_receita_no_periodo", mes, diasSemReceita, diaHoje, fracaoPercentual: Math.round(fracao * 100) }];
 }
 var CONTA_TAXA_POR_ARQUETIPO = { revenda: "taxa_maquininha", producao: "taxa_maquininha", digital: "taxa_plataforma" };
+var HIPOTESE_INOCENTE = {
+  mes_sem_movimento: "Pode ser um m\xEAs de neg\xF3cio sazonal parado de prop\xF3sito, ou um lan\xE7amento esquecido \u2014 vale perguntar antes de estranhar.",
+  despesa_fora_padrao: "Pode ser uma compra grande \xFAnica (equipamento, estoque, manuten\xE7\xE3o) que n\xE3o se repete todo m\xEAs, n\xE3o necessariamente um problema.",
+  receita_sem_dinheiro: "Pode ser corre\xE7\xE3o de um lan\xE7amento anterior, permuta ou venda com troca \u2014 nem toda receita sem contrapartida em dinheiro \xE9 erro.",
+  retirada_acima_do_resultado: "Pode ser uso de uma reserva de meses anteriores (ele guardou e agora est\xE1 usando), n\xE3o necessariamente insustent\xE1vel.",
+  mercadoria_parada_com_terceiro: "Pode ser um prazo de produ\xE7\xE3o normal, combinado com o parceiro \u2014 vale confirmar o prazo esperado antes de tratar como atraso.",
+  taxa_engolindo_margem: "Pode ser um m\xEAs de vendas totais baixas, o que infla o percentual sem a taxa em si ter mudado.",
+  sem_receita_no_periodo: "Pode ser f\xE9rias combinadas ou trabalho em andamento ainda n\xE3o faturado, n\xE3o necessariamente ociosidade."
+};
 function encontrarAchados(contas, lancamentos, lancamentoLinhas, periodosFechados, opcoes = {}) {
   const { arquetipo = null, hoje = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) } = opcoes;
   const achados = [];
@@ -2214,7 +2272,7 @@ function encontrarAchados(contas, lancamentos, lancamentoLinhas, periodosFechado
   if (declarados.includes("sem_receita_no_periodo")) {
     achados.push(...semReceitaNoPeriodo(contas, lancamentos, lancamentoLinhas, hoje));
   }
-  return achados;
+  return achados.map((a) => ({ ...a, hipoteseInocente: HIPOTESE_INOCENTE[a.tipo] || null }));
 }
 
 // src/telas/Revisao.jsx
@@ -2235,8 +2293,23 @@ function textoAchado(a) {
   if (a.tipo === "sem_receita_no_periodo") return `${a.diasSemReceita} de ${a.diaHoje} dias de ${fmtMes(a.mes)} sem nenhuma receita lan\xE7ada (${a.fracaoPercentual}%)`;
   return "";
 }
+function LinhaDeAchado({ a }) {
+  const [aberto, setAberto] = useState9(false);
+  const nEvidencia = a.evidencia?.length || 0;
+  return /* @__PURE__ */ React12.createElement("div", { className: "text-sm" }, /* @__PURE__ */ React12.createElement("div", { className: "flex items-start gap-2" }, /* @__PURE__ */ React12.createElement(AlertTriangle, { size: 15, style: { color: "var(--debit)", marginTop: 2, flexShrink: 0 } }), /* @__PURE__ */ React12.createElement("span", { style: { color: "var(--ink)" } }, textoAchado(a))), /* @__PURE__ */ React12.createElement("div", { className: "flex items-center gap-3 mt-1 ml-[23px]" }, nEvidencia > 0 && /* @__PURE__ */ React12.createElement("span", { className: "text-[10px]", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, nEvidencia, " lan\xE7amento", nEvidencia > 1 ? "s" : "", " \u2014 ver no Di\xE1rio"), a.hipoteseInocente && /* @__PURE__ */ React12.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => setAberto((v) => !v),
+      className: "text-[10px] inline-flex items-center gap-1 transition-opacity hover:opacity-70",
+      style: { color: "var(--muted)" }
+    },
+    /* @__PURE__ */ React12.createElement(HelpCircle3, { size: 10 }),
+    " pode n\xE3o ser problema?"
+  )), aberto && a.hipoteseInocente && /* @__PURE__ */ React12.createElement("div", { className: "text-xs mt-1.5 ml-[23px] rounded-md px-3 py-2 animate-[surgir_.2s_ease-out]", style: { background: "var(--accent-soft)", color: "var(--ink)" } }, a.hipoteseInocente));
+}
 function Achados({ achados }) {
-  return /* @__PURE__ */ React12.createElement(Card, { className: "mb-6" }, /* @__PURE__ */ React12.createElement("div", { className: "font-medium mb-3 flex items-center gap-2", style: { color: "var(--ink)" } }, /* @__PURE__ */ React12.createElement(Search, { size: 15 }), " Achados"), achados.length === 0 ? /* @__PURE__ */ React12.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nada fora do padr\xE3o encontrado.") : /* @__PURE__ */ React12.createElement("div", { className: "space-y-2" }, achados.map((a, i) => /* @__PURE__ */ React12.createElement("div", { key: i, className: "flex items-start gap-2 text-sm" }, /* @__PURE__ */ React12.createElement(AlertTriangle, { size: 15, style: { color: "var(--debit)", marginTop: 2, flexShrink: 0 } }), /* @__PURE__ */ React12.createElement("span", { style: { color: "var(--ink)" } }, textoAchado(a))))));
+  return /* @__PURE__ */ React12.createElement(Card, { className: "mb-6" }, /* @__PURE__ */ React12.createElement("div", { className: "font-medium mb-3 flex items-center gap-2", style: { color: "var(--ink)" } }, /* @__PURE__ */ React12.createElement(Search, { size: 15 }), " Achados"), achados.length === 0 ? /* @__PURE__ */ React12.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nada fora do padr\xE3o encontrado.") : /* @__PURE__ */ React12.createElement("div", { className: "space-y-3" }, achados.map((a, i) => /* @__PURE__ */ React12.createElement(LinhaDeAchado, { key: i, a }))));
 }
 function MesaChecks({ checks }) {
   return /* @__PURE__ */ React12.createElement(Card, { className: "mb-6" }, /* @__PURE__ */ React12.createElement("div", { className: "font-medium mb-3", style: { color: "var(--ink)" } }, "Mesa de Revis\xE3o"), /* @__PURE__ */ React12.createElement("div", { className: "space-y-2" }, checks.map((c, i) => /* @__PURE__ */ React12.createElement("div", { key: i, className: "flex items-start gap-2 text-sm" }, c.ok ? /* @__PURE__ */ React12.createElement(CheckCircle2, { size: 15, style: { color: "var(--credit)", marginTop: 2, flexShrink: 0 } }) : /* @__PURE__ */ React12.createElement(AlertTriangle, { size: 15, style: { color: "var(--debit)", marginTop: 2, flexShrink: 0 } }), /* @__PURE__ */ React12.createElement("div", null, /* @__PURE__ */ React12.createElement("span", { style: { color: "var(--ink)" } }, c.nome), /* @__PURE__ */ React12.createElement("span", { className: "text-xs ml-2", style: { color: c.ok ? "var(--muted)" : "var(--debit)" } }, c.detalhe))))));
@@ -2369,6 +2442,14 @@ function fmtDia(iso) {
   return `${d}/${m}`;
 }
 
+// src/dominio/evitados.mjs
+function totalEvitado(evitados) {
+  return Math.round((evitados || []).reduce((s, e) => s + (e.valorEstimado || 0), 0) * 100) / 100;
+}
+function evitadosDoMes(evitados, mes) {
+  return (evitados || []).filter((e) => e.mes === mes);
+}
+
 // src/telas/RetratoDoMes.jsx
 var fmt10 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtMes2 = (m) => {
@@ -2393,7 +2474,7 @@ function OQueVemPorAi({ lancamentos, lancamentoLinhas, recorrentes, recorrenteLi
   const corAviso = aviso?.gravidade === "aperto" ? "var(--debit)" : "var(--accent)";
   return /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "O que vem por a\xED \xB7 pr\xF3ximos 60 dias"), aviso ? /* @__PURE__ */ React13.createElement(React13.Fragment, null, /* @__PURE__ */ React13.createElement("div", { className: "text-sm font-medium mb-1", style: { color: corAviso, lineHeight: 1.5 } }, aviso.frase), /* @__PURE__ */ React13.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, aviso.oQueFazer)) : /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-3", style: { color: "var(--ink)" } }, "O caixa se mant\xE9m positivo no per\xEDodo \u2014 o menor ponto \xE9 ", fmt10(fluxo.menorSaldo.saldo), "."), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt10(fluxo.saldoHoje), " em caixa e banco hoje"), fluxo.entram > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt10(fluxo.entram), " a receber com vencimento no per\xEDodo"), fluxo.saem > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt10(fluxo.saem), " a pagar e contas fixas no per\xEDodo")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "S\xF3 entra o que j\xE1 est\xE1 prometido \u2014 venda futura n\xE3o registrada n\xE3o \xE9 contada, de prop\xF3sito."));
 }
-function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
+function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida, metaDoCliente }) {
   const cartaDoMes = cartas.find((c) => c.mes === mes);
   const [texto, setTexto] = useState10(cartaDoMes?.texto || "");
   const [confirmado, setConfirmado] = useState10(false);
@@ -2406,7 +2487,7 @@ function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
     setConfirmado(true);
     setTimeout(() => setConfirmado(false), 2e3);
   };
-  return /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Carta de recomenda\xE7\xF5es"), pendente && /* @__PURE__ */ React13.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--accent-soft)", color: "var(--accent)" } }, /* @__PURE__ */ React13.createElement("div", { className: "mb-2" }, "A recomenda\xE7\xE3o de ", fmtMes2(pendente.mes), " foi seguida? ", /* @__PURE__ */ React13.createElement("em", null, '"', pendente.texto, '"')), /* @__PURE__ */ React13.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React13.createElement("button", { onClick: () => onAvaliarSeguida(pendente.mes, true), className: "text-xs px-2 py-1 rounded transition-opacity hover:opacity-70", style: { background: "var(--credit-soft)", color: "var(--credit)" } }, "Sim"), /* @__PURE__ */ React13.createElement("button", { onClick: () => onAvaliarSeguida(pendente.mes, false), className: "text-xs px-2 py-1 rounded transition-opacity hover:opacity-70", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, "N\xE3o"))), /* @__PURE__ */ React13.createElement(
+  return /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Carta de recomenda\xE7\xF5es"), pendente && /* @__PURE__ */ React13.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--accent-soft)", color: "var(--accent)" } }, /* @__PURE__ */ React13.createElement("div", { className: "mb-2" }, "A recomenda\xE7\xE3o de ", fmtMes2(pendente.mes), " foi seguida? ", /* @__PURE__ */ React13.createElement("em", null, '"', pendente.texto, '"')), /* @__PURE__ */ React13.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React13.createElement("button", { onClick: () => onAvaliarSeguida(pendente.mes, true), className: "text-xs px-2 py-1 rounded transition-opacity hover:opacity-70", style: { background: "var(--credit-soft)", color: "var(--credit)" } }, "Sim"), /* @__PURE__ */ React13.createElement("button", { onClick: () => onAvaliarSeguida(pendente.mes, false), className: "text-xs px-2 py-1 rounded transition-opacity hover:opacity-70", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, "N\xE3o"))), metaDoCliente && /* @__PURE__ */ React13.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--rule-faint)", color: "var(--muted)", lineHeight: 1.6 } }, "A meta que ele contou l\xE1 no in\xEDcio: ", /* @__PURE__ */ React13.createElement("em", null, '"', metaDoCliente, '"'), " \u2014 vale olhar se a recomenda\xE7\xE3o deste m\xEAs aproxima ou afasta disso."), /* @__PURE__ */ React13.createElement(
     "textarea",
     {
       value: texto,
@@ -2417,6 +2498,23 @@ function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
       style: { borderColor: "var(--rule-faint)", background: "var(--paper)", color: "var(--ink)" }
     }
   ), /* @__PURE__ */ React13.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React13.createElement(Button, { small: true, onClick: salvar }, "Salvar carta"), confirmado && /* @__PURE__ */ React13.createElement("span", { className: "text-xs", style: { color: "var(--credit)" } }, "Salvo.")));
+}
+function OQueEvitamos({ mes, evitados, onAdicionar }) {
+  const [descricao, setDescricao] = useState10("");
+  const [valor, setValor] = useState10("");
+  const [confirmado, setConfirmado] = useState10(false);
+  const doMes = useMemo7(() => evitadosDoMes(evitados, mes), [evitados, mes]);
+  const total = useMemo7(() => totalEvitado(evitados), [evitados]);
+  const adicionar = () => {
+    if (!descricao.trim()) return;
+    const v = parseFloat(String(valor).replace(",", "."));
+    onAdicionar(mes, descricao.trim(), Number.isFinite(v) && v > 0 ? v : null);
+    setDescricao("");
+    setValor("");
+    setConfirmado(true);
+    setTimeout(() => setConfirmado(false), 2e3);
+  };
+  return /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "flex items-center justify-between mb-2 flex-wrap gap-1" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "O que evitamos"), total > 0 && /* @__PURE__ */ React13.createElement("div", { className: "text-xs", style: { color: "var(--credit)" } }, fmt10(total), " evitado desde o in\xEDcio")), doMes.length > 0 && /* @__PURE__ */ React13.createElement("div", { className: "space-y-1.5 mb-3" }, doMes.map((e) => /* @__PURE__ */ React13.createElement("div", { key: e.id, className: "text-sm flex items-start justify-between gap-2", style: { color: "var(--ink)" } }, /* @__PURE__ */ React13.createElement("span", null, e.descricao), e.valorEstimado > 0 && /* @__PURE__ */ React13.createElement("span", { className: "shrink-0", style: { color: "var(--credit)" } }, fmt10(e.valorEstimado))))), /* @__PURE__ */ React13.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React13.createElement(Input, { placeholder: "ex.: evitou comprar equipamento sem precisar", value: descricao, onChange: (e) => setDescricao(e.target.value), className: "flex-[2]" }), /* @__PURE__ */ React13.createElement(Input, { money: true, placeholder: "valor (opcional)", value: valor, onChange: (e) => setValor(e.target.value), className: "flex-1" })), /* @__PURE__ */ React13.createElement("div", { className: "flex items-center gap-3 mt-2" }, /* @__PURE__ */ React13.createElement(Button, { small: true, onClick: adicionar, disabled: !descricao.trim() }, "Registrar"), confirmado && /* @__PURE__ */ React13.createElement("span", { className: "text-xs", style: { color: "var(--credit)" } }, "Registrado.")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-2", style: { color: "var(--muted)" } }, "A transforma\xE7\xE3o que impede um erro n\xE3o deixa rastro sozinha \u2014 registrar aqui \xE9 o que permite mostrar isso daqui a um ano."));
 }
 function AvisoAprofundamento({ quantidade, onAbrir }) {
   if (!quantidade) return null;
@@ -2435,7 +2533,7 @@ function AvisoAprofundamento({ quantidade, onAbrir }) {
     /* @__PURE__ */ React13.createElement("span", { style: { color: "var(--accent)" } }, "Ver no Roteiro \u2192")
   );
 }
-function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, onSalvarCarta, onAvaliarCartaSeguida, pendentesDeAprofundamento: pendentesDeAprofundamento2, onAbrirRoteiro }) {
+function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, evitados, onSalvarCarta, onAvaliarCartaSeguida, onAdicionarEvitado, metaDoCliente, pendentesDeAprofundamento: pendentesDeAprofundamento2, onAbrirRoteiro }) {
   const mesesComMovimento = useMemo7(() => {
     const meses = new Set(lancamentos.map((l) => (l.data || "").slice(0, 7)).filter(Boolean));
     return [...meses].sort().reverse();
@@ -2465,7 +2563,7 @@ function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodos
       recorrentes,
       recorrenteLinhas
     }
-  ), /* @__PURE__ */ React13.createElement(CartaDeRecomendacoes, { mes, cartas, onSalvar: onSalvarCarta, onAvaliarSeguida: onAvaliarCartaSeguida }), /* @__PURE__ */ React13.createElement("div", { className: "text-[10px] text-center", style: { color: "var(--muted)" } }, "Relat\xF3rio gerencial \u2014 n\xE3o \xE9 pe\xE7a cont\xE1bil oficial assinada."));
+  ), /* @__PURE__ */ React13.createElement(CartaDeRecomendacoes, { mes, cartas, onSalvar: onSalvarCarta, onAvaliarSeguida: onAvaliarCartaSeguida, metaDoCliente }), /* @__PURE__ */ React13.createElement(OQueEvitamos, { mes, evitados, onAdicionar: onAdicionarEvitado }), /* @__PURE__ */ React13.createElement("div", { className: "text-[10px] text-center", style: { color: "var(--muted)" } }, "Relat\xF3rio gerencial \u2014 n\xE3o \xE9 pe\xE7a cont\xE1bil oficial assinada."));
 }
 
 // src/telas/PlanoContas.jsx
@@ -2672,7 +2770,7 @@ function Baixas({ contas, lancamentoLinhas, onDarBaixa }) {
 
 // src/telas/Roteiro.jsx
 import React18, { useMemo as useMemo11, useState as useState15 } from "react";
-import { HelpCircle as HelpCircle3 } from "lucide-react";
+import { HelpCircle as HelpCircle4 } from "lucide-react";
 var NOMES_BLOCO2 = {
   1: "Quem \xE9",
   2: "Como o dinheiro anda",
@@ -2691,7 +2789,7 @@ function PorQueImporta2({ texto }) {
       className: "text-[10px] inline-flex items-center gap-1 transition-opacity hover:opacity-70",
       style: { color: "var(--muted)" }
     },
-    /* @__PURE__ */ React18.createElement(HelpCircle3, { size: 11 }),
+    /* @__PURE__ */ React18.createElement(HelpCircle4, { size: 11 }),
     " por que isso importa?"
   ), aberto && /* @__PURE__ */ React18.createElement("div", { className: "text-xs mt-1.5 rounded-md px-3 py-2 animate-[surgir_.2s_ease-out]", style: { background: "var(--accent-soft)", color: "var(--ink)" } }, texto));
 }
@@ -2806,7 +2904,7 @@ function medidoAgora(contas, lancamentos, lancamentoLinhas, periodosFechados) {
     mesReferencia
   };
 }
-function linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas }) {
+function linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, evitados }) {
   const eventos = [];
   if (negocio?.retrato_de_entrada) {
     eventos.push({ tipo: "abertura", data: negocio.retrato_de_entrada.capturadoEm, retrato: negocio.retrato_de_entrada });
@@ -2814,7 +2912,8 @@ function linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodos
   for (const mes of mesesFechadosDe(periodosFechados)) {
     const resultado = resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes);
     const carta = (cartas || []).find((c) => c.mes === mes) || null;
-    eventos.push({ tipo: "mes", data: `${mes}-01`, mes, resultado, carta });
+    const evitadosDoMesEvento = (evitados || []).filter((e) => e.mes === mes);
+    eventos.push({ tipo: "mes", data: `${mes}-01`, mes, resultado, carta, evitados: evitadosDoMesEvento });
   }
   return eventos.sort((a, b) => (a.data || "").localeCompare(b.data || ""));
 }
@@ -2835,14 +2934,14 @@ function EventoAbertura({ retrato }) {
   const d = retrato.declarado || {};
   return /* @__PURE__ */ React19.createElement(Card, { className: "mb-3", pad: "apertado" }, /* @__PURE__ */ React19.createElement("div", { className: "flex items-center gap-2 mb-1.5" }, /* @__PURE__ */ React19.createElement(Sparkles, { size: 13, style: { color: "var(--accent)" } }), /* @__PURE__ */ React19.createElement("span", { className: "text-xs font-medium", style: { color: "var(--ink)" } }, "In\xEDcio \u2014 ", fmtData7(retrato.capturadoEm))), /* @__PURE__ */ React19.createElement("div", { className: "text-xs", style: { color: "var(--muted)", lineHeight: 1.6 } }, d.faturamentoMensal != null && /* @__PURE__ */ React19.createElement(React19.Fragment, null, "Disse que faturava ", fmt13(d.faturamentoMensal), "/m\xEAs. "), d.retiradaMensal != null && /* @__PURE__ */ React19.createElement(React19.Fragment, null, "Disse que tirava ", fmt13(d.retiradaMensal), "/m\xEAs. "), d.meta && /* @__PURE__ */ React19.createElement(React19.Fragment, null, 'Meta: "', d.meta, '". '), d.oQueIncomoda && /* @__PURE__ */ React19.createElement(React19.Fragment, null, 'O que incomodava: "', d.oQueIncomoda, '".')));
 }
-function EventoMes({ mes, resultado, carta }) {
+function EventoMes({ mes, resultado, carta, evitados }) {
   const positivo = resultado.resultado >= 0;
-  return /* @__PURE__ */ React19.createElement(Card, { className: "mb-3", pad: "apertado" }, /* @__PURE__ */ React19.createElement("div", { className: "flex items-center justify-between mb-1.5" }, /* @__PURE__ */ React19.createElement("span", { className: "text-xs font-medium capitalize", style: { color: "var(--ink)" } }, fmtMes3(mes)), /* @__PURE__ */ React19.createElement("span", { className: "text-xs font-medium", style: { color: positivo ? "var(--credit)" : "var(--debit)" } }, positivo ? "sobrou" : "faltou", " ", fmt13(Math.abs(resultado.resultado)))), carta?.texto ? /* @__PURE__ */ React19.createElement("div", { className: "text-xs flex items-start gap-1.5", style: { color: "var(--muted)", lineHeight: 1.6 } }, /* @__PURE__ */ React19.createElement(FileText, { size: 12, style: { marginTop: 2, flexShrink: 0 } }), /* @__PURE__ */ React19.createElement("span", null, '"', carta.texto, '" ', /* @__PURE__ */ React19.createElement(SeloSeguida, { seguida: carta.seguida }))) : /* @__PURE__ */ React19.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, "Sem carta registrada neste m\xEAs."));
+  return /* @__PURE__ */ React19.createElement(Card, { className: "mb-3", pad: "apertado" }, /* @__PURE__ */ React19.createElement("div", { className: "flex items-center justify-between mb-1.5" }, /* @__PURE__ */ React19.createElement("span", { className: "text-xs font-medium capitalize", style: { color: "var(--ink)" } }, fmtMes3(mes)), /* @__PURE__ */ React19.createElement("span", { className: "text-xs font-medium", style: { color: positivo ? "var(--credit)" : "var(--debit)" } }, positivo ? "sobrou" : "faltou", " ", fmt13(Math.abs(resultado.resultado)))), carta?.texto ? /* @__PURE__ */ React19.createElement("div", { className: "text-xs flex items-start gap-1.5", style: { color: "var(--muted)", lineHeight: 1.6 } }, /* @__PURE__ */ React19.createElement(FileText, { size: 12, style: { marginTop: 2, flexShrink: 0 } }), /* @__PURE__ */ React19.createElement("span", null, '"', carta.texto, '" ', /* @__PURE__ */ React19.createElement(SeloSeguida, { seguida: carta.seguida }))) : /* @__PURE__ */ React19.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, "Sem carta registrada neste m\xEAs."), evitados?.length > 0 && /* @__PURE__ */ React19.createElement("div", { className: "text-xs mt-1.5 space-y-0.5", style: { color: "var(--credit)", lineHeight: 1.6 } }, evitados.map((e) => /* @__PURE__ */ React19.createElement("div", { key: e.id }, "evitou: ", e.descricao, e.valorEstimado > 0 ? ` (${fmt13(e.valorEstimado)})` : ""))));
 }
-function Memoria({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas }) {
+function Memoria({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, evitados }) {
   const eventos = useMemo12(
-    () => linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas }),
-    [negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas]
+    () => linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, evitados }),
+    [negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, evitados]
   );
   const comparacao = useMemo12(() => {
     if (!negocio?.retrato_de_entrada) return [];
@@ -2852,7 +2951,7 @@ function Memoria({ negocio, contas, lancamentos, lancamentoLinhas, periodosFecha
   if (!eventos.length) {
     return /* @__PURE__ */ React19.createElement(Card, { className: "text-center py-10" }, /* @__PURE__ */ React19.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Ainda n\xE3o h\xE1 hist\xF3ria para contar."), /* @__PURE__ */ React19.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)" } }, "Aparece aqui assim que houver um retrato de entrada ou o primeiro m\xEAs fechado."));
   }
-  return /* @__PURE__ */ React19.createElement("div", null, comparacao.length > 0 && /* @__PURE__ */ React19.createElement(Card, { className: "mb-4", style: { background: "linear-gradient(160deg, var(--surface), var(--paper))" } }, /* @__PURE__ */ React19.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Desde que come\xE7amos"), /* @__PURE__ */ React19.createElement("div", { className: "space-y-2" }, comparacao.map((a, i) => /* @__PURE__ */ React19.createElement("div", { key: i, className: "text-sm", style: { color: "var(--ink)", lineHeight: 1.6 } }, a.frase)))), /* @__PURE__ */ React19.createElement("div", null, eventos.map((ev, i) => ev.tipo === "abertura" ? /* @__PURE__ */ React19.createElement(EventoAbertura, { key: i, retrato: ev.retrato }) : /* @__PURE__ */ React19.createElement(EventoMes, { key: i, mes: ev.mes, resultado: ev.resultado, carta: ev.carta }))));
+  return /* @__PURE__ */ React19.createElement("div", null, comparacao.length > 0 && /* @__PURE__ */ React19.createElement(Card, { className: "mb-4", style: { background: "linear-gradient(160deg, var(--surface), var(--paper))" } }, /* @__PURE__ */ React19.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Desde que come\xE7amos"), /* @__PURE__ */ React19.createElement("div", { className: "space-y-2" }, comparacao.map((a, i) => /* @__PURE__ */ React19.createElement("div", { key: i, className: "text-sm", style: { color: "var(--ink)", lineHeight: 1.6 } }, a.frase)))), /* @__PURE__ */ React19.createElement("div", null, eventos.map((ev, i) => ev.tipo === "abertura" ? /* @__PURE__ */ React19.createElement(EventoAbertura, { key: i, retrato: ev.retrato }) : /* @__PURE__ */ React19.createElement(EventoMes, { key: i, mes: ev.mes, resultado: ev.resultado, carta: ev.carta, evitados: ev.evitados }))));
 }
 
 // src/dominio/recorrentes.mjs
@@ -3128,6 +3227,13 @@ function Livro({ negocio, onVoltar }) {
       trilha: [...prev.trilha, { tipo: "carta_avaliada", descricao: `Carta de ${mes}: ${seguida ? "seguida" : "n\xE3o seguida"}` }]
     }));
   }, []);
+  const adicionarEvitado = useCallback2((mes, descricao, valorEstimado) => {
+    setEstado((prev) => ({
+      ...prev,
+      evitados: [...prev.evitados, { id: uid6(), mes, descricao, valorEstimado: valorEstimado || null }],
+      trilha: [...prev.trilha, { tipo: "evitado", descricao }]
+    }));
+  }, []);
   const darBaixa = useCallback2((linhaOriginal, contaTransitoId, data) => {
     if (mesEstaFechado(data)) {
       setErro(`O m\xEAs de ${mesDe(data)} j\xE1 est\xE1 fechado \u2014 reabra na aba Revis\xE3o antes de dar baixa.`);
@@ -3262,8 +3368,11 @@ function Livro({ negocio, onVoltar }) {
       cartas: estado.cartas,
       recorrentes: estado.recorrentes,
       recorrenteLinhas: estado.recorrenteLinhas,
+      evitados: estado.evitados,
       onSalvarCarta: salvarCarta,
       onAvaliarCartaSeguida: avaliarCartaSeguida,
+      onAdicionarEvitado: adicionarEvitado,
+      metaDoCliente: roteiro ? respostaPorDestino(roteiro.perguntas, roteiro.respostasPorPerguntaId, "carta.meta") : null,
       pendentesDeAprofundamento: roteiro ? pendentesDeAprofundamento(roteiro.perguntas, roteiro.respostasPorPerguntaId, { tipo: negocio.tipo, arquetipo: negocio.arquetipo }).length : 0,
       onAbrirRoteiro: () => setAba("roteiro")
     }
@@ -3275,7 +3384,8 @@ function Livro({ negocio, onVoltar }) {
       lancamentos: estado.lancamentos,
       lancamentoLinhas: estado.lancamentoLinhas,
       periodosFechados: estado.periodosFechados,
-      cartas: estado.cartas
+      cartas: estado.cartas,
+      evitados: estado.evitados
     }
   ), aba === "roteiro" && (roteiro ? /* @__PURE__ */ React20.createElement(Roteiro, { negocio, perguntas: roteiro.perguntas, respostasPorPerguntaId: roteiro.respostasPorPerguntaId, onSalvarResposta: salvarRespostaRoteiro }) : /* @__PURE__ */ React20.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026")), aba === "plano" && /* @__PURE__ */ React20.createElement(PlanoContas, { contas: estado.contas, onAdicionar: adicionarConta, onAlternarAtiva: alternarAtivaConta }), aba === "recorrentes" && /* @__PURE__ */ React20.createElement(
     Recorrentes,
