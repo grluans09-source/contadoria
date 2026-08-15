@@ -90,11 +90,33 @@ hora.
 *Argumento de venda:* não é sermão, é número. *"Você tirou R$ 4.100 esse mês, e o negócio
 gerou R$ 2.800."* O número faz o sermão sozinho, e melhor.
 
+**💎 O retrato de entrada** — a prova que se constrói sozinha, e que nenhum concorrente tem
+como copiar.
+
+No dia em que ele vira cliente, uma das perguntas é *"quanto você acha que tira por mês?"* —
+e a resposta fica **congelada**, para sempre, do jeito que ele disse (write-once,
+`DECISOES.md` F3). Meses depois, o sistema compara com o que foi **medido**. A frase que sai
+disso é a mais forte que você vai dizer no ano inteiro:
+
+> *"Quando começamos, você me disse que tirava R$ 2.000,00 por mês. O que os números mostram
+> é R$ 4.100,00 — R$ 2.100,00 a mais do que você imaginava."*
+
+*Argumento de venda:* nenhum contador de planilha tem isso, porque ninguém mais **congela o
+que o cliente acreditava antes de existir medição**. É a prova de que o serviço muda alguma
+coisa — não só organiza. E o embrião dela já pode nascer no próprio Diagnóstico Gratuito
+(§5.3).
+
 ---
 
 # 3 · Os quatro segmentos — quem atacar primeiro
 
 Ordenados por **facilidade de fechar × valor**, não por tamanho de mercado.
+
+**Estes quatro são sobre a SITUAÇÃO do dinheiro dele — perto do limite, conta misturada,
+com funcionário, informal. Cruzam com o que o negócio FAZ (os 8 arquétipos,
+`10_MANUAL_DE_OPERACAO.md` §2).** Um "MEI de conta misturada" pode ser revenda ou pode ser
+eletricista — o segmento decide **quando** ele fecha e **quanto** ele paga; o arquétipo decide
+**qual dor específica** você usa no gancho. Ver §3.5.
 
 ## 3.1 🔥 MEI perto do limite de faturamento — **prioridade máxima**
 
@@ -138,6 +160,26 @@ Ordenados por **facilidade de fechar × valor**, não por tamanho de mercado.
 - **Preço:** faixa de entrada
 - **Bônus estratégico:** quando ele formaliza, você já é o contador dele. É o cliente que
   cresce com você.
+
+## 3.5 O gancho por arquétipo — a dor específica de cada tipo de negócio
+
+Depois de identificar o segmento (§3.1-3.4), o arquétipo (`10_MANUAL_DE_OPERACAO.md` §2) dá o
+gancho certo para a conversa — a pergunta esquisita que já mostra que você entende o negócio
+dele, não só "gente que mexe com dinheiro":
+
+| Arquétipo | O gancho |
+|---|---|
+| **Revenda** | *"Você sabe quanto tem parado na prateleira agora, em mercadoria que não vendeu?"* |
+| **Produção própria** | *"Você já calculou quanto de insumo entra em cada [salgado/bolo/peça]? A maioria descobre que vende no prejuízo em algum item."* |
+| **Serviço com mão de obra** | *"Você cobra o deslocamento até o cliente? A maioria não cobra — e é dinheiro saindo do seu bolso a cada visita."* |
+| **Serviço recorrente** | *"Você sabe se algum cliente seu está atrasando a mensalidade sem você perceber?"* |
+| **Digital** | *"Você já somou quanto a plataforma desconta antes do dinheiro cair na sua conta?"* |
+| **Beneficiamento** | *"Você sabe quanto de mercadoria sua está com terceiro agora mesmo, fora da sua mão?"* |
+| **Intermediação** | *"Você sabe separar, no que cai na sua conta, o que é seu de comissão e o que é só repasse?"* |
+| **Locação** | *"Você sabe quantos dias por mês cada equipamento seu fica parado sem alugar?"* |
+
+Cada gancho vira achado real no primeiro Diagnóstico — não é retórica de venda, é a mesma
+pergunta que o Roteiro do Cliente Novo faz depois (`05_ROTEIRO_DO_SERVICO.md` §4, Bloco 4).
 
 ---
 
@@ -257,13 +299,21 @@ negócio dele.
 > uma página com os seus números e te mostro. Sem compromisso, sem custo — se você gostar, a
 > gente conversa; se não, ficou a página."*
 
-**Passo 2 — rode no sistema.** Cadastre o negócio, faça o balanço de abertura simplificado,
+**Passo 2 — antes de abrir qualquer número, pergunte e anote.** *"Antes de eu te mostrar,
+deixa eu te perguntar: quanto você acha que faturou? E quanto acha que sobrou pra você?"*
+Anote a resposta dele **na frente dele** — é o mesmo movimento que o sistema faz de verdade
+no retrato de entrada (§2.2, 💎), só que manual. É o que transforma o número que você vai
+mostrar em **comparação**, não em informação solta.
+
+**Passo 3 — rode no sistema.** Cadastre o negócio, faça o balanço de abertura simplificado,
 classifique o mês, feche, gere o Retrato.
 
-**Passo 3 — entregue pessoalmente ou por chamada.** Nunca só mande o arquivo. Use o roteiro:
-o que aconteceu → para onde foi o que sobrou → uma coisa boa → uma coisa para arrumar.
+**Passo 4 — entregue pessoalmente ou por chamada.** Nunca só mande o arquivo. Use o roteiro:
+o que aconteceu → para onde foi o que sobrou → **a comparação com o que ele tinha chutado no
+Passo 2** → uma coisa boa → uma coisa para arrumar. A comparação é o momento mais forte da
+conversa inteira — é ela que costuma virar *"e se eu quiser isso todo mês?"*.
 
-**Passo 4 — o fechamento natural:**
+**Passo 5 — o fechamento natural:**
 > *"Isso é o que eu te mando todo mês. São R$ 180, e inclui [o que está no plano]. Quer
 > começar mês que vem?"*
 
@@ -365,10 +415,18 @@ você devolve ME. Vale uma conversa presencial e um combinado claro.
 
 ## 7.2 Apresentando o diagnóstico
 
+> *"Antes de eu te mostrar — quanto você acha que faturou mês passado? E quanto acha que
+> sobrou pra você?"*
+>
+> *(ele responde um chute — anote na frente dele)*
+>
 > *"Deixa eu te contar o que eu vi antes de mostrar o número.*
 >
 > *No mês passado entrou R$ X e saiu R$ Y — sobrou R$ Z. Mas olha aqui: o dinheiro na conta
 > não subiu R$ Z, subiu R$ W. A diferença foi pra [estoque / dívida / retirada].*
+>
+> *E lembra do que você chutou? Você disse R$ [chute]. O real foi R$ [medido] —
+> [mais/menos] do que você imaginava.*
 >
 > *Uma coisa boa: [algo real e positivo].*
 >
@@ -376,6 +434,9 @@ você devolve ME. Vale uma conversa presencial e um combinado claro.
 >
 > *E esse aqui é o número que quase ninguém te dá: com o que você tem hoje e o que vence nos
 > próximos 30 dias, dá pra tirar R$ N sem apertar o mês que vem."*
+>
+> A comparação entre o chute e o medido é a que mais fica na cabeça dele — é a mesma peça que
+> vira o **retrato de entrada** se ele fechar como cliente (§2.2, 💎).
 
 ## 7.3 Fechamento
 

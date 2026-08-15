@@ -44,56 +44,168 @@ cliente enxergar os três é, sozinho, metade do seu valor.
 
 ---
 
-# 2 · Os quatro públicos que você atende
+# 2 · Os oito arquétipos — o que cada negócio precisa que os outros não precisam
 
-O sistema atende os quatro. O que muda é o tempo, o preço e a conversa.
+**O sistema não trata todo cliente igual.** Ao cadastrar o negócio, você escolhe **o que ele
+faz para ganhar dinheiro** — um dos **8 arquétipos** (`src/dominio/arquetipos.mjs`). Essa
+escolha decide três coisas antes de qualquer conversa: **o plano de contas** que nasce com o
+cliente, **quais campos aparecem no balanço de abertura** e **quais perguntas extras entram
+no roteiro**. Sem ela, o eletricista receberia "Estoque" e não receberia "Material aplicado"
+— o erro que os arquétipos existem para corrigir.
 
-## 2.1 MEI organizado
+**Os 8 são dados, não 8 caminhos de código.** A variação entre uma loja e um eletricista é de
+conteúdo (quais contas, quais perguntas, qual achado), não de lógica — por isso um nono
+arquétipo se acrescenta sem tocar em tela nenhuma. Este capítulo é o guia de campo: o que
+perguntar, o que aparece no plano de contas, e qual costuma ser a dor de cada um.
 
-Conta PJ separada, exporta extrato, emite nota para empresa.
+## 2.1 Revenda
 
-- **Dor:** sabe que está formalizado, mas não sabe se está lucrando. Sente que trabalha muito
-  e sobra pouco.
-- **O que muda no atendimento:** importa o extrato, a classificação já vem sugerida, a
-  conciliação é quase automática. Você consegue dizer com autoridade: *"o que você me contou
-  bate com o banco"*.
-- **Tempo estimado:** 30 a 45 min/mês.
-- **É o cliente mais lucrativo por hora.** Trate bem e peça indicação.
+**Exemplos:** loja, sacoleira, distribuidora, revenda online, mercadinho.
 
-## 2.2 MEI de conta misturada — **o mais comum**
+- **O que perguntar:** quanto ele paga pelo que revende em relação ao preço de venda (a
+  margem bruta); tem mercadoria parada há muito tempo; e no balanço de abertura, quanto vale
+  a mercadoria parada hoje.
+- **Contas que aparecem:** Estoque de mercadorias, Venda de mercadorias, CMV, Frete sobre
+  compras.
+- **Dor típica:** a taxa da maquininha comendo a margem em silêncio, e mercadoria parada —
+  dinheiro preso na prateleira que quase ninguém enxerga como dinheiro.
 
-Uma conta só, pessoal e do negócio no mesmo lugar.
+## 2.2 Produção própria
 
-- **Dor:** não faz ideia de quanto o negócio realmente dá, porque nunca separou.
-- **O que muda:** cada linha do extrato exige uma decisão a mais — *é da empresa ou é seu?*
-  Use o botão **"é pessoal, ignorar"** sem dó; ele existe exatamente para isso.
-- **Tempo estimado:** 45 a 75 min/mês.
-- **É aqui que mora sua maior entrega de consultoria.** No primeiro mês você vai mostrar um
-  número que ele nunca viu: quanto ele realmente tirou do negócio. Costuma ser o momento em
-  que o cliente entende para que você serve.
+**Exemplos:** salgados, bolos, marmita, costura, artesanato, marcenaria.
 
-## 2.3 Informal no dinheiro vivo — **o pior cenário, e o alvo padrão**
+- **O que perguntar:** quanto de insumo entra em cada produto (base do custo por unidade);
+  quanto ele perde por mês com quebra, sobra ou produto estragado; no balanço, o insumo
+  parado e o produto pronto ainda não vendido.
+- **Contas que aparecem:** Estoque de insumos, Produto pronto, Venda de produção própria,
+  Insumos e matéria-prima, Embalagem, Perda e quebra.
+- **Dor típica:** vender no prejuízo sem perceber — o preço não cobre o que ele gasta para
+  fazer — e perda que nunca é contabilizada, vira só "sumiço".
+
+## 2.3 Serviço com mão de obra
+
+**Exemplos:** eletricista, pedreiro, encanador, pintor, mecânico, consertos, diarista.
+
+- **O que perguntar:** se ele cobra o deslocamento até o cliente; se o material é por conta
+  dele ou o cliente compra; quantos dias por mês ele fica sem serviço nenhum. No balanço,
+  material já comprado para um serviço que ainda não aconteceu (é adiantamento, não despesa).
+- **Contas que aparecem:** Prestação de serviços, Material cobrado do cliente, Material
+  aplicado em serviço, Ferramentas e manutenção, Deslocamento, Ajudante/diária de terceiro.
+- **Dor típica:** trabalhar muito e não sobrar — dia parado é custo fixo correndo sem
+  receita, e deslocamento não cobrado é pagar para trabalhar.
+
+## 2.4 Serviço recorrente
+
+**Exemplos:** manutenção mensal, limpeza, aulas, mensalista, assessoria.
+
+- **O que perguntar:** quantos clientes fixos ele tem hoje e quanto cada um paga; se costuma
+  ter cliente atrasando a mensalidade.
+- **Contas que aparecem:** Mensalidades, Serviços avulsos.
+- **Dor típica:** inadimplência silenciosa — o faturamento parece igual, mas o dinheiro não
+  entra — e dependência de poucos clientes fixos, que quebra o mês se um sair.
+
+## 2.5 Digital / online
+
+**Exemplos:** infoproduto, sistema, freelancer digital, social media, e-commerce próprio.
+
+- **O que perguntar:** por qual plataforma ele vende e qual a taxa dela; quanto do
+  faturamento é recorrente (assinatura) e quanto é venda avulsa; se gasta com anúncio. No
+  balanço, dinheiro parado em plataforma (Hotmart, Mercado Pago, PagSeguro…) — já é dele, só
+  ainda não caiu na conta.
+- **Contas que aparecem:** Saldo em plataforma, Vendas online, Assinaturas, Taxa de
+  plataforma, Anúncios e tráfego pago, Ferramentas e assinaturas de software.
+- **Dor típica:** a taxa da plataforma é a despesa mais fácil de esquecer, porque já vem
+  descontada do valor que cai na conta — ele nunca a vê sair.
+
+## 2.6 Beneficiamento / terceirização
+
+**Exemplos:** manda tecido para costureira, peça para pintura, madeira para corte, facção.
+
+- **O que perguntar:** quanto tempo a mercadoria costuma ficar com o terceiro; se costuma ter
+  perda ou peça que volta com defeito. No balanço, quanto está na mão de terceiro agora **e**
+  quanto já voltou e está parado com ele.
+- **Contas que aparecem:** Estoque de mercadorias, **Mercadoria com terceiros**, Venda de
+  mercadorias, CMV, Serviço de terceiros, Perda no beneficiamento.
+- **Dor típica:** mercadoria com terceiro é dele, mas não está com ele — se sumir ou
+  estragar, a perda é dele, e quase ninguém controla quanto tem parado lá fora.
+
+## 2.7 Intermediação / comissão
+
+**Exemplos:** representante, revendedor comissionado, corretor, dropshipping.
+
+- **O que perguntar:** se ele recebe o valor cheio e repassa, ou só recebe a comissão; qual o
+  percentual da comissão. ⚠️ Confirmar o enquadramento na legislação antes de orientar —
+  fica fora do que este manual resolve sozinho.
+- **Contas que aparecem:** Valores recebidos a repassar, Repasses a pagar, Comissões
+  recebidas.
+- **Dor típica:** confundir o valor bruto recebido com receita própria. Lançar o repasse como
+  receita infla o faturamento e pode disparar alarme falso do teto do MEI — o erro mais caro
+  do arquétipo.
+
+## 2.8 Locação
+
+**Exemplos:** aluguel de ferramenta, som, brinquedo, espaço, veículo.
+
+- **O que perguntar:** quantos dias por mês cada equipamento fica alugado, em média (a taxa
+  de ocupação); quanto ele gasta de manutenção por mês. No balanço, o valor aproximado de
+  hoje dos equipamentos que aluga.
+- **Contas que aparecem:** Equipamentos para locação, Aluguéis recebidos, Manutenção de
+  equipamentos, Seguro.
+- **Dor típica:** equipamento parado é capital investido sem retorno, e a manutenção costuma
+  comer boa parte da receita sem que ninguém meça isso contra ela.
+
+---
+
+## 2.9 O que cruza qualquer arquétipo, seja ele qual for
+
+Estas quatro situações não são sobre o que o negócio faz — são sobre **como o dinheiro dele
+se comporta**. Valem para qualquer um dos 8 acima.
+
+### Dinheiro misturado — o cenário mais comum
+
+Uma conta só (ou uma carteira só, para o informal), pessoal e negócio no mesmo lugar.
+
+- **O que perguntar:** "você usa o mesmo dinheiro para o negócio e para as suas coisas?" —
+  a pergunta mais importante do Bloco 2. Se sim, marca `negocios.dinheiro_misturado`.
+- **O que muda no sistema:** deixa de existir o botão **"é pessoal, ignorar"**. Na Caixa de
+  Entrada, cada gasto pessoal vira **Retirada**; dinheiro pessoal que entra na mesma conta
+  vira **Aporte**. Os dois são lançamentos reais, não anotação — é o que faz o saldo do livro
+  continuar batendo com a conta dele de verdade, e é o que revela, no fim do mês, **quanto
+  ele realmente tirou**.
+- **Como explicar pro cliente:** não é sermão, é aritmética. *"Como você usa a mesma conta
+  pra tudo, todo gasto seu que eu identificar no extrato eu registro como retirada — assim
+  no fim do mês eu consigo te dizer com precisão quanto o negócio te deu, mesmo estando tudo
+  misturado."* Se ele reagir mal a um número (*"eu tirei tanto assim?"*), o número faz o
+  sermão sozinho — não repreenda, mostre: *"você tirou R$ 4.100 esse mês, e o negócio gerou
+  R$ 2.800."*
+
+### Informal no dinheiro vivo
 
 Sem CNPJ, sem conta, sem nota. Manda áudio: *"hoje vendi 300"*.
 
 - **Dor:** nenhuma obrigação, nenhum risco fiscal — e nenhuma noção. Também: não vende para
   empresa, não emite nota, não contribui para o INSS.
 - **O que muda:** não há extrato para conciliar. Sua revisão vira **consistência interna**:
-  faltou um mês? a margem despencou sem explicação? tem despesa sem receita nenhuma?
-  Lançamentos viram resumo do dia/semana, não detalhe.
+  faltou um mês? a margem despencou sem explicação? tem despesa sem receita nenhuma? O
+  roteiro também muda — perguntas de MEI (data de abertura, atividade) somem, e entram outras
+  (vende para empresa? já pensou em abrir CNPJ?).
 - **Tempo estimado:** 20 a 40 min/mês. O custo aqui é **cobrar**, não digitar.
 - **A melhor consultoria que você vai prestar a ele:** *"vale a pena formalizar?"* — com
   número, não opinião. Guarde essa conversa para o 2º ou 3º mês, quando já tiver mostrado o
   faturamento real dele.
 
-## 2.4 MEI perto do limite, ou com funcionário
+### MEI perto do limite
 
-- **Perto do limite:** dor **real e urgente**. Estourar o teto em mais de 20% gera
-  desenquadramento retroativo a janeiro — uma conta de 12 meses de uma vez. Avisar em
-  setembro em vez de descobrir em fevereiro pode valer alguns milhares de reais para ele.
-- **Com funcionário:** entram folha, FGTS e eSocial. **O serviço fica bem maior — o preço
-  precisa acompanhar.** Trate como outro produto, não como o mesmo com um extra.
-- **Tempo:** variável, e sempre maior.
+Dor **real e urgente**. Estourar o teto em mais de 20% gera desenquadramento retroativo a
+janeiro — uma conta de 12 meses de uma vez. Avisar em setembro em vez de descobrir em
+fevereiro pode valer alguns milhares de reais para ele. O sistema projeta isso desde o
+primeiro mês, com o que a abertura já captura — não precisa esperar histórico
+(`src/dominio/valorDoTempo.mjs`; a Vigia do limite, §3.1).
+
+### MEI com funcionário
+
+Entram folha, FGTS e eSocial. **O serviço fica bem maior — o preço precisa acompanhar.**
+Trate como outro produto, não como o mesmo com um extra.
 
 ---
 
@@ -206,7 +318,14 @@ manda.
 ## 5.3 Roteiro do Cliente Novo
 
 Aparece automaticamente quando você abre um negócio recém-cadastrado. São **6 blocos** de
-perguntas que viram registro no sistema (detalhe operacional no §7).
+perguntas que viram registro no sistema — **adaptados ao tipo (MEI/informal) e ao arquétipo**
+do cliente, e separados em essencial (1ª conversa) e aprofundamento (meses seguintes).
+Detalhe operacional completo no §7; o roteiro em si está em `05_ROTEIRO_DO_SERVICO.md` §4.
+
+**Nem sempre precisa ser você digitando ao vivo.** Existe o **Formulário Público**: um link
+com token que você manda pelo WhatsApp, e o cliente responde sozinho, do celular, no tempo
+dele — retomável, válido por 30 dias. Cobre os Blocos 1 a 5; o combinado (Bloco 6) continua
+sendo sempre conversa, nunca formulário.
 
 ## 5.4 Caixa de Entrada — **onde vai 70% do seu tempo**
 
@@ -220,7 +339,8 @@ que ele falou por áudio e você digitou como resumo.
 | Ação | Quando usar |
 |---|---|
 | **Classificar** | o normal. O sistema **sugere** a conta se já aprendeu esse padrão antes |
-| **É pessoal, ignorar** | o botão do cenário de conta misturada. Use sem dó |
+| **É pessoal** *(cliente com conta separada)* | some da apuração — a transação é de uma conta que o livro não acompanha |
+| **Retirada / Aporte pessoal** *(cliente de dinheiro misturado)* | mesmo botão, rótulo e efeito diferentes: quando `negocios.dinheiro_misturado` está ligado, o item **não pode sumir** — vira lançamento real de Retirada (saiu) ou Aporte (entrou) do titular. Ver §2.9 |
 | **Não sei ainda** | vai para a pilha de dúvidas, para perguntar ao cliente tudo de uma vez |
 
 **O sistema aprende com você.** Se "POSTO IPIRANGA" virou Combustível três vezes, na quarta
@@ -254,8 +374,9 @@ sistema, como abertura e fechamento). Excluir manda para a lixeira — nada some
 
 ## 5.7 Plano de contas
 
-As gavetas onde as coisas são guardadas. Cada cliente tem o seu, criado a partir de um modelo
-de MEI/serviço com 31 contas.
+As gavetas onde as coisas são guardadas. Cada cliente tem o seu, criado a partir da base
+comum (~27 contas) mais o que o arquétipo escolhido acrescentou (capítulo 2) —
+`planoDeFabrica(arquetipo)` em `src/dominio/arquetipos.mjs`.
 
 Você pode **adicionar** conta nova e **ativar/desativar**. **Não existe excluir, de
 propósito:** uma conta com movimento não pode sumir sem quebrar o histórico — desativar tira
@@ -263,8 +384,11 @@ da lista de escolha sem apagar nada.
 
 ## 5.8 Recorrentes
 
-Contas que se repetem todo mês (aluguel, internet, mensalidade). Cadastre uma vez como
-template, e o botão **Gerar lançamentos do mês** materializa todos de uma vez.
+Contas que se repetem todo mês (aluguel, internet, mensalidade). **Já nascem cadastradas** a
+partir do Bloco 4 do Roteiro do Cliente Novo — o que ele te disse que paga todo mês vira
+template automaticamente, sem digitar de novo. O botão **Gerar lançamentos do mês**
+materializa todos de uma vez; você também pode cadastrar ou ajustar um template a qualquer
+momento, aqui.
 
 **Não duplica:** se você já gerou este mês, clicar de novo não faz nada. E o lançamento
 gerado pode ser editado normalmente — se a conta de energia veio diferente num mês, corrija
@@ -299,12 +423,22 @@ Quatro coisas numa tela:
 toda linha aponta para conta que existe · datas e valores válidos · sem lançamento duplicado ·
 todo lançamento fecha D=C · **a equação patrimonial fecha**.
 
-**Achados** — o que destoa, sem bloquear nada:
+**Achados** — o que destoa, sem bloquear nada. Universais, para qualquer cliente:
 - *mês sem movimento* — um buraco no meio do histórico
 - *despesa fora do padrão* — gasto do mês aberto muito acima da média dos meses fechados (só
   aparece quando já existe histórico fechado para comparar)
 - *receita sem dinheiro* — venda registrada sem entrar em caixa, banco, maquininha nem
   clientes
+- **retirada acima do resultado** — "você tirou R$ 4.100 e o negócio gerou R$ 2.800". Roda
+  desde o **dia 1**, sem precisar de mês fechado nem de histórico — é o achado mais forte do
+  sistema (`DECISOES.md` F0)
+
+Por arquétipo — só aparecem para quem se aplica (`DECISOES.md` F10):
+- **mercadoria parada com terceiro** *(beneficiamento)* — saldo parado há mais de 15 dias
+- **taxa engolindo margem** *(revenda, produção, digital)* — taxa de maquininha ou
+  plataforma acima de 8% da receita do mês
+- **sem receita no período** *(serviço com mão de obra)* — dias do mês já passados sem
+  nenhuma receita lançada
 
 **Fechamento de mês** — só fecha se a Mesa passar em tudo. Depois de fechado, o mês não muda
 em silêncio (dá para reabrir, e fica registrado).
@@ -320,6 +454,19 @@ sobrou" quando o resultado e o caixa não batem.
 **Quanto você pode tirar:** o número + a conta que o sustenta (disponível hoje, a receber em
 30 dias, compromissos, reserva mínima). **Sempre mostre a conta** — se o cliente esqueceu de
 contar uma dívida, ele mesmo vê onde.
+
+**O que vem por aí — os próximos 60 dias:** a peça que vira o serviço de retrospectivo em
+preditivo. Cruza saldo atual + a receber com vencimento + a pagar com vencimento + recorrentes
+ativos, e avisa **o dia exato em que o caixa fica negativo, e de quanto**. Micronegócio não
+morre de prejuízo — morre de ficar sem dinheiro num dia específico, e ninguém mais avisa MEI
+disso. **Não projeta venda futura não registrada** — regra de honestidade: é o número que não
+pode mentir para cima (`DECISOES.md` F1).
+
+**Quanto vale a sua hora:** cruza a retirada do mês com as horas trabalhadas por semana
+(pergunta do Bloco 4) e compara com o salário mínimo por hora. Costuma ser um dos números
+mais duros que o cliente vê — tem gente trabalhando 60 horas por semana ganhando menos por
+hora que um empregado, e não sabe. Vem acompanhado da **projeção de quando o faturamento bate
+o teto do MEI no ritmo atual** (`DECISOES.md` F2).
 
 **Carta de recomendações:** texto livre por mês — o que você viu e o que ele deveria fazer.
 No mês seguinte, o sistema pergunta se a recomendação foi seguida. **Responda sempre.** É o
@@ -371,35 +518,49 @@ minutos antes de qualquer número:**
 
 # 7 · Cliente novo: da primeira conversa ao primeiro fechamento
 
-**Orçamento de tempo: 2 a 4 horas, uma vez.** Esse custo some no segundo mês.
+**Orçamento de tempo: 1 a 2 horas, uma vez** (menor do que antes — o aprofundamento não entra
+mais na primeira conversa; ver Bloco 4). Esse custo some no segundo mês.
 
-## Passo 1 — Cadastre o negócio
-Prateleira → **Novo negócio**. Nome, apelido, tipo (MEI ou Informal).
+## Passo 1 — Cadastre o negócio e escolha o arquétipo
+Prateleira → **Novo negócio**. Nome, apelido, tipo (MEI ou Informal) e **o que o negócio faz
+para ganhar dinheiro** — um dos 8 arquétipos do capítulo 2. Essa escolha monta o plano de
+contas certo antes mesmo de a primeira pergunta acontecer; sem ela, o sistema recusa
+prosseguir.
 
 ## Passo 2 — Rode o Roteiro do Cliente Novo
-O sistema abre sozinho. São 6 blocos:
+O sistema abre sozinho. São 6 blocos, e o que aparece em cada um já vem filtrado pelo tipo e
+pelo arquétipo escolhidos no Passo 1 — nada aqui é fixo para todo cliente.
 
-**Bloco 1 — Quem é o negócio:** o que faz, desde quando, CNPJ, atividade, data de abertura.
+**Bloco 1 — Quem é o negócio:** o que faz, desde quando, CNPJ, atividade, data de abertura
+*(perguntas de MEI somem para o informal, e entram outras no lugar — vende para empresa? já
+pensou em abrir CNPJ?)*.
 ⚠️ *A data de abertura decide a proporcionalidade do limite no 1º ano — não pule.*
 
-**Bloco 2 — Como o dinheiro entra e sai:** tem conta separada? qual banco, consegue exportar
-extrato? recebe como (dinheiro, Pix, maquininha, boleto)? vende fiado? compra a prazo? emite
-nota?
+**Bloco 2 — Como o dinheiro entra e sai:** tem conta separada? **usa o mesmo dinheiro para
+tudo?** qual banco, consegue exportar extrato? recebe como (dinheiro, Pix, maquininha,
+boleto)? vende fiado? compra a prazo? emite nota?
 
-⚠️ *Maquininha tem duas pegadinhas: a taxa é despesa que quase ninguém contabiliza (e come a
-margem em silêncio), e o dinheiro cai dias depois — a venda e o recebimento são datas
-diferentes.*
+⚠️ **A pergunta do dinheiro misturado é a mais importante do bloco.** Se sim, o cliente entra
+no modo do §2.9: gasto pessoal vira retirada de verdade, não "ignorar". *E maquininha tem
+duas pegadinhas: a taxa é despesa que quase ninguém contabiliza, e o dinheiro cai dias depois
+— a venda e o recebimento são datas diferentes.*
 
 **Bloco 3 — A foto de hoje (o balanço de abertura):** quanto tem em caixa e banco, o que o
-negócio tem que vale dinheiro, estoque, quem deve a ele, quanto ele deve, empréstimos.
+negócio tem que vale dinheiro, **o campo específico do arquétipo** (mercadoria parada, saldo
+em plataforma, mercadoria com terceiro…), quem deve a ele, quanto ele deve, empréstimos.
 
 ⚠️ **Sem esta foto, o livro nasce desequilibrado e a Mesa de Revisão vai acusar erro para
-sempre.** Valor aproximado está de bom tamanho — um número honesto e redondo vale mais que a
-exatidão que trava a conversa, e tudo é corrigível depois, com rastro.
+sempre.** Valor aproximado está de bom tamanho. E **toda dívida se classifica em três tipos**
+(do negócio / pessoal mas o dinheiro entrou no negócio / só pessoal) — o do meio é o mais
+comum e o mais fácil de esquecer: o empréstimo no nome dele para comprar a moto de entrega
+**é** passivo do negócio, porque quem paga a parcela é o caixa do negócio.
 
-**Bloco 4 — O ritmo do negócio:** o que paga todo mês (viram **recorrentes**), quanto costuma
-faturar, tem mês forte e fraco, **quanto tira por mês para viver**, principais produtos e
-preços.
+**Bloco 4 — O ritmo do negócio:** o que paga todo mês (**vira cadastro real de recorrentes**
+ao concluir o roteiro — não precisa cadastrar de novo depois), quanto costuma faturar,
+**quanto tira por mês para viver**, quantas horas por semana trabalha nisso, e **as perguntas
+específicas do arquétipo** (capítulo 2 — margem, perda, deslocamento, inadimplência, taxa de
+plataforma, conforme o caso). Sazonalidade e produtos/preços ficam para o aprofundamento dos
+meses seguintes.
 
 ⚠️ *"Quanto você tira por mês?" — quase ninguém sabe responder. É a primeira coisa que você
 vai descobrir para ele, e costuma ser o momento em que ele entende para que você serve.*
@@ -410,17 +571,24 @@ ganhando dinheiro? tem alguma meta? — vira o foco da Carta de recomendações 
 **Bloco 6 — O combinado:** como e até quando ele manda a informação · o que você entrega e
 quando · quanto e como ele paga · **o que você NÃO faz** (§4).
 
+**Ao concluir o Bloco 6, o sistema grava o Retrato de Entrada** — o que ele disse que fatura,
+tira e trabalha, congelado ao lado do que o balanço mediu. Grava uma vez, nunca mais muda: é
+o que sustenta a frase, meses depois, *"você me disse que tirava X; os números mostram Y"*
+(`05_ROTEIRO_DO_SERVICO.md` §4.1).
+
+**Não precisa ser você digitando ao vivo o tempo todo.** Se a agenda não bater, mande o link
+do **Formulário Público** — o cliente responde os Blocos 1 a 5 sozinho, do celular, em até 30
+dias, e você fecha o Bloco 6 (o combinado) numa ligação curta depois.
+
 ## Passo 3 — Confira o plano de contas
-O sistema já criou 31 contas de fábrica. Adicione o que for específico do negócio dele
-(ex.: "Embalagens de entrega" para quem faz delivery).
+O plano já nasceu pronto: a base comum mais o que o arquétipo escolhido acrescentou
+(capítulo 2). Adicione o que for muito específico do negócio dele (ex.: "Embalagens de
+entrega" para quem faz delivery).
 
-## Passo 4 — Cadastre os recorrentes
-Do Bloco 4. É o que faz o segundo mês ser rápido.
-
-## Passo 5 — Rode o primeiro mês
+## Passo 4 — Rode o primeiro mês
 Caixa de Entrada → Conciliação → Revisão → Fechar → Entregas.
 
-## Passo 6 — A primeira conversa de entrega
+## Passo 5 — A primeira conversa de entrega
 Use o roteiro do §6.1. **É a conversa que decide se ele fica.**
 
 ---
@@ -560,6 +728,8 @@ Metade dos mal-entendidos com cliente pequeno é vocabulário. **Traduza sempre.
 | `05_ROTEIRO_DO_SERVICO.md` | os roteiros completos de conversa |
 | `04_MAPA_DO_APP.md` | o desenho de cada tela e por que ela existe |
 | `08_DIFERENCIAL.md` | o raciocínio por trás do que torna o serviço único |
+| `09_PRINCIPIOS_DE_VALOR.md` | a lente por trás do que o sistema revela e do que deixa quieto |
+| `DECISOES.md` | a fonte de verdade: o que vale hoje, e por quê — consulte antes de confiar em qualquer outro documento |
 | `SESSION_STATE.md` | o histórico técnico: o que foi construído, quando e por quê |
 
 **Este manual é vivo.** Editou o Markdown, rode `npm run pdf` e o PDF sai atualizado.

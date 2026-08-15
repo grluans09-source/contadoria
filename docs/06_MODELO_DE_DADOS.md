@@ -63,11 +63,23 @@ negocios
   data_abertura · atividade · tem_funcionario
   whatsapp · situacao (ativo|encerrado)
   inicio_do_servico          ← a data do balanço de abertura
+  arquetipo                  ← o que o negócio FAZ (§7)
+  dinheiro_misturado         ← boolean, default false
+  retrato_de_entrada (jsonb) ← linha de base, write-once (§9-ter)
   configuracao (jsonb)
 
 membros
   negocio_id · user_id · papel (contador|cliente) · criado_em
 ```
+
+**`arquetipo`** (13/ago) decide plano de contas, campos de abertura e roteiro — ver §7.
+Escolhido no cadastro do negócio, antes de o Roteiro do Cliente Novo começar.
+
+**`dinheiro_misturado`** (13/ago) é coluna própria, não uma chave dentro de `configuracao`,
+porque **muda comportamento**: quando `true`, gasto pessoal vira lançamento de retirada em
+vez de sumir (`DECISOES.md` C5). Precisa ser consultável e tipada, não só guardada.
+
+**`retrato_de_entrada`** (14/ago) é a linha de base do cliente — ver §9-ter.
 
 Toda tabela de dado carrega `negocio_id`, e a política de acesso é uma só, replicada:
 
@@ -189,32 +201,78 @@ saiu um número — e número fiscal sem procedência é passivo, não dado.
 
 ---
 
-## 7. O plano de contas — de MEI e de serviço
+## 7. O plano de contas — o BASE + o que cada arquétipo acrescenta
 
-Modelo de fábrica, copiado para cada cliente novo e ajustável por cliente.
+**Substitui a decisão original de um plano único de comércio (13/ago).** Um plano só de
+comércio dava "Estoque" ao eletricista e não dava "Material aplicado"; quem vende online não
+tinha "Taxa de plataforma"; quem manda mercadoria para terceiro beneficiar não tinha onde
+registrar o que está fora da mão dele (`DECISOES.md` C7).
+
+**A solução não é um plano por cliente escrito na mão — é BASE + ARQUÉTIPO.** Todo negócio
+usa o mesmo módulo de contas comuns (`src/dominio/planoContas.mjs`, função `planoBase()`);
+o **arquétipo** que o cliente declarou no cadastro (`negocios.arquetipo`) acrescenta as suas
+por cima (`src/dominio/arquetipos.mjs`, função `planoDeFabrica(arquetipo)`). O cliente pode
+depois adicionar ou desativar contas na tela Plano de Contas — a fábrica só dá o ponto de
+partida certo.
+
+### 7.1 O que todo negócio tem — `planoBase()`
 
 | Grupo | Contas |
 |---|---|
-| **1 Ativo** | Caixa · Banco · **A receber de maquininha** · Clientes · Estoque · Equipamentos · Veículos · Depreciação acumulada |
+| **1 Ativo** | Caixa · Banco · A receber de maquininha · Clientes · Equipamentos · Veículos · Depreciação acumulada |
 | **2 Passivo** | Fornecedores · DAS a pagar · Empréstimos · Salários a pagar |
 | **3 Patrimônio** | Capital do titular · **Retiradas do titular** · Lucros acumulados |
-| **4 Receitas** | **Venda de mercadorias** · **Prestação de serviços** · Outras receitas |
-| **5 Despesas** | CMV · Aluguel · Energia · Água · Internet e telefone · **Taxa de maquininha** · Combustível · Material de consumo · Marketing · DAS · Depreciação · Tarifas bancárias · Outras |
+| **4 Receitas** | Outras receitas *(a receita PRINCIPAL não está aqui — ver 7.3, escolha 4)* |
+| **5 Despesas** | Aluguel · Energia · Água · Internet e telefone · **Taxa de maquininha** · Combustível · Material de consumo · Marketing · DAS · Depreciação · Tarifas bancárias · Outras |
 
-**Quatro escolhas que não são arbitrárias:**
+Repare que **Estoque e CMV não estão no base** — só entram para quem de fato compra ou
+produz mercadoria (revenda, produção, beneficiamento). Colocar no base obrigaria todo mundo
+a carregar contas que não usa.
 
-1. **Venda de mercadorias separada de Prestação de serviços** — não é preciosismo: o
-   relatório mensal obrigatório do MEI exige as duas colunas separadas. Juntar aqui
-   obrigaria a desmembrar depois, no chute.
+### 7.2 O que cada arquétipo acrescenta
+
+Os **8 arquétipos** (`ARQUETIPOS` em `arquetipos.mjs`) declaram `contasExtras` — o que só
+aquele tipo de negócio precisa:
+
+| Arquétipo | Contas que só ele ganha |
+|---|---|
+| **Revenda** | Estoque de mercadorias · Venda de mercadorias · CMV · Frete sobre compras |
+| **Produção própria** | Estoque de insumos · Produto pronto · Venda de produção própria · Insumos e matéria-prima · Embalagem · Perda e quebra |
+| **Serviço com mão de obra** | Prestação de serviços · Material cobrado do cliente · Material aplicado em serviço · Ferramentas e manutenção · Deslocamento · Ajudante/diária de terceiro |
+| **Serviço recorrente** | Mensalidades · Serviços avulsos |
+| **Digital / online** | Saldo em plataforma · Vendas online · Assinaturas · Taxa de plataforma · Anúncios e tráfego pago · Ferramentas e assinaturas de software |
+| **Beneficiamento** | Estoque de mercadorias · **Mercadoria com terceiros** · Venda de mercadorias · CMV · Serviço de terceiros · Perda no beneficiamento |
+| **Intermediação / comissão** | Valores recebidos a repassar · Repasses a pagar · Comissões recebidas |
+| **Locação** | Equipamentos para locação · Aluguéis recebidos · Manutenção de equipamentos · Seguro |
+
+Duas contas merecem nota: **"Mercadoria com terceiros"** (beneficiamento) existe porque, sem
+ela, o valor do que saiu da mão do cliente mas ainda é dele some do balanço justamente no
+período de maior risco. E **"Valores a repassar" / "Repasses a pagar"** (intermediação) existe
+para impedir o erro mais caro do arquétipo: o dinheiro que ele recebe e vai repassar **não é
+receita dele** — é obrigação com terceiro. Lançar o bruto como receita infla o faturamento e
+pode disparar alarme falso do teto do MEI.
+
+### 7.3 Quatro escolhas que não são arbitrárias
+
+1. **A receita principal não está no base — cada arquétipo nomeia a sua** (venda de
+   mercadorias, prestação de serviços, comissões, aluguéis…). É o que impede o eletricista de
+   lançar o próprio trabalho como "venda de mercadorias" só porque era a única opção da lista
+   — e, para quem vende mercadoria E serviço no mesmo relatório mensal do MEI, é o que separa
+   as duas colunas que a obrigação exige.
 2. **Retiradas do titular é conta de PATRIMÔNIO, não de despesa.** É o erro conceitual nº 1
    de dono de negócio pequeno — "eu me pago, então é custo". Não é: é distribuição do
    resultado. Se entrasse como despesa, o lucro do negócio apareceria menor do que é e toda
    a conversa de "empresa × pessoa" ficaria errada. **É também a conta que responde "quanto
-   você já tirou este ano".**
+   você já tirou este ano"** — e a que sustenta o tratamento honesto do dinheiro misturado
+   (`10_MANUAL_DE_OPERACAO.md`, capítulo do dinheiro misturado).
 3. **A receber de maquininha é conta separada de Banco** — a venda acontece hoje, o dinheiro
    cai em dias. Sem essa conta, o caixa parece ter dinheiro que ainda não chegou.
 4. **Taxa de maquininha tem conta própria** — é a despesa invisível que come margem em
    silêncio (`05` §4). Separada, ela aparece; misturada em "outras", nunca.
+
+**Numeração com folga, de propósito:** o base deixa faixas livres (1120+ para estoques,
+5120+ para custos, 5130+ para serviço, 5140+ para digital) — assim o arquétipo acrescenta
+conta sem renumerar nada e sem colidir com o próximo arquétipo que vier a existir.
 
 ---
 
@@ -249,13 +307,34 @@ depois se descobrir que era da empresa, está lá. Item que some não pode ser r
 roteiro_perguntas
   id · bloco · ordem · pergunta · porque_importa
   tipo_resposta · destino · ativo
+  tipos (text[])       ← para quais tipos de negócio vale. NULL = todos
+  arquetipos (text[])  ← para quais arquétipos vale. NULL = todos
+  essencial (boolean)  ← true = 1ª conversa; false = aprofundamento, meses seguintes
 
 roteiro_respostas
   negocio_id · pergunta_id · resposta · respondido_em
 ```
 
 `destino` é o que faz a resposta virar registro em vez de anotação: para onde ela vai
-(campo do negócio, conta do balanço de abertura, recorrente).
+(campo do negócio, conta do balanço de abertura, recorrente, ou linha do retrato de entrada
+— `retrato.*`, ver §9-ter).
+
+**`tipos` e `arquetipos` são o roteiro adaptativo** (13/14-ago, `DECISOES.md` C7/C8/E3):
+a mesma tabela serve roteiros diferentes por cliente. `NULL` num dos dois significa "vale
+para todos" — é o caso comum, então o default precisa ser "aparece", não "some". Filtragem
+em `src/dominio/roteiro.mjs`, usada tanto pela entrevista presencial quanto pelo Formulário
+Público (§9-bis), para as duas nunca divergirem.
+
+**`essencial` separa a primeira conversa do aprofundamento** (`DECISOES.md` E3): entrevista
+longa faz cliente desistir antes de fechar. `false` fica para os meses seguintes, respondida
+na aba Roteiro do Livro (`src/telas/Roteiro.jsx`, `DECISOES.md` F9), que também alimenta o
+aviso de pendências nas Entregas antes da conversa do mês.
+
+⚠️ **`destino` é contrato, texto é editável** (achado ao construir o retrato de entrada,
+migração `0015`): a primeira versão localizava perguntas por fragmento do texto da pergunta.
+Como o texto é editável de propósito (é o ponto do roteiro aprender, `05` §1), reescrever uma
+pergunta faria a captura falhar em silêncio. `destino = 'retrato.*'` resolve: **o texto é
+dele, o destino é do sistema.**
 
 **Perguntas editáveis é o ponto** (`05` §1): o roteiro aprende com o ofício dele. Depois de
 10 clientes, é dele, não meu.
@@ -263,6 +342,62 @@ roteiro_respostas
 `roteiro_respostas` guarda **o que foi dito**, mesmo quando já virou registro. Daqui a um ano
 vai importar saber o que o cliente respondeu na abertura — inclusive quando ele responder
 diferente.
+
+---
+
+## 9-bis. Formulário Público — a única porta sem login
+
+**Por que existe (14/ago, `DECISOES.md` E4):** a entrevista de cliente novo exigia estar
+junto, e horário de dono de negócio pequeno raramente bate com horário de estudante. Com um
+link, o cliente responde no tempo dele, do celular — e o mesmo mecanismo abre caminho para
+coleta mensal e para o Diagnóstico Gratuito escalável (`11_GO_TO_MARKET.md` §5).
+
+```
+formularios
+  id · negocio_id · token (uuid) · tipo (onboarding|mes)
+  criado_em · expira_em (padrão +30 dias) · revogado
+  aberto_em · concluido_em
+```
+
+**Esta é a primeira superfície do sistema que roda sem `authenticated`.** Todo o resto exige
+login — nenhum grant vai para `anon` (§2). Aqui a porta é estreita e vigiada:
+
+1. O `anon` **não ganha acesso a tabela nenhuma**. Só a três funções `security definer`:
+   `formulario_abrir`, `formulario_responder`, `formulario_concluir` — a única forma de
+   entrar sem login em todo o sistema.
+2. O **token** é um UUID aleatório na URL; vale para um negócio e um propósito. Token
+   inexistente, revogado ou vencido devolvem a mesma resposta — não entrega ao curioso que
+   o token um dia existiu.
+3. O cliente só **escreve** resposta de roteiro em `roteiro_respostas`, e só para pergunta
+   que existe, está ativa e está entre os Blocos 1 e 5 — não lê o livro, não vê saldo, não
+   alcança outro negócio. `formulario_abrir` devolve só o apelido do negócio e as perguntas.
+4. Resposta acima de 4000 caracteres é recusada.
+
+**Testado com a chave `anon` (14/ago):** 401 em todas as tabelas; as três falhas (token
+inválido, revogado, vencido) respondem igual; pergunta fora dos Blocos 1-5 e `pergunta_id`
+inventado, recusados.
+
+---
+
+## 9-ter. Retrato de entrada — a linha de base do cliente
+
+**Por que é urgente (14/ago, `docs/09_PRINCIPIOS_DE_VALOR.md` P6):** transformação exige um
+antes. Se a foto de como o cliente chegou não for tirada no onboarding, ela não é recuperável
+depois — os lançamentos vão sendo corrigidos, o balanço evolui, e em seis meses ninguém
+reconstrói o que ele **acreditava** no dia 1.
+
+`negocios.retrato_de_entrada` (jsonb) guarda dois lados, montados por
+`src/dominio/linhaDeBase.mjs`:
+
+- **`declarado`** — o que ele respondeu no roteiro: faturamento, retirada, horas por semana,
+  se acha que ganha dinheiro, o que incomoda, a meta
+- **`medido`** — o que o balanço de abertura mostrou: caixa e banco, a receber, dívidas do
+  negócio, patrimônio líquido
+
+**Write-once, travado por gatilho no banco** (migração `0014`), não só na tela: se a trava
+vivesse só no app, qualquer caminho novo — importação, correção, script — poderia
+sobrescrever, e deixaria de ser linha de base. Testado ao vivo: a 1ª gravação passa, a 2ª é
+recusada, os demais campos de `negocios` seguem editáveis normalmente.
 
 ---
 
