@@ -16,9 +16,11 @@ import { PlanoContas } from "./PlanoContas.jsx";
 import { ConfigNegocio } from "./ConfigNegocio.jsx";
 import { Recorrentes } from "./Recorrentes.jsx";
 import { Baixas } from "./Baixas.jsx";
+import { Roteiro } from "./Roteiro.jsx";
 import { construirLancamentoDeClassificacao, construirMovimentoPessoal } from "../dominio/classificacao.mjs";
 import { gerarLancamentosDoMes } from "../dominio/recorrentes.mjs";
 import { construirBaixa } from "../dominio/baixas.mjs";
+import { pendentesDeAprofundamento } from "../dominio/roteiro.mjs";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const mesDe = (dataIso) => (dataIso || "").slice(0, 7);
@@ -59,6 +61,7 @@ const ABAS = [
   { id: "baixas", label: "A receber/pagar" },
   { id: "revisao", label: "Revisão" },
   { id: "entregas", label: "Entregas" },
+  { id: "roteiro", label: "Roteiro" },
   { id: "plano", label: "Plano de contas" },
   { id: "recorrentes", label: "Recorrentes" },
   { id: "negocio", label: "Negócio" },
@@ -72,6 +75,7 @@ export function Livro({ negocio, onVoltar }) {
   const [salvando, setSalvando] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
   const [editandoId, setEditandoId] = useState(null); // id do lançamento em edição, ou null
+  const [roteiro, setRoteiro] = useState(null); // { perguntas, respostasPorPerguntaId } — fora do loop reativo, é arquivo (docs/06 §9)
 
   const fotoRef = useRef(null);       // estado como o SERVIDOR o conhece
   const estadoRef = useRef(null);     // último estado em memória, para o flush de saída
@@ -90,6 +94,32 @@ export function Livro({ negocio, onVoltar }) {
       })
       .catch((e) => { if (vivo) setErro(`Não consegui carregar o livro: ${e.message}`); });
     return () => { vivo = false; };
+  }, [negocio.id]);
+
+  /* O roteiro (perguntas + respostas) carrega à parte do loop reativo
+     acima — não é lançamento contábil, é arquivo (docs/06 §9), e o
+     aviso de pendências nas Entregas precisa dele mesmo que a aba
+     Roteiro nunca seja aberta nesta sessão. */
+  useEffect(() => {
+    let vivo = true;
+    Promise.all([
+      supabase.from("roteiro_perguntas").select("*").eq("ativo", true).order("bloco").order("ordem"),
+      supabase.from("roteiro_respostas").select("pergunta_id, resposta").eq("negocio_id", negocio.id),
+    ]).then(([{ data: perguntas, error: e1 }, { data: respostas, error: e2 }]) => {
+      if (!vivo || e1 || e2) return;
+      const respostasPorPerguntaId = {};
+      for (const r of respostas || []) respostasPorPerguntaId[r.pergunta_id] = r.resposta;
+      setRoteiro({ perguntas: perguntas || [], respostasPorPerguntaId });
+    });
+    return () => { vivo = false; };
+  }, [negocio.id]);
+
+  const salvarRespostaRoteiro = useCallback(async (perguntaId, resposta) => {
+    setRoteiro((prev) => prev && ({ ...prev, respostasPorPerguntaId: { ...prev.respostasPorPerguntaId, [perguntaId]: resposta } }));
+    await supabase.from("roteiro_respostas").upsert(
+      { negocio_id: negocio.id, pergunta_id: perguntaId, resposta: String(resposta) },
+      { onConflict: "negocio_id,pergunta_id" }
+    );
   }, [negocio.id]);
 
   useEffect(() => {
@@ -499,7 +529,16 @@ export function Livro({ negocio, onVoltar }) {
             recorrenteLinhas={estado.recorrenteLinhas}
             onSalvarCarta={salvarCarta}
             onAvaliarCartaSeguida={avaliarCartaSeguida}
+            pendentesDeAprofundamento={roteiro
+              ? pendentesDeAprofundamento(roteiro.perguntas, roteiro.respostasPorPerguntaId, { tipo: negocio.tipo, arquetipo: negocio.arquetipo }).length
+              : 0}
+            onAbrirRoteiro={() => setAba("roteiro")}
           />
+        )}
+        {aba === "roteiro" && (
+          roteiro
+            ? <Roteiro negocio={negocio} perguntas={roteiro.perguntas} respostasPorPerguntaId={roteiro.respostasPorPerguntaId} onSalvarResposta={salvarRespostaRoteiro} />
+            : <div className="text-sm" style={{ color: "var(--muted)" }}>Carregando…</div>
         )}
         {aba === "plano" && (
           <PlanoContas contas={estado.contas} onAdicionar={adicionarConta} onAlternarAtiva={alternarAtivaConta} />

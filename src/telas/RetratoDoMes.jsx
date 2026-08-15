@@ -122,12 +122,27 @@ function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
   );
 }
 
+/* Aviso de aprofundamento pendente (Fase 6, 14/ago) — antes da conversa
+   do mês é a hora certa de lembrar, não durante ou depois dela. Some
+   sozinho quando não há pendência: silêncio é resposta válida (P3). */
+function AvisoAprofundamento({ quantidade, onAbrir }) {
+  if (!quantidade) return null;
+  return (
+    <button onClick={onAbrir}
+      className="w-full text-left text-xs rounded-md px-3 py-2 mb-4 transition-opacity hover:opacity-80"
+      style={{ background: "var(--accent-soft)", color: "var(--ink)" }}>
+      Faltam {quantidade} pergunta{quantidade > 1 ? "s" : ""} de aprofundamento — vale perguntar
+      nesta conversa. <span style={{ color: "var(--accent)" }}>Ver no Roteiro →</span>
+    </button>
+  );
+}
+
 /* O Retrato do Mês — UMA página, não um relatório (docs/08 §3). O
    artefato é parte do produto: número grande, poucas frases, a
    pergunta que ninguém mais responde ("quanto você pode tirar",
    docs/08 §2), e o rodapé que protege o limite profissional (docs/02
    §4.3). Nada de tabela de 30 linhas — o Balancete existe pra isso. */
-export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, onSalvarCarta, onAvaliarCartaSeguida }) {
+export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, onSalvarCarta, onAvaliarCartaSeguida, pendentesDeAprofundamento, onAbrirRoteiro }) {
   const mesesComMovimento = useMemo(() => {
     const meses = new Set(lancamentos.map((l) => (l.data || "").slice(0, 7)).filter(Boolean));
     return [...meses].sort().reverse();
@@ -160,6 +175,8 @@ export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, p
       <div className="mb-4 max-w-xs">
         <Select value={mes} onChange={setMes} options={opcoesMes} />
       </div>
+
+      <AvisoAprofundamento quantidade={pendentesDeAprofundamento} onAbrir={onAbrirRoteiro} />
 
       <Card className="mb-4" style={{ background: "linear-gradient(160deg, var(--surface), var(--paper))" }}>
         <div className="text-xs uppercase tracking-wide mb-1" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
