@@ -24,6 +24,7 @@ export function ConfigNegocio({ negocioId, onAtualizado }) {
           nome: data.nome || "", apelido: data.apelido || "", cnpj: data.cnpj || "",
           atividade: data.atividade || "", whatsapp: data.whatsapp || "",
           tem_funcionario: data.tem_funcionario ? "sim" : "nao",
+          dinheiro_misturado: data.dinheiro_misturado ? "sim" : "nao",
           situacao: data.situacao || "ativo",
         });
         setCarregando(false);
@@ -43,6 +44,7 @@ export function ConfigNegocio({ negocioId, onAtualizado }) {
       atividade: campo.atividade.trim() || null,
       whatsapp: campo.whatsapp.trim() || null,
       tem_funcionario: campo.tem_funcionario === "sim",
+      dinheiro_misturado: campo.dinheiro_misturado === "sim",
       situacao: campo.situacao,
     }).eq("id", negocioId);
     setSalvando(false);
@@ -80,6 +82,16 @@ export function ConfigNegocio({ negocioId, onAtualizado }) {
         <div>
           <Label>Tem funcionário?</Label>
           <Select value={campo.tem_funcionario} onChange={(v) => set("tem_funcionario", v)} options={[{ value: "sim", label: "Sim" }, { value: "nao", label: "Não" }]} />
+        </div>
+        <div>
+          <Label>Usa o mesmo dinheiro para o negócio e para as coisas dele?</Label>
+          <Select value={campo.dinheiro_misturado} onChange={(v) => set("dinheiro_misturado", v)} options={[{ value: "sim", label: "Sim" }, { value: "nao", label: "Não" }]} />
+          <div className="text-[11px] mt-1.5" style={{ color: "var(--muted)" }}>
+            Se sim, gasto pessoal marcado na Caixa de Entrada vira retirada de verdade — não some
+            do livro (docs/DECISOES.md C5). Corrigido depois que a resposta do onboarding não
+            estava gravando aqui (achado em teste, 15/ago) — se o cliente já respondeu isso antes
+            e o botão da Caixa de Entrada ainda mostra "É pessoal, ignorar", confirme aqui.
+          </div>
         </div>
         <div>
           <Label>Situação</Label>

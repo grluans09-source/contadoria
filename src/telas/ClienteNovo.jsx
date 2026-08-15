@@ -4,7 +4,7 @@ import { supabase } from "../dados/supabase.mjs";
 import { Card, Label, Input, Select, Button } from "../ui/primitivas.jsx";
 import { planoDeFabrica, camposAberturaDe } from "../dominio/arquetipos.mjs";
 import { separarDividas, CLASSIFICACOES_DIVIDA } from "../dominio/dividas.mjs";
-import { perguntasPara } from "../dominio/roteiro.mjs";
+import { perguntasPara, respostaPorDestino, respostasParaNegocio } from "../dominio/roteiro.mjs";
 import { montarRetratoDeEntrada } from "../dominio/linhaDeBase.mjs";
 import { montarLancamentoAbertura } from "../dominio/aberturaBalanco.mjs";
 
@@ -496,15 +496,7 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
           declarado,
         });
       }
-      for (const p of perguntas) {
-        if (p.bloco !== 1) continue;
-        const valor = respostas[p.id];
-        if (valor === undefined || valor === "") continue;
-        if (p.destino === "negocios.data_abertura") patchNegocio.data_abertura = valor;
-        if (p.destino === "negocios.atividade") patchNegocio.atividade = valor;
-        if (p.destino === "negocios.tem_funcionario") patchNegocio.tem_funcionario = valor === "sim";
-        if (p.destino === "negocios.whatsapp") patchNegocio.whatsapp = valor;
-      }
+      Object.assign(patchNegocio, respostasParaNegocio(perguntas, respostas));
       const { error: erroNegocio } = await supabase.from("negocios").update(patchNegocio).eq("id", negocio.id);
       if (erroNegocio) throw new Error(`Balanço gravado, mas não consegui atualizar o cadastro: ${erroNegocio.message}`);
 
@@ -526,6 +518,15 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
   };
 
   const ultimoBloco = bloco === 6;
+
+  /* Vem da resposta AO VIVO do Bloco 2, não do `negocio` carregado antes
+     do roteiro começar — senão o aviso do Bloco 3 nunca apareceria na
+     mesma sessão em que a pergunta acabou de ser respondida (o mesmo
+     bug corrigido em `concluir()` acima, agora no lado da leitura). Sem
+     resposta ainda, cai no que já estava gravado (reabrir um roteiro
+     incompleto de um negócio já marcado). */
+  const respostaMisturado = respostaPorDestino(perguntas, respostas, "negocios.dinheiro_misturado");
+  const dinheiroMisturado = respostaMisturado != null ? respostaMisturado === "sim" : !!negocio.dinheiro_misturado;
 
   return (
     <div className="min-h-screen" style={{ background: "var(--paper)" }}>
@@ -554,7 +555,7 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
         <Card className="mb-6">
           {bloco === 3 ? (
             <BlocoAbertura abertura={abertura} setAbertura={setAbertura} perguntas={perguntas}
-              arquetipo={negocio.arquetipo} dinheiroMisturado={negocio.dinheiro_misturado} />
+              arquetipo={negocio.arquetipo} dinheiroMisturado={dinheiroMisturado} />
           ) : bloco === 4 ? (
             <>
               {doBloco(4).map((p) => (

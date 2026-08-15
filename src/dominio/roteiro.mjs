@@ -68,6 +68,30 @@ export function respostaPorDestino(perguntas, respostasPorPerguntaId, destino) {
   return resposta != null && String(resposta).trim() !== "" ? resposta : null;
 }
 
+/**
+ * Monta o patch de `negocios` a partir das respostas do roteiro — toda
+ * pergunta com destino `negocios.*`, em QUALQUER bloco.
+ *
+ * BUG achado em teste de ponta a ponta (15/ago): a versão original
+ * deste código só varria o Bloco 1, então "você usa o mesmo dinheiro
+ * para tudo?" (Bloco 2, destino `negocios.dinheiro_misturado`) nunca
+ * era gravada — o campo ficava `false` pra sempre, e o gasto pessoal
+ * continuava sumindo do livro em silêncio (o exato problema que C5,
+ * docs/DECISOES.md, existe para resolver). Extraído pra cá, testável,
+ * pra este tipo de regressão não voltar a passar despercebido.
+ */
+export function respostasParaNegocio(perguntas, respostasPorPerguntaId) {
+  const patch = {};
+  for (const p of perguntas || []) {
+    if (!p.destino?.startsWith("negocios.")) continue;
+    const valor = respostasPorPerguntaId?.[p.id];
+    if (valor === undefined || valor === "") continue;
+    const campo = p.destino.slice("negocios.".length);
+    patch[campo] = p.tipo_resposta === "sim_nao" ? valor === "sim" : valor;
+  }
+  return patch;
+}
+
 /** Progresso de preenchimento, para a barra do formulário do cliente. */
 export function progresso(perguntas, respostasPorPerguntaId) {
   const total = perguntas.length;

@@ -1,7 +1,7 @@
 /* Testes de src/dominio/roteiro.mjs. Rode com `npm test`. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { perguntasPara, pendentesDeAprofundamento, progresso, BLOCOS_DO_CLIENTE, respostaPorDestino } from "../src/dominio/roteiro.mjs";
+import { perguntasPara, pendentesDeAprofundamento, progresso, BLOCOS_DO_CLIENTE, respostaPorDestino, respostasParaNegocio } from "../src/dominio/roteiro.mjs";
 
 const PERGUNTAS = [
   { id: "p1", bloco: 1, ordem: 1, pergunta: "Quando abriu o MEI?", tipos: ["mei"], arquetipos: null, essencial: true, ativo: true },
@@ -90,6 +90,27 @@ test("respostaPorDestino: acha pela coluna destino, não pelo texto — devolve 
   assert.equal(respostaPorDestino(perguntas, {}, "carta.meta"), null, "pergunta existe mas sem resposta ainda");
   assert.equal(respostaPorDestino(perguntas, { m1: "   " }, "carta.meta"), null, "resposta em branco conta como sem resposta");
   assert.equal(respostaPorDestino(perguntas, { m1: "x" }, "retrato.meta"), null, "destino que não existe na lista");
+});
+
+test("respostasParaNegocio: pega negocios.* de QUALQUER bloco, não só do Bloco 1 (regressão do bug de 15/ago)", () => {
+  const perguntas = [
+    { id: "p1", bloco: 1, destino: "negocios.atividade", tipo_resposta: "texto" },
+    { id: "p2", bloco: 2, destino: "negocios.dinheiro_misturado", tipo_resposta: "sim_nao" },
+    { id: "p3", bloco: 1, destino: "negocios.tem_funcionario", tipo_resposta: "sim_nao" },
+    { id: "p4", bloco: 4, destino: "roteiro_respostas", tipo_resposta: "moeda" },
+  ];
+  const respostas = { p1: "Elétrica residencial", p2: "sim", p3: "nao", p4: "3500" };
+  const patch = respostasParaNegocio(perguntas, respostas);
+  assert.deepEqual(patch, { atividade: "Elétrica residencial", dinheiro_misturado: true, tem_funcionario: false });
+});
+
+test("respostasParaNegocio: sem_nao vira boolean, resposta em branco ou ausente não entra no patch", () => {
+  const perguntas = [
+    { id: "p1", bloco: 2, destino: "negocios.dinheiro_misturado", tipo_resposta: "sim_nao" },
+    { id: "p2", bloco: 1, destino: "negocios.whatsapp", tipo_resposta: "texto" },
+  ];
+  assert.deepEqual(respostasParaNegocio(perguntas, { p1: "nao", p2: "" }), { dinheiro_misturado: false });
+  assert.deepEqual(respostasParaNegocio(perguntas, {}), {});
 });
 
 test("progresso conta respondidas sobre total", () => {
