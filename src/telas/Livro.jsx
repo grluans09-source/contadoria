@@ -69,7 +69,7 @@ const ABAS = [
   { id: "negocio", label: "Negócio" },
 ];
 
-export function Livro({ negocio, onVoltar }) {
+export function Livro({ negocio, onVoltar, onNegocioAtualizado }) {
   const [aba, setAba] = useState("caixa");
   const [estado, setEstado] = useState(null); // null = carregando
   const [loaded, setLoaded] = useState(false);
@@ -581,7 +581,7 @@ export function Livro({ negocio, onVoltar }) {
             onGerar={gerarRecorrentesDoMes}
           />
         )}
-        {aba === "negocio" && <ConfigNegocio negocioId={negocio.id} />}
+        {aba === "negocio" && <ConfigNegocio negocioId={negocio.id} onAtualizado={onNegocioAtualizado} />}
       </div>
     </div>
   );

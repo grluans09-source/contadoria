@@ -37,7 +37,7 @@ export function ConfigNegocio({ negocioId, onAtualizado }) {
   const salvar = async () => {
     setSalvando(true);
     setErro("");
-    const { error } = await supabase.from("negocios").update({
+    const patch = {
       nome: campo.nome.trim(),
       apelido: campo.apelido.trim() || null,
       cnpj: campo.cnpj.trim() || null,
@@ -46,12 +46,16 @@ export function ConfigNegocio({ negocioId, onAtualizado }) {
       tem_funcionario: campo.tem_funcionario === "sim",
       dinheiro_misturado: campo.dinheiro_misturado === "sim",
       situacao: campo.situacao,
-    }).eq("id", negocioId);
+    };
+    const { error } = await supabase.from("negocios").update(patch).eq("id", negocioId);
     setSalvando(false);
     if (error) { setErro(error.message); return; }
     setConfirmado(true);
     setTimeout(() => setConfirmado(false), 2000);
-    onAtualizado?.();
+    /* Manda o patch de volta, não só um "mudou algo" — é o que permite
+       quem escuta (App.jsx) atualizar o `negocio` em memória sem
+       precisar recarregar a página (bug achado em teste, 15/ago). */
+    onAtualizado?.(patch);
   };
 
   if (carregando) return <div className="text-sm" style={{ color: "var(--muted)" }}>Carregando…</div>;

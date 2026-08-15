@@ -31,6 +31,15 @@ export default function App() {
 
   const fecharNegocio = () => setNegocioAberto(null);
 
+  /* Bug achado em teste de ponta a ponta (15/ago): editar o cadastro em
+     ConfigNegocio.jsx grava no banco, mas `negocioAberto` — carregado
+     UMA vez ao abrir o negócio e usado por toda a árvore do Livro —
+     nunca era atualizado. Resultado: mudar "usa o mesmo dinheiro pra
+     tudo?" e ir direto para a Caixa de Entrada mostrava o botão antigo,
+     na mesma sessão, sem nenhum aviso. Corrigido aqui, na única fonte
+     de verdade deste objeto — não em cada tela que o lê. */
+  const atualizarNegocioAberto = (patch) => setNegocioAberto((prev) => prev && ({ ...prev, ...patch }));
+
   /* Antes de qualquer checagem de sessão: quem chega pelo link do
      formulário é o CLIENTE, não o Luan. Se isto ficasse depois do
      `authSession`, ele veria a tela de senha — e desistiria ali. */
@@ -58,7 +67,7 @@ export default function App() {
            bug H3 do ContLife (doc 26): sem isso, o estado em memória de
            um negócio podia vazar para dentro da chave do próximo por um
            instante, entre trocar o id e a carga nova terminar. */
-        <Livro key={negocioAberto.id} negocio={negocioAberto} onVoltar={fecharNegocio} />
+        <Livro key={negocioAberto.id} negocio={negocioAberto} onVoltar={fecharNegocio} onNegocioAtualizado={atualizarNegocioAberto} />
       ) : painelAberto ? (
         <PainelDoMes onVoltar={() => setPainelAberto(false)} />
       ) : (
