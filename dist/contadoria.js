@@ -1,5 +1,5 @@
 // src/app/App.jsx
-import React21, { useState as useState18, useEffect as useEffect11 } from "react";
+import React23, { useState as useState19, useEffect as useEffect11 } from "react";
 
 // src/dados/supabase.mjs
 import { createClient } from "@supabase/supabase-js";
@@ -621,6 +621,9 @@ function planoDeFabrica(arquetipoId) {
 function camposAberturaDe(arquetipoId) {
   return acharArquetipo(arquetipoId)?.camposAbertura || [];
 }
+function achadosDe(arquetipoId) {
+  return acharArquetipo(arquetipoId)?.achados || [];
+}
 
 // src/telas/Negocios.jsx
 var TIPO_LABEL = { mei: "MEI", informal: "Informal" };
@@ -808,6 +811,12 @@ function separarDividas(dividas) {
 function perguntasPara(perguntas, { tipo, arquetipo, apenasEssenciais = false, blocos = null } = {}) {
   return (perguntas || []).filter((p) => p.ativo !== false).filter((p) => !blocos || blocos.includes(p.bloco)).filter((p) => !apenasEssenciais || p.essencial).filter((p) => !p.tipos?.length || p.tipos.includes(tipo)).filter((p) => !p.arquetipos?.length || arquetipo && p.arquetipos.includes(arquetipo)).sort((a, b) => a.bloco - b.bloco || a.ordem - b.ordem);
 }
+function pendentesDeAprofundamento(perguntas, respostasPorPerguntaId, opcoes) {
+  return perguntasPara(perguntas, { ...opcoes, apenasEssenciais: false }).filter((p) => !p.essencial).filter((p) => {
+    const r = respostasPorPerguntaId?.[p.id];
+    return r === void 0 || r === null || String(r).trim() === "";
+  });
+}
 
 // src/dominio/valorDoTempo.mjs
 var SEMANAS_POR_MES = 4.345;
@@ -868,6 +877,66 @@ function montarRetratoDeEntrada({ negocio, declarado = {}, contas = [], linhasAb
       temContaSeparada: declarado.temContaSeparada === "sim"
     }
   };
+}
+function compararComAEntrada(entrada, agora, toleranciaPercentual = 15) {
+  if (!entrada || !agora) return [];
+  const achados = [];
+  const relevante = (antes, depois) => {
+    if (antes === null || antes === void 0 || depois === null || depois === void 0) return false;
+    if (antes === 0) return depois !== 0;
+    return Math.abs((depois - antes) / antes) * 100 >= toleranciaPercentual;
+  };
+  const retiradaDita = entrada.declarado?.retiradaMensal;
+  if (relevante(retiradaDita, agora.retiradaMensal)) {
+    const diferenca = Math.round((agora.retiradaMensal - retiradaDita) * 100) / 100;
+    achados.push({
+      tipo: "retirada_vs_declarado",
+      forca: diferenca > 0 ? "alta" : "media",
+      antes: retiradaDita,
+      depois: agora.retiradaMensal,
+      diferenca,
+      frase: diferenca > 0 ? `Quando come\xE7amos, voc\xEA me disse que tirava ${fmt2(retiradaDita)} por m\xEAs. O que os n\xFAmeros mostram \xE9 ${fmt2(agora.retiradaMensal)} \u2014 ${fmt2(diferenca)} a mais do que voc\xEA imaginava.` : `Voc\xEA achava que tirava ${fmt2(retiradaDita)} por m\xEAs; na pr\xE1tica est\xE1 tirando ${fmt2(agora.retiradaMensal)}.`
+    });
+  }
+  const faturamentoDito = entrada.declarado?.faturamentoMensal;
+  if (relevante(faturamentoDito, agora.faturamentoMensal)) {
+    achados.push({
+      tipo: "faturamento_vs_declarado",
+      forca: "media",
+      antes: faturamentoDito,
+      depois: agora.faturamentoMensal,
+      diferenca: Math.round((agora.faturamentoMensal - faturamentoDito) * 100) / 100,
+      frase: `Voc\xEA estimava faturar ${fmt2(faturamentoDito)} por m\xEAs; o medido \xE9 ${fmt2(agora.faturamentoMensal)}.`
+    });
+  }
+  const patrimonioAntes = entrada.medido?.patrimonioLiquido;
+  if (relevante(patrimonioAntes, agora.patrimonioLiquido)) {
+    const d = Math.round((agora.patrimonioLiquido - patrimonioAntes) * 100) / 100;
+    achados.push({
+      tipo: "patrimonio_desde_a_entrada",
+      forca: "alta",
+      antes: patrimonioAntes,
+      depois: agora.patrimonioLiquido,
+      diferenca: d,
+      frase: d > 0 ? `Desde que come\xE7amos, o que \xE9 seu no neg\xF3cio subiu ${fmt2(d)} \u2014 de ${fmt2(patrimonioAntes)} para ${fmt2(agora.patrimonioLiquido)}.` : `Desde que come\xE7amos, o que \xE9 seu no neg\xF3cio caiu ${fmt2(Math.abs(d))} \u2014 de ${fmt2(patrimonioAntes)} para ${fmt2(agora.patrimonioLiquido)}.`
+    });
+  }
+  const dividaAntes = entrada.medido?.dividasDoNegocio;
+  if (relevante(dividaAntes, agora.dividasDoNegocio)) {
+    const d = Math.round((agora.dividasDoNegocio - dividaAntes) * 100) / 100;
+    achados.push({
+      tipo: "divida_desde_a_entrada",
+      forca: d > 0 ? "alta" : "media",
+      antes: dividaAntes,
+      depois: agora.dividasDoNegocio,
+      diferenca: d,
+      frase: d < 0 ? `A d\xEDvida do neg\xF3cio caiu ${fmt2(Math.abs(d))} desde que come\xE7amos.` : `A d\xEDvida do neg\xF3cio subiu ${fmt2(d)} desde que come\xE7amos.`
+    });
+  }
+  return achados;
+}
+function fmt2(v) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 }
 
 // src/dominio/aberturaBalanco.mjs
@@ -934,6 +1003,7 @@ var NOMES_BLOCO = {
 };
 var hojeISO = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 var fmtMoeda = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var uid = () => Math.random().toString(36).slice(2, 10);
 function PorQueImporta({ texto }) {
   const [aberto, setAberto] = useState4(false);
   if (!texto) return null;
@@ -1037,6 +1107,19 @@ function ListaDividas({ itens, onChange }) {
     ), "\xE9 fornecedor (se n\xE3o, entra como empr\xE9stimo)"));
   }), /* @__PURE__ */ React5.createElement("button", { type: "button", onClick: add, className: "text-xs inline-flex items-center gap-1 mt-1", style: { color: "var(--accent)" } }, /* @__PURE__ */ React5.createElement(Plus2, { size: 13 }), " adicionar d\xEDvida"), notas.length > 0 && /* @__PURE__ */ React5.createElement("div", { className: "text-xs rounded-md px-3 py-2 mt-3", style: { background: "var(--accent-soft)", color: "var(--ink)", lineHeight: 1.6 } }, fmtMoeda(totalPessoal), " em d\xEDvida pessoal fica ", /* @__PURE__ */ React5.createElement("strong", null, "fora"), " do livro do neg\xF3cio \u2014 est\xE1 certo assim. Mas anote: isso muda quanto ele precisa tirar por m\xEAs, e \xE9 conversa da primeira entrega."));
 }
+function BlocoContasFixas({ itens, onChange, opcoesDespesa }) {
+  const add = () => onChange([...itens, { descricao: "", valor: "", contaId: "", deOnde: "banco" }]);
+  const remover = (i) => onChange(itens.filter((_, idx) => idx !== i));
+  const editar = (i, campo, v) => onChange(itens.map((it, idx) => idx === i ? { ...it, [campo]: v } : it));
+  return /* @__PURE__ */ React5.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React5.createElement(Label, null, "Quais contas voc\xEA paga todo m\xEAs (aluguel, internet, mensalidade)"), itens.map((item, i) => /* @__PURE__ */ React5.createElement("div", { key: i, className: "mb-2 pb-2", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React5.createElement("div", { className: "flex gap-2 mb-2 items-center animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React5.createElement(Input, { placeholder: "descri\xE7\xE3o", value: item.descricao, onChange: (e) => editar(i, "descricao", e.target.value), className: "flex-[2]" }), /* @__PURE__ */ React5.createElement(Input, { money: true, placeholder: "valor", value: item.valor, onChange: (e) => editar(i, "valor", e.target.value), className: "flex-1" }), /* @__PURE__ */ React5.createElement("button", { type: "button", onClick: () => remover(i), className: "transition-opacity hover:opacity-70 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React5.createElement(Trash2, { size: 15 }))), /* @__PURE__ */ React5.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React5.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React5.createElement(Select, { value: item.contaId, onChange: (v) => editar(i, "contaId", v), placeholder: "qual conta", options: opcoesDespesa })), /* @__PURE__ */ React5.createElement("div", { className: "flex-1" }, /* @__PURE__ */ React5.createElement(
+    Select,
+    {
+      value: item.deOnde,
+      onChange: (v) => editar(i, "deOnde", v),
+      options: [{ value: "banco", label: "sai do banco" }, { value: "caixa", label: "sai do caixa" }]
+    }
+  ))))), /* @__PURE__ */ React5.createElement("button", { type: "button", onClick: add, className: "text-xs inline-flex items-center gap-1 mt-1 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React5.createElement(Plus2, { size: 13 }), " adicionar conta fixa"), /* @__PURE__ */ React5.createElement("div", { className: "text-[11px] mt-1.5", style: { color: "var(--muted)" } }, "Cadastradas aqui, elas j\xE1 aparecem prontas no m\xEAs seguinte \u2014 \xE9 o que faz o segundo m\xEAs do cliente ser r\xE1pido. N\xE3o precisa ser exato nem completo hoje: d\xE1 para ajustar e acrescentar depois, na aba Recorrentes."));
+}
 function BlocoAbertura({ abertura, setAbertura, perguntas, arquetipo, dinheiroMisturado }) {
   const porBloco3 = (ordem) => perguntas.find((p) => p.bloco === 3 && p.ordem === ordem)?.porque_importa;
   const especificos = camposAberturaDe(arquetipo);
@@ -1072,8 +1155,10 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
   const [bloco, setBloco] = useState4(1);
   const [respostas, setRespostas] = useState4({});
   const [abertura, setAbertura] = useState4({ caixa: "", banco: "", equipamentos: [], especificos: {}, aReceber: [], dividas: [] });
+  const [contasFixas, setContasFixas] = useState4([]);
   const [salvando, setSalvando] = useState4(false);
   const [erro, setErro] = useState4("");
+  const opcoesDespesa = planoDeFabrica(negocio.arquetipo).filter((c) => c.tipo === "despesa").sort((a, b) => a.codigo.localeCompare(b.codigo)).map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` }));
   useEffect4(() => {
     supabase.from("roteiro_perguntas").select("*").eq("ativo", true).order("bloco").order("ordem").then(({ data, error }) => {
       if (!error) setPerguntas(data || []);
@@ -1110,6 +1195,18 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
     itens.push(...separarDividas(abertura.dividas).itens);
     return itens;
   };
+  const montarOpsRecorrentes = () => {
+    const ops = [];
+    for (const item of contasFixas) {
+      const valor = numeroOuNulo(item.valor);
+      if (!valor || !item.contaId || !item.descricao?.trim()) continue;
+      const recorrenteId = uid();
+      ops.push({ acao: "gravar", tabela: "recorrentes", valores: { id: recorrenteId, descricao: item.descricao.trim(), ativa: true } });
+      ops.push({ acao: "gravar", tabela: "recorrente_linhas", valores: { id: uid(), recorrente_id: recorrenteId, conta_id: item.contaId, tipo: "D", valor } });
+      ops.push({ acao: "gravar", tabela: "recorrente_linhas", valores: { id: uid(), recorrente_id: recorrenteId, conta_id: item.deOnde || "banco", tipo: "C", valor } });
+    }
+    return ops;
+  };
   const concluir = async () => {
     setErro("");
     const itens = montarItensAbertura();
@@ -1142,7 +1239,8 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
           acao: "gravar",
           tabela: "lancamento_linhas",
           valores: { id: l.id, lancamento_id: idAbertura, conta_id: l.contaId, tipo: l.tipo, valor: l.valor, descricao: l.descricao, vencimento: l.vencimento }
-        }))
+        })),
+        ...montarOpsRecorrentes()
       ];
       const { error: erroLote } = await supabase.rpc("aplicar_lote", { p_negocio: negocio.id, p_ops: ops });
       if (erroLote) throw new Error(`N\xE3o consegui gravar o balan\xE7o de abertura: ${erroLote.message}`);
@@ -1201,7 +1299,15 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       arquetipo: negocio.arquetipo,
       dinheiroMisturado: negocio.dinheiro_misturado
     }
-  ) : doBloco(bloco).map((p) => /* @__PURE__ */ React5.createElement(
+  ) : bloco === 4 ? /* @__PURE__ */ React5.createElement(React5.Fragment, null, doBloco(4).map((p) => /* @__PURE__ */ React5.createElement(
+    CampoRoteiro,
+    {
+      key: p.id,
+      pergunta: p,
+      valor: respostas[p.id],
+      onChange: (v) => setRespostas({ ...respostas, [p.id]: v })
+    }
+  )), /* @__PURE__ */ React5.createElement(BlocoContasFixas, { itens: contasFixas, onChange: setContasFixas, opcoesDespesa })) : doBloco(bloco).map((p) => /* @__PURE__ */ React5.createElement(
     CampoRoteiro,
     {
       key: p.id,
@@ -1213,7 +1319,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
 }
 
 // src/telas/Livro.jsx
-import React18, { useState as useState15, useEffect as useEffect8, useRef as useRef2, useCallback as useCallback2 } from "react";
+import React20, { useState as useState16, useEffect as useEffect8, useRef as useRef2, useCallback as useCallback2 } from "react";
 import { ArrowLeft as ArrowLeft2 } from "lucide-react";
 
 // src/dados/sinc.mjs
@@ -1445,7 +1551,7 @@ async function carregarEstadoNegocio(negocioId) {
 // src/telas/Diario.jsx
 import React6, { useMemo, useState as useState5 } from "react";
 import { Pencil, Trash2 as Trash22, Check, X as X2 } from "lucide-react";
-var fmt2 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt3 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtData = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
 var ORIGEM_LABEL = { manual: "Manual", extrato: "Extrato", recorrente: "Recorrente", abertura: "Abertura", encerramento_mes: "Fechamento", encerramento_ano: "Encerramento" };
 var ORIGENS_EDITAVEIS = /* @__PURE__ */ new Set(["manual", "extrato", "recorrente"]);
@@ -1476,13 +1582,13 @@ function Diario({ contas, lancamentos, lancamentoLinhas, onEditar, onExcluir }) 
   return /* @__PURE__ */ React6.createElement("div", { className: "space-y-3" }, ordenados.map((l) => {
     const linhas = linhasPorLancamento.get(l.id) || [];
     const editavel = ORIGENS_EDITAVEIS.has(l.origem);
-    return /* @__PURE__ */ React6.createElement(Card, { key: l.id, pad: "apertado" }, /* @__PURE__ */ React6.createElement("div", { className: "flex items-center justify-between mb-2 gap-2" }, /* @__PURE__ */ React6.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React6.createElement("span", { className: "font-mono text-xs mr-2", style: { color: "var(--muted)" } }, fmtData(l.data)), /* @__PURE__ */ React6.createElement("span", { style: { color: "var(--ink)" } }, l.descricao)), /* @__PURE__ */ React6.createElement("div", { className: "flex items-center gap-2 shrink-0" }, /* @__PURE__ */ React6.createElement("span", { className: "text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full", style: { background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" } }, ORIGEM_LABEL[l.origem] || l.origem), editavel && /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("button", { onClick: () => onEditar(l.id), className: "transition-opacity hover:opacity-70", style: { color: "var(--muted)" }, "aria-label": "Editar" }, /* @__PURE__ */ React6.createElement(Pencil, { size: 13 })), /* @__PURE__ */ React6.createElement(LinhaExcluir, { lancamento: l, onConfirmar: onExcluir })))), /* @__PURE__ */ React6.createElement("table", { className: "w-full text-xs" }, /* @__PURE__ */ React6.createElement("tbody", null, linhas.map((linha) => /* @__PURE__ */ React6.createElement("tr", { key: linha.id }, /* @__PURE__ */ React6.createElement("td", { className: "py-0.5 pr-2", style: { color: linha.tipo === "D" ? "var(--ink)" : "var(--muted)", paddingLeft: linha.tipo === "C" ? "1.5rem" : 0 } }, linha.tipo === "D" ? "D" : "C", " ", nomeConta.get(linha.contaId) || linha.contaId, linha.descricao ? /* @__PURE__ */ React6.createElement("span", { style: { color: "var(--muted)" } }, " \u2014 ", linha.descricao) : null), /* @__PURE__ */ React6.createElement("td", { className: "py-0.5 text-right tabular-nums" }, fmt2(linha.valor)))))));
+    return /* @__PURE__ */ React6.createElement(Card, { key: l.id, pad: "apertado" }, /* @__PURE__ */ React6.createElement("div", { className: "flex items-center justify-between mb-2 gap-2" }, /* @__PURE__ */ React6.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React6.createElement("span", { className: "font-mono text-xs mr-2", style: { color: "var(--muted)" } }, fmtData(l.data)), /* @__PURE__ */ React6.createElement("span", { style: { color: "var(--ink)" } }, l.descricao)), /* @__PURE__ */ React6.createElement("div", { className: "flex items-center gap-2 shrink-0" }, /* @__PURE__ */ React6.createElement("span", { className: "text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full", style: { background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" } }, ORIGEM_LABEL[l.origem] || l.origem), editavel && /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("button", { onClick: () => onEditar(l.id), className: "transition-opacity hover:opacity-70", style: { color: "var(--muted)" }, "aria-label": "Editar" }, /* @__PURE__ */ React6.createElement(Pencil, { size: 13 })), /* @__PURE__ */ React6.createElement(LinhaExcluir, { lancamento: l, onConfirmar: onExcluir })))), /* @__PURE__ */ React6.createElement("table", { className: "w-full text-xs" }, /* @__PURE__ */ React6.createElement("tbody", null, linhas.map((linha) => /* @__PURE__ */ React6.createElement("tr", { key: linha.id }, /* @__PURE__ */ React6.createElement("td", { className: "py-0.5 pr-2", style: { color: linha.tipo === "D" ? "var(--ink)" : "var(--muted)", paddingLeft: linha.tipo === "C" ? "1.5rem" : 0 } }, linha.tipo === "D" ? "D" : "C", " ", nomeConta.get(linha.contaId) || linha.contaId, linha.descricao ? /* @__PURE__ */ React6.createElement("span", { style: { color: "var(--muted)" } }, " \u2014 ", linha.descricao) : null), /* @__PURE__ */ React6.createElement("td", { className: "py-0.5 text-right tabular-nums" }, fmt3(linha.valor)))))));
   }));
 }
 
 // src/telas/Razao.jsx
 import React7, { useState as useState6, useMemo as useMemo2 } from "react";
-var fmt3 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt4 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtData2 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
 function Razao({ contas, lancamentos, lancamentoLinhas }) {
   const contasOrdenadas = useMemo2(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
@@ -1498,16 +1604,16 @@ function Razao({ contas, lancamentos, lancamentoLinhas }) {
       return { ...l, saldoCorrente: corrente };
     });
   }, [contaId, conta, lancamentoLinhas, lancamentos]);
-  return /* @__PURE__ */ React7.createElement("div", null, /* @__PURE__ */ React7.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React7.createElement(Select, { value: contaId, onChange: setContaId, options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React7.createElement(Card, null, linhas.length === 0 ? /* @__PURE__ */ React7.createElement("div", { className: "text-center py-8 text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento nesta conta ainda.") : /* @__PURE__ */ React7.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React7.createElement("thead", null, /* @__PURE__ */ React7.createElement("tr", { style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React7.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Data"), /* @__PURE__ */ React7.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Descri\xE7\xE3o"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "D\xE9bito"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "Cr\xE9dito"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2", style: { color: "var(--muted)" } }, "Saldo"))), /* @__PURE__ */ React7.createElement("tbody", null, linhas.map((l) => /* @__PURE__ */ React7.createElement("tr", { key: l.id, style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 font-mono text-xs", style: { color: "var(--muted)" } }, fmtData2(l.data)), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3" }, l.descricao || l.lancDescricao), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, l.tipo === "D" ? fmt3(l.valor) : "\u2014"), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, l.tipo === "C" ? fmt3(l.valor) : "\u2014"), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 text-right tabular-nums font-medium" }, fmt3(l.saldoCorrente))))))));
+  return /* @__PURE__ */ React7.createElement("div", null, /* @__PURE__ */ React7.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React7.createElement(Select, { value: contaId, onChange: setContaId, options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React7.createElement(Card, null, linhas.length === 0 ? /* @__PURE__ */ React7.createElement("div", { className: "text-center py-8 text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento nesta conta ainda.") : /* @__PURE__ */ React7.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React7.createElement("thead", null, /* @__PURE__ */ React7.createElement("tr", { style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React7.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Data"), /* @__PURE__ */ React7.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Descri\xE7\xE3o"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "D\xE9bito"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "Cr\xE9dito"), /* @__PURE__ */ React7.createElement("th", { className: "text-right py-2", style: { color: "var(--muted)" } }, "Saldo"))), /* @__PURE__ */ React7.createElement("tbody", null, linhas.map((l) => /* @__PURE__ */ React7.createElement("tr", { key: l.id, style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 font-mono text-xs", style: { color: "var(--muted)" } }, fmtData2(l.data)), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3" }, l.descricao || l.lancDescricao), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, l.tipo === "D" ? fmt4(l.valor) : "\u2014"), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, l.tipo === "C" ? fmt4(l.valor) : "\u2014"), /* @__PURE__ */ React7.createElement("td", { className: "py-1.5 text-right tabular-nums font-medium" }, fmt4(l.saldoCorrente))))))));
 }
 
 // src/telas/Balancete.jsx
 import React8 from "react";
 var TIPO_LABEL2 = { ativo: "Ativo", passivo: "Passivo", pl: "Patrim\xF4nio L\xEDquido", receita: "Receita", despesa: "Despesa" };
-var fmt4 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt5 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 function Balancete({ contas, lancamentoLinhas }) {
   const b = balancete(contas, lancamentoLinhas);
-  return /* @__PURE__ */ React8.createElement(Card, null, /* @__PURE__ */ React8.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React8.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React8.createElement("thead", null, /* @__PURE__ */ React8.createElement("tr", { style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React8.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "C\xF3digo"), /* @__PURE__ */ React8.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Conta"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "D\xE9bito"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "Cr\xE9dito"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2", style: { color: "var(--muted)" } }, "Saldo"))), /* @__PURE__ */ React8.createElement("tbody", null, b.linhas.filter((c) => c.debito || c.credito).map((c) => /* @__PURE__ */ React8.createElement("tr", { key: c.id, style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 font-mono text-xs", style: { color: "var(--muted)" } }, c.codigo), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3" }, c.nome, /* @__PURE__ */ React8.createElement("span", { className: "text-[10px] ml-2 uppercase tracking-wide", style: { color: "var(--muted)" } }, TIPO_LABEL2[c.tipo])), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, c.debito ? fmt4(c.debito) : "\u2014"), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, c.credito ? fmt4(c.credito) : "\u2014"), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 text-right tabular-nums font-medium", style: { color: "var(--ink)" } }, fmt4(c.saldo)))), b.linhas.every((c) => !c.debito && !c.credito) && /* @__PURE__ */ React8.createElement("tr", null, /* @__PURE__ */ React8.createElement("td", { colSpan: 5, className: "py-8 text-center text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento ainda."))), /* @__PURE__ */ React8.createElement("tfoot", null, /* @__PURE__ */ React8.createElement("tr", { style: { borderTop: "2px solid var(--rule)" } }, /* @__PURE__ */ React8.createElement("td", { colSpan: 2, className: "py-2 pr-3 font-medium" }, "Total"), /* @__PURE__ */ React8.createElement("td", { className: "py-2 pr-3 text-right tabular-nums font-medium" }, fmt4(b.totalDebito)), /* @__PURE__ */ React8.createElement("td", { className: "py-2 pr-3 text-right tabular-nums font-medium" }, fmt4(b.totalCredito)), /* @__PURE__ */ React8.createElement("td", { className: "py-2 text-right" }, /* @__PURE__ */ React8.createElement("span", { className: "text-xs px-2 py-1 rounded-full", style: { background: b.fecha ? "var(--credit-soft)" : "var(--debit-soft)", color: b.fecha ? "var(--credit)" : "var(--debit)" } }, b.fecha ? "fecha \u2713" : "n\xE3o fecha \u26A0")))))));
+  return /* @__PURE__ */ React8.createElement(Card, null, /* @__PURE__ */ React8.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React8.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React8.createElement("thead", null, /* @__PURE__ */ React8.createElement("tr", { style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React8.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "C\xF3digo"), /* @__PURE__ */ React8.createElement("th", { className: "text-left py-2 pr-3", style: { color: "var(--muted)" } }, "Conta"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "D\xE9bito"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2 pr-3", style: { color: "var(--muted)" } }, "Cr\xE9dito"), /* @__PURE__ */ React8.createElement("th", { className: "text-right py-2", style: { color: "var(--muted)" } }, "Saldo"))), /* @__PURE__ */ React8.createElement("tbody", null, b.linhas.filter((c) => c.debito || c.credito).map((c) => /* @__PURE__ */ React8.createElement("tr", { key: c.id, style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 font-mono text-xs", style: { color: "var(--muted)" } }, c.codigo), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3" }, c.nome, /* @__PURE__ */ React8.createElement("span", { className: "text-[10px] ml-2 uppercase tracking-wide", style: { color: "var(--muted)" } }, TIPO_LABEL2[c.tipo])), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, c.debito ? fmt5(c.debito) : "\u2014"), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 pr-3 text-right tabular-nums" }, c.credito ? fmt5(c.credito) : "\u2014"), /* @__PURE__ */ React8.createElement("td", { className: "py-1.5 text-right tabular-nums font-medium", style: { color: "var(--ink)" } }, fmt5(c.saldo)))), b.linhas.every((c) => !c.debito && !c.credito) && /* @__PURE__ */ React8.createElement("tr", null, /* @__PURE__ */ React8.createElement("td", { colSpan: 5, className: "py-8 text-center text-sm", style: { color: "var(--muted)" } }, "Nenhum lan\xE7amento ainda."))), /* @__PURE__ */ React8.createElement("tfoot", null, /* @__PURE__ */ React8.createElement("tr", { style: { borderTop: "2px solid var(--rule)" } }, /* @__PURE__ */ React8.createElement("td", { colSpan: 2, className: "py-2 pr-3 font-medium" }, "Total"), /* @__PURE__ */ React8.createElement("td", { className: "py-2 pr-3 text-right tabular-nums font-medium" }, fmt5(b.totalDebito)), /* @__PURE__ */ React8.createElement("td", { className: "py-2 pr-3 text-right tabular-nums font-medium" }, fmt5(b.totalCredito)), /* @__PURE__ */ React8.createElement("td", { className: "py-2 text-right" }, /* @__PURE__ */ React8.createElement("span", { className: "text-xs px-2 py-1 rounded-full", style: { background: b.fecha ? "var(--credit-soft)" : "var(--debit-soft)", color: b.fecha ? "var(--credit)" : "var(--debit)" } }, b.fecha ? "fecha \u2713" : "n\xE3o fecha \u26A0")))))));
 }
 
 // src/telas/Lancar.jsx
@@ -1566,11 +1672,11 @@ function quantoPodeTirar({ contas, lancamentos, lancamentoLinhas, periodosFechad
 
 // src/telas/Lancar.jsx
 var CONTAS_COM_VENCIMENTO = /* @__PURE__ */ new Set([CONTA_A_RECEBER, ...CONTAS_COMPROMISSO]);
-var uid = () => Math.random().toString(36).slice(2, 10);
+var uid2 = () => Math.random().toString(36).slice(2, 10);
 var hojeISO2 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-var fmt5 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
-var linhaVazia = () => ({ chave: uid(), contaId: "", tipo: "D", valor: "", descricao: "", vencimento: "" });
-var linhaDe = (l) => ({ chave: uid(), contaId: l.contaId, tipo: l.tipo, valor: String(l.valor), descricao: l.descricao || "", vencimento: l.vencimento || "" });
+var fmt6 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var linhaVazia = () => ({ chave: uid2(), contaId: "", tipo: "D", valor: "", descricao: "", vencimento: "" });
+var linhaDe = (l) => ({ chave: uid2(), contaId: l.contaId, tipo: l.tipo, valor: String(l.valor), descricao: l.descricao || "", vencimento: l.vencimento || "" });
 function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdicao }) {
   const contasOrdenadas = useMemo3(() => [...contas].sort((a, b) => a.codigo.localeCompare(b.codigo)), [contas]);
   const opcoesContas = contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` }));
@@ -1608,7 +1714,7 @@ function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdicao }) {
         lancamentoId: editando.lancamento.id,
         lancamento: { id: editando.lancamento.id, data, dataCompetencia: data, descricao: descricao.trim(), origem: editando.lancamento.origem, documento: editando.lancamento.documento },
         linhas: linhasValidas.map((l) => ({
-          id: uid(),
+          id: uid2(),
           lancamentoId: editando.lancamento.id,
           contaId: l.contaId,
           tipo: l.tipo,
@@ -1624,11 +1730,11 @@ function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdicao }) {
       setTimeout(() => setConfirmado(false), 2e3);
       return;
     }
-    const idLancamento = uid();
+    const idLancamento = uid2();
     const aceito = onAdicionar({
       lancamento: { id: idLancamento, data, dataCompetencia: data, descricao: descricao.trim(), origem: "manual", documento: null },
       linhas: linhasValidas.map((l) => ({
-        id: uid(),
+        id: uid2(),
         lancamentoId: idLancamento,
         contaId: l.contaId,
         tipo: l.tipo,
@@ -1645,7 +1751,7 @@ function Lancar({ contas, onAdicionar, editando, onEditar, onCancelarEdicao }) {
   return /* @__PURE__ */ React9.createElement(Card, null, editando && /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 pb-3", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React9.createElement("span", { className: "text-xs uppercase tracking-wide", style: { color: "var(--accent)", fontFamily: "var(--font-mono)" } }, "Editando lan\xE7amento"), /* @__PURE__ */ React9.createElement("button", { onClick: () => {
     onCancelarEdicao();
     limpar();
-  }, className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement(X3, { size: 13 }), " Cancelar")), /* @__PURE__ */ React9.createElement("div", { className: "grid grid-cols-2 gap-3 mb-4" }, /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Data"), /* @__PURE__ */ React9.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React9.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Venda do dia" }))), /* @__PURE__ */ React9.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React9.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center flex-wrap animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React9.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React9.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), CONTAS_COM_VENCIMENTO.has(l.contaId) && /* @__PURE__ */ React9.createElement(Input, { type: "date", value: l.vencimento, onChange: (e) => editarLinha(l.chave, "vencimento", e.target.value), className: "w-36", title: "Vencimento (opcional) \u2014 pra aparecer em 'A receber/pagar'" }), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React9.createElement(Trash23, { size: 15 })))), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React9.createElement(Plus3, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement("span", null, "D\xE9bitos: ", fmt5(somaD), " \xB7 Cr\xE9ditos: ", fmt5(somaC)), diferenca !== 0 && /* @__PURE__ */ React9.createElement(AlertLine, null, "Diferen\xE7a de ", fmt5(Math.abs(diferenca)), " \u2014 o lan\xE7amento precisa fechar antes de gravar")), /* @__PURE__ */ React9.createElement(Button, { onClick: gravar, disabled: !podeGravar }, editando ? "Salvar edi\xE7\xE3o" : "Lan\xE7ar"), confirmado && /* @__PURE__ */ React9.createElement("span", { className: "ml-3 text-xs", style: { color: "var(--credit)" } }, "Lan\xE7ado."));
+  }, className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement(X3, { size: 13 }), " Cancelar")), /* @__PURE__ */ React9.createElement("div", { className: "grid grid-cols-2 gap-3 mb-4" }, /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Data"), /* @__PURE__ */ React9.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React9.createElement("div", null, /* @__PURE__ */ React9.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React9.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Venda do dia" }))), /* @__PURE__ */ React9.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React9.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center flex-wrap animate-[surgir_.2s_ease-out]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React9.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React9.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React9.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), CONTAS_COM_VENCIMENTO.has(l.contaId) && /* @__PURE__ */ React9.createElement(Input, { type: "date", value: l.vencimento, onChange: (e) => editarLinha(l.chave, "vencimento", e.target.value), className: "w-36", title: "Vencimento (opcional) \u2014 pra aparecer em 'A receber/pagar'" }), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React9.createElement(Trash23, { size: 15 })))), /* @__PURE__ */ React9.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React9.createElement(Plus3, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React9.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React9.createElement("span", null, "D\xE9bitos: ", fmt6(somaD), " \xB7 Cr\xE9ditos: ", fmt6(somaC)), diferenca !== 0 && /* @__PURE__ */ React9.createElement(AlertLine, null, "Diferen\xE7a de ", fmt6(Math.abs(diferenca)), " \u2014 o lan\xE7amento precisa fechar antes de gravar")), /* @__PURE__ */ React9.createElement(Button, { onClick: gravar, disabled: !podeGravar }, editando ? "Salvar edi\xE7\xE3o" : "Lan\xE7ar"), confirmado && /* @__PURE__ */ React9.createElement("span", { className: "ml-3 text-xs", style: { color: "var(--credit)" } }, "Lan\xE7ado."));
 }
 
 // src/telas/CaixaEntrada.jsx
@@ -1746,8 +1852,8 @@ function construirLancamentoDeClassificacao(item, contaCategoriaId, gerarId = ui
 }
 
 // src/telas/CaixaEntrada.jsx
-var uid2 = () => Math.random().toString(36).slice(2, 10);
-var fmt6 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var uid3 = () => Math.random().toString(36).slice(2, 10);
+var fmt7 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtData3 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
 var CONTAS_TRANSITO = [{ value: "caixa", label: "Caixa (dinheiro)" }, { value: "banco", label: "Banco" }];
 function ImportarExtrato({ onImportar }) {
@@ -1793,7 +1899,7 @@ function ImportarExtrato({ onImportar }) {
   };
   const confirmar = () => {
     onImportar(linhas.map((l) => ({
-      id: uid2(),
+      id: uid3(),
       origem: "extrato",
       data: l.data,
       descricaoBruta: l.descricaoBruta,
@@ -1815,7 +1921,7 @@ function ImportarExtrato({ onImportar }) {
       className: "w-full rounded-md border px-3 py-2 text-xs font-mono mb-3 transition-colors duration-150",
       style: { borderColor: "var(--rule-faint)", background: "var(--paper)", color: "var(--ink)" }
     }
-  ), erro && /* @__PURE__ */ React10.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React10.createElement(Button, { onClick: processar }, "Processar")) : /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, linhas.length, " linha(s) encontrada(s) \u2014 confira antes de importar:"), /* @__PURE__ */ React10.createElement("div", { className: "max-h-56 overflow-y-auto mb-3 text-xs" }, linhas.map((l, i) => /* @__PURE__ */ React10.createElement("div", { key: i, className: "flex justify-between py-1", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("span", { style: { color: "var(--muted)" } }, fmtData3(l.data)), /* @__PURE__ */ React10.createElement("span", { className: "flex-1 mx-2 truncate" }, l.descricaoBruta), /* @__PURE__ */ React10.createElement("span", { className: "tabular-nums" }, fmt6(l.valor))))), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React10.createElement(Button, { onClick: confirmar }, "Importar ", linhas.length, " linha(s)"), /* @__PURE__ */ React10.createElement(Button, { variant: "ghost", onClick: () => setLinhas(null) }, "Cancelar"))));
+  ), erro && /* @__PURE__ */ React10.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-3", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React10.createElement(Button, { onClick: processar }, "Processar")) : /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, linhas.length, " linha(s) encontrada(s) \u2014 confira antes de importar:"), /* @__PURE__ */ React10.createElement("div", { className: "max-h-56 overflow-y-auto mb-3 text-xs" }, linhas.map((l, i) => /* @__PURE__ */ React10.createElement("div", { key: i, className: "flex justify-between py-1", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("span", { style: { color: "var(--muted)" } }, fmtData3(l.data)), /* @__PURE__ */ React10.createElement("span", { className: "flex-1 mx-2 truncate" }, l.descricaoBruta), /* @__PURE__ */ React10.createElement("span", { className: "tabular-nums" }, fmt7(l.valor))))), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React10.createElement(Button, { onClick: confirmar }, "Importar ", linhas.length, " linha(s)"), /* @__PURE__ */ React10.createElement(Button, { variant: "ghost", onClick: () => setLinhas(null) }, "Cancelar"))));
 }
 function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida, dinheiroMisturado }) {
   const [classificando, setClassificando] = useState8(false);
@@ -1828,7 +1934,7 @@ function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida
     const aceito = onClassificar({ item, contaCategoriaId: contaId, padrao: padrao.trim() || item.descricaoBruta });
     if (aceito !== false) setClassificando(false);
   };
-  return /* @__PURE__ */ React10.createElement(Card, { pad: "apertado", className: "mb-2" }, /* @__PURE__ */ React10.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React10.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React10.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData3(item.data), " \xB7 ", item.contaOrigemId === "banco" ? "Banco" : "Caixa"), /* @__PURE__ */ React10.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, item.descricaoBruta), sugestao && !classificando && /* @__PURE__ */ React10.createElement("div", { className: "text-[10px] mt-0.5", style: { color: "var(--accent)" } }, "sugest\xE3o: ", contas.find((c) => c.id === sugestao.contaId)?.nome)), /* @__PURE__ */ React10.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: item.valor >= 0 ? "var(--credit)" : "var(--debit)" } }, fmt6(item.valor))), classificando ? /* @__PURE__ */ React10.createElement("div", { className: "mt-3 pt-3 space-y-2", style: { borderTop: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Categoria"), /* @__PURE__ */ React10.createElement(Select, { value: contaId, onChange: setContaId, placeholder: "escolha a conta", options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Padr\xE3o para lembrar da pr\xF3xima vez"), /* @__PURE__ */ React10.createElement(Input, { value: padrao, onChange: (e) => setPadrao(e.target.value) })), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 pt-1" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: confirmar, disabled: !contaId }, "Confirmar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => setClassificando(false) }, "Cancelar"))) : /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 mt-2 flex-wrap items-center" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: () => setClassificando(true) }, /* @__PURE__ */ React10.createElement(Check2, { size: 12 }), " Classificar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onPessoal(item) }, dinheiroMisturado ? /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement(ArrowUpFromLine, { size: 12 }), " ", item.valor > 0 ? "Aporte pessoal" : "Retirada") : /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement(X4, { size: 12 }), " \xC9 pessoal")), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onDuvida(item) }, /* @__PURE__ */ React10.createElement(HelpCircle2, { size: 12 }), " N\xE3o sei"), dinheiroMisturado && /* @__PURE__ */ React10.createElement("span", { className: "text-[10px]", style: { color: "var(--muted)" } }, item.valor > 0 ? "entra como aporte, n\xE3o como receita" : "vira retirada \u2014 n\xE3o some do livro")));
+  return /* @__PURE__ */ React10.createElement(Card, { pad: "apertado", className: "mb-2" }, /* @__PURE__ */ React10.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React10.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React10.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData3(item.data), " \xB7 ", item.contaOrigemId === "banco" ? "Banco" : "Caixa"), /* @__PURE__ */ React10.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, item.descricaoBruta), sugestao && !classificando && /* @__PURE__ */ React10.createElement("div", { className: "text-[10px] mt-0.5", style: { color: "var(--accent)" } }, "sugest\xE3o: ", contas.find((c) => c.id === sugestao.contaId)?.nome)), /* @__PURE__ */ React10.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: item.valor >= 0 ? "var(--credit)" : "var(--debit)" } }, fmt7(item.valor))), classificando ? /* @__PURE__ */ React10.createElement("div", { className: "mt-3 pt-3 space-y-2", style: { borderTop: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Categoria"), /* @__PURE__ */ React10.createElement(Select, { value: contaId, onChange: setContaId, placeholder: "escolha a conta", options: contasOrdenadas.map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` })) })), /* @__PURE__ */ React10.createElement("div", null, /* @__PURE__ */ React10.createElement(Label, null, "Padr\xE3o para lembrar da pr\xF3xima vez"), /* @__PURE__ */ React10.createElement(Input, { value: padrao, onChange: (e) => setPadrao(e.target.value) })), /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 pt-1" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: confirmar, disabled: !contaId }, "Confirmar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => setClassificando(false) }, "Cancelar"))) : /* @__PURE__ */ React10.createElement("div", { className: "flex gap-2 mt-2 flex-wrap items-center" }, /* @__PURE__ */ React10.createElement(Button, { small: true, onClick: () => setClassificando(true) }, /* @__PURE__ */ React10.createElement(Check2, { size: 12 }), " Classificar"), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onPessoal(item) }, dinheiroMisturado ? /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement(ArrowUpFromLine, { size: 12 }), " ", item.valor > 0 ? "Aporte pessoal" : "Retirada") : /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement(X4, { size: 12 }), " \xC9 pessoal")), /* @__PURE__ */ React10.createElement(Button, { small: true, variant: "ghost", onClick: () => onDuvida(item) }, /* @__PURE__ */ React10.createElement(HelpCircle2, { size: 12 }), " N\xE3o sei"), dinheiroMisturado && /* @__PURE__ */ React10.createElement("span", { className: "text-[10px]", style: { color: "var(--muted)" } }, item.valor > 0 ? "entra como aporte, n\xE3o como receita" : "vira retirada \u2014 n\xE3o some do livro")));
 }
 function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, onClassificar, onPessoal, onDuvida, dinheiroMisturado }) {
   const pendentes = entradaItens.filter((i) => i.situacao === "pendente" || i.situacao === "duvida");
@@ -1850,7 +1956,7 @@ function CaixaEntrada({ contas, entradaItens, regrasClassificacao, onImportar, o
 // src/telas/Conciliacao.jsx
 import React11, { useMemo as useMemo5 } from "react";
 import { Check as Check3 } from "lucide-react";
-var fmt7 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt8 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtData4 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
 var CONTAS_TRANSITO2 = /* @__PURE__ */ new Set(["caixa", "banco"]);
 function Conciliacao({ lancamentos, lancamentoLinhas, conciliacoes, onAlternar }) {
@@ -1881,7 +1987,7 @@ function Conciliacao({ lancamentos, lancamentoLinhas, conciliacoes, onAlternar }
         "aria-label": ok ? "Desmarcar conferido" : "Marcar como conferido"
       },
       ok && /* @__PURE__ */ React11.createElement(Check3, { size: 14, style: { color: "var(--credit)" } })
-    ), /* @__PURE__ */ React11.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React11.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData4(l.data)), /* @__PURE__ */ React11.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, l.descricao)), /* @__PURE__ */ React11.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: "var(--ink)" } }, linhaTransito ? fmt7(linhaTransito.valor) : "\u2014")));
+    ), /* @__PURE__ */ React11.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React11.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, fmtData4(l.data)), /* @__PURE__ */ React11.createElement("div", { className: "truncate", style: { color: "var(--ink)" } }, l.descricao)), /* @__PURE__ */ React11.createElement("div", { className: "text-sm tabular-nums shrink-0", style: { color: "var(--ink)" } }, linhaTransito ? fmt8(linhaTransito.valor) : "\u2014")));
   }));
 }
 
@@ -2025,27 +2131,108 @@ function receitasSemDinheiro(contas, lancamentos, lancamentoLinhas) {
   }
   return achados;
 }
-function encontrarAchados(contas, lancamentos, lancamentoLinhas, periodosFechados) {
+function saldoContinuoDesde(contaId, lancamentos, lancamentoLinhas) {
+  const porLancamento = new Map(lancamentos.map((l) => [l.id, l]));
+  const linhas = lancamentoLinhas.filter((l) => l.contaId === contaId).map((l) => ({ ...l, data: porLancamento.get(l.lancamentoId)?.data })).filter((l) => l.data).sort((a, b) => a.data.localeCompare(b.data));
+  let saldo = 0;
+  let desde = null;
+  for (const l of linhas) {
+    const antes = saldo;
+    saldo += l.tipo === "D" ? l.valor : -l.valor;
+    if (antes <= 0 && saldo > 0) desde = l.data;
+    if (saldo <= 0) desde = null;
+  }
+  return { saldo: Math.round(saldo * 100) / 100, desde };
+}
+var UM_DIA_MS = 24 * 60 * 60 * 1e3;
+function diasEntre(dataIso, hoje) {
+  return Math.round((new Date(hoje) - new Date(dataIso)) / UM_DIA_MS);
+}
+function retiradaAcimaDoResultado(contas, lancamentos, lancamentoLinhas, periodosFechados, hoje) {
+  const mesesFechados = new Set((periodosFechados || []).filter((p) => p.startsWith("mes:")).map((p) => p.slice(4)));
+  const mes = (hoje || "").slice(0, 7);
+  if (mesesFechados.has(mes)) return [];
+  const retirada = saldoDaContaNoMes("retiradas_titular", mes, lancamentos, lancamentoLinhas);
+  if (retirada <= 0) return [];
+  const { resultado } = resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes);
+  if (retirada <= resultado) return [];
+  return [{ tipo: "retirada_acima_do_resultado", mes, retirada, resultado, diferenca: Math.round((retirada - resultado) * 100) / 100 }];
+}
+function mercadoriaParadaComTerceiro(contas, lancamentos, lancamentoLinhas, hoje, diasMinimo = 15) {
+  if (!contas.some((c) => c.id === "mercadoria_com_terceiros")) return [];
+  const { saldo, desde } = saldoContinuoDesde("mercadoria_com_terceiros", lancamentos, lancamentoLinhas);
+  if (saldo <= 0 || !desde) return [];
+  const dias = diasEntre(desde, hoje);
+  if (dias < diasMinimo) return [];
+  return [{ tipo: "mercadoria_parada_com_terceiro", valor: saldo, desde, dias }];
+}
+function taxaEngolindoMargem(contas, lancamentos, lancamentoLinhas, mes, contaTaxaId, percentualLimite = 0.08) {
+  if (!contaTaxaId || !contas.some((c) => c.id === contaTaxaId)) return [];
+  const taxa = saldoDaContaNoMes(contaTaxaId, mes, lancamentos, lancamentoLinhas);
+  if (taxa <= 0) return [];
+  const { receita } = resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes);
+  if (receita <= 0) return [];
+  const percentual = taxa / receita;
+  if (percentual < percentualLimite) return [];
+  return [{ tipo: "taxa_engolindo_margem", mes, contaId: contaTaxaId, valor: taxa, receita, percentual: Math.round(percentual * 1e3) / 10 }];
+}
+function semReceitaNoPeriodo(contas, lancamentos, lancamentoLinhas, hoje, fracaoMinima = 0.4) {
+  const mes = (hoje || "").slice(0, 7);
+  const diaHoje = Number((hoje || "").slice(8, 10));
+  if (!diaHoje) return [];
+  const contasReceita = new Set(contas.filter((c) => c.tipo === "receita").map((c) => c.id));
+  const porLancamento = new Map(lancamentos.filter((l) => (l.data || "").slice(0, 7) === mes).map((l) => [l.id, l]));
+  const diasComReceita = /* @__PURE__ */ new Set();
+  for (const linha of lancamentoLinhas) {
+    const lanc = porLancamento.get(linha.lancamentoId);
+    if (!lanc || !contasReceita.has(linha.contaId)) continue;
+    diasComReceita.add(Number(lanc.data.slice(8, 10)));
+  }
+  if (!diasComReceita.size) return [];
+  const diasSemReceita = diaHoje - diasComReceita.size;
+  const fracao = diasSemReceita / diaHoje;
+  if (fracao < fracaoMinima) return [];
+  return [{ tipo: "sem_receita_no_periodo", mes, diasSemReceita, diaHoje, fracaoPercentual: Math.round(fracao * 100) }];
+}
+var CONTA_TAXA_POR_ARQUETIPO = { revenda: "taxa_maquininha", producao: "taxa_maquininha", digital: "taxa_plataforma" };
+function encontrarAchados(contas, lancamentos, lancamentoLinhas, periodosFechados, opcoes = {}) {
+  const { arquetipo = null, hoje = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) } = opcoes;
   const achados = [];
   for (const mes of mesesSemMovimento(lancamentos)) {
     achados.push({ tipo: "mes_sem_movimento", mes });
   }
   achados.push(...despesasForaDoPadrao(contas, lancamentos, lancamentoLinhas, periodosFechados));
   achados.push(...receitasSemDinheiro(contas, lancamentos, lancamentoLinhas));
+  achados.push(...retiradaAcimaDoResultado(contas, lancamentos, lancamentoLinhas, periodosFechados, hoje));
+  const declarados = achadosDe(arquetipo);
+  if (declarados.includes("mercadoria_parada_com_terceiro")) {
+    achados.push(...mercadoriaParadaComTerceiro(contas, lancamentos, lancamentoLinhas, hoje));
+  }
+  if (declarados.includes("taxa_engolindo_margem")) {
+    achados.push(...taxaEngolindoMargem(contas, lancamentos, lancamentoLinhas, hoje.slice(0, 7), CONTA_TAXA_POR_ARQUETIPO[arquetipo]));
+  }
+  if (declarados.includes("sem_receita_no_periodo")) {
+    achados.push(...semReceitaNoPeriodo(contas, lancamentos, lancamentoLinhas, hoje));
+  }
   return achados;
 }
 
 // src/telas/Revisao.jsx
-var fmt8 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt9 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtMes = (m) => {
   const [ano, mes] = m.split("-");
   return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 };
 var fmtData5 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
+var hojeISO3 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function textoAchado(a) {
   if (a.tipo === "mes_sem_movimento") return `${fmtMes(a.mes)} n\xE3o tem nenhum lan\xE7amento \u2014 m\xEAs pulado no meio da hist\xF3ria`;
-  if (a.tipo === "despesa_fora_padrao") return `${a.contaNome} em ${fmtMes(a.mes)}: ${fmt8(a.valor)} \u2014 bem acima da m\xE9dia de meses fechados (${fmt8(a.media)})`;
+  if (a.tipo === "despesa_fora_padrao") return `${a.contaNome} em ${fmtMes(a.mes)}: ${fmt9(a.valor)} \u2014 bem acima da m\xE9dia de meses fechados (${fmt9(a.media)})`;
   if (a.tipo === "receita_sem_dinheiro") return `"${a.descricao}" (${fmtData5(a.data)}) \u2014 receita registrada sem dinheiro nem a receber em lugar nenhum`;
+  if (a.tipo === "retirada_acima_do_resultado") return `Em ${fmtMes(a.mes)}, a retirada (${fmt9(a.retirada)}) j\xE1 passou o que o neg\xF3cio gerou (${fmt9(a.resultado)}) em ${fmt9(a.diferenca)}`;
+  if (a.tipo === "mercadoria_parada_com_terceiro") return `${fmt9(a.valor)} em mercadoria parada com terceiro h\xE1 ${a.dias} dias (desde ${fmtData5(a.desde)})`;
+  if (a.tipo === "taxa_engolindo_margem") return `A taxa comeu ${fmt9(a.valor)} em ${fmtMes(a.mes)} \u2014 ${a.percentual}% da receita (${fmt9(a.receita)})`;
+  if (a.tipo === "sem_receita_no_periodo") return `${a.diasSemReceita} de ${a.diaHoje} dias de ${fmtMes(a.mes)} sem nenhuma receita lan\xE7ada (${a.fracaoPercentual}%)`;
   return "";
 }
 function Achados({ achados }) {
@@ -2069,12 +2256,12 @@ function Trilha({ trilha }) {
   if (recentes.length === 0) return null;
   return /* @__PURE__ */ React12.createElement(Card, { className: "mt-6" }, /* @__PURE__ */ React12.createElement("div", { className: "font-medium mb-3", style: { color: "var(--ink)" } }, "Trilha \u2014 o que aconteceu por \xFAltimo"), /* @__PURE__ */ React12.createElement("div", { className: "space-y-1.5 text-xs" }, recentes.map((t, i) => /* @__PURE__ */ React12.createElement("div", { key: i, style: { color: "var(--muted)" } }, /* @__PURE__ */ React12.createElement("span", { className: "font-mono uppercase", style: { color: "var(--accent)" } }, t.tipo), " \u2014 ", t.descricao))));
 }
-function Revisao({ contas, lancamentos, lancamentoLinhas, periodosFechados, trilha, onFechar, onReabrir }) {
+function Revisao({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, trilha, onFechar, onReabrir }) {
   const checks = useMemo6(() => mesaDeRevisao(contas, lancamentos, lancamentoLinhas), [contas, lancamentos, lancamentoLinhas]);
   const mesaPassa = podeFecharPeriodo(checks);
   const achados = useMemo6(
-    () => encontrarAchados(contas, lancamentos, lancamentoLinhas, periodosFechados),
-    [contas, lancamentos, lancamentoLinhas, periodosFechados]
+    () => encontrarAchados(contas, lancamentos, lancamentoLinhas, periodosFechados, { arquetipo: negocio?.arquetipo, hoje: hojeISO3() }),
+    [contas, lancamentos, lancamentoLinhas, periodosFechados, negocio?.arquetipo]
   );
   return /* @__PURE__ */ React12.createElement("div", null, /* @__PURE__ */ React12.createElement(MesaChecks, { checks }), /* @__PURE__ */ React12.createElement(Achados, { achados }), /* @__PURE__ */ React12.createElement(Fechamento, { lancamentos, periodosFechados, mesaPassa, onFechar, onReabrir }), /* @__PURE__ */ React12.createElement(Trilha, { trilha }));
 }
@@ -2183,12 +2370,12 @@ function fmtDia(iso) {
 }
 
 // src/telas/RetratoDoMes.jsx
-var fmt9 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt10 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtMes2 = (m) => {
   const [ano, mes] = m.split("-");
   return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 };
-var hojeISO3 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+var hojeISO4 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function OQueVemPorAi({ lancamentos, lancamentoLinhas, recorrentes, recorrenteLinhas }) {
   const fluxo = useMemo7(
     () => fluxoProjetado({
@@ -2196,7 +2383,7 @@ function OQueVemPorAi({ lancamentos, lancamentoLinhas, recorrentes, recorrenteLi
       lancamentoLinhas,
       recorrentes: recorrentes || [],
       recorrenteLinhas: recorrenteLinhas || [],
-      hoje: hojeISO3(),
+      hoje: hojeISO4(),
       dias: 60
     }),
     [lancamentos, lancamentoLinhas, recorrentes, recorrenteLinhas]
@@ -2204,7 +2391,7 @@ function OQueVemPorAi({ lancamentos, lancamentoLinhas, recorrentes, recorrenteLi
   const aviso = useMemo7(() => aviseSobreOCaixa(fluxo), [fluxo]);
   if (!fluxo.eventos.length) return null;
   const corAviso = aviso?.gravidade === "aperto" ? "var(--debit)" : "var(--accent)";
-  return /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "O que vem por a\xED \xB7 pr\xF3ximos 60 dias"), aviso ? /* @__PURE__ */ React13.createElement(React13.Fragment, null, /* @__PURE__ */ React13.createElement("div", { className: "text-sm font-medium mb-1", style: { color: corAviso, lineHeight: 1.5 } }, aviso.frase), /* @__PURE__ */ React13.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, aviso.oQueFazer)) : /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-3", style: { color: "var(--ink)" } }, "O caixa se mant\xE9m positivo no per\xEDodo \u2014 o menor ponto \xE9 ", fmt9(fluxo.menorSaldo.saldo), "."), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt9(fluxo.saldoHoje), " em caixa e banco hoje"), fluxo.entram > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt9(fluxo.entram), " a receber com vencimento no per\xEDodo"), fluxo.saem > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt9(fluxo.saem), " a pagar e contas fixas no per\xEDodo")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "S\xF3 entra o que j\xE1 est\xE1 prometido \u2014 venda futura n\xE3o registrada n\xE3o \xE9 contada, de prop\xF3sito."));
+  return /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "O que vem por a\xED \xB7 pr\xF3ximos 60 dias"), aviso ? /* @__PURE__ */ React13.createElement(React13.Fragment, null, /* @__PURE__ */ React13.createElement("div", { className: "text-sm font-medium mb-1", style: { color: corAviso, lineHeight: 1.5 } }, aviso.frase), /* @__PURE__ */ React13.createElement("div", { className: "text-xs mb-3", style: { color: "var(--muted)" } }, aviso.oQueFazer)) : /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-3", style: { color: "var(--ink)" } }, "O caixa se mant\xE9m positivo no per\xEDodo \u2014 o menor ponto \xE9 ", fmt10(fluxo.menorSaldo.saldo), "."), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt10(fluxo.saldoHoje), " em caixa e banco hoje"), fluxo.entram > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt10(fluxo.entram), " a receber com vencimento no per\xEDodo"), fluxo.saem > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt10(fluxo.saem), " a pagar e contas fixas no per\xEDodo")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "S\xF3 entra o que j\xE1 est\xE1 prometido \u2014 venda futura n\xE3o registrada n\xE3o \xE9 contada, de prop\xF3sito."));
 }
 function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
   const cartaDoMes = cartas.find((c) => c.mes === mes);
@@ -2231,7 +2418,24 @@ function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida }) {
     }
   ), /* @__PURE__ */ React13.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React13.createElement(Button, { small: true, onClick: salvar }, "Salvar carta"), confirmado && /* @__PURE__ */ React13.createElement("span", { className: "text-xs", style: { color: "var(--credit)" } }, "Salvo.")));
 }
-function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, onSalvarCarta, onAvaliarCartaSeguida }) {
+function AvisoAprofundamento({ quantidade, onAbrir }) {
+  if (!quantidade) return null;
+  return /* @__PURE__ */ React13.createElement(
+    "button",
+    {
+      onClick: onAbrir,
+      className: "w-full text-left text-xs rounded-md px-3 py-2 mb-4 transition-opacity hover:opacity-80",
+      style: { background: "var(--accent-soft)", color: "var(--ink)" }
+    },
+    "Faltam ",
+    quantidade,
+    " pergunta",
+    quantidade > 1 ? "s" : "",
+    " de aprofundamento \u2014 vale perguntar nesta conversa. ",
+    /* @__PURE__ */ React13.createElement("span", { style: { color: "var(--accent)" } }, "Ver no Roteiro \u2192")
+  );
+}
+function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas, recorrentes, recorrenteLinhas, onSalvarCarta, onAvaliarCartaSeguida, pendentesDeAprofundamento: pendentesDeAprofundamento2, onAbrirRoteiro }) {
   const mesesComMovimento = useMemo7(() => {
     const meses = new Set(lancamentos.map((l) => (l.data || "").slice(0, 7)).filter(Boolean));
     return [...meses].sort().reverse();
@@ -2240,7 +2444,7 @@ function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodos
     () => new Set((periodosFechados || []).filter((p) => p.startsWith("mes:")).map((p) => p.slice(4))),
     [periodosFechados]
   );
-  const mesPadrao = [...mesesFechados].sort().reverse()[0] || mesesComMovimento[0] || hojeISO3().slice(0, 7);
+  const mesPadrao = [...mesesFechados].sort().reverse()[0] || mesesComMovimento[0] || hojeISO4().slice(0, 7);
   const [mes, setMes] = useState10(mesPadrao);
   const opcoesMes = useMemo7(() => {
     const todos = /* @__PURE__ */ new Set([...mesesComMovimento, ...mesesFechados, mes]);
@@ -2248,12 +2452,12 @@ function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodos
   }, [mesesComMovimento, mesesFechados, mes]);
   const r = useMemo7(() => resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes), [contas, lancamentos, lancamentoLinhas, mes]);
   const disp = useMemo7(
-    () => quantoPodeTirar({ contas, lancamentos, lancamentoLinhas, periodosFechados, hoje: hojeISO3() }),
+    () => quantoPodeTirar({ contas, lancamentos, lancamentoLinhas, periodosFechados, hoje: hojeISO4() }),
     [contas, lancamentos, lancamentoLinhas, periodosFechados]
   );
   const diferenca = Math.round((r.resultado - r.variacaoCaixaBanco) * 100) / 100;
   const sobrouPositivo = r.resultado >= 0;
-  return /* @__PURE__ */ React13.createElement("div", { className: "max-w-lg" }, /* @__PURE__ */ React13.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React13.createElement(Select, { value: mes, onChange: setMes, options: opcoesMes })), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4", style: { background: "linear-gradient(160deg, var(--surface), var(--paper))" } }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, negocio.apelido || negocio.nome, " \xB7 ", fmtMes2(mes)), /* @__PURE__ */ React13.createElement("div", { className: "text-3xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: sobrouPositivo ? "var(--credit)" : "var(--debit)" } }, fmt9(r.resultado)), /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-1", style: { color: "var(--ink)" } }, "Entrou ", fmt9(r.receita), ", saiu ", fmt9(r.despesa), ", ", sobrouPositivo ? "sobrou" : "faltou", " ", fmt9(Math.abs(r.resultado)), "."), Math.abs(diferenca) >= 0.01 && /* @__PURE__ */ React13.createElement("div", { className: "text-xs mt-2", style: { color: "var(--muted)" } }, "O caixa e o banco se mexeram ", fmt9(r.variacaoCaixaBanco), " \u2014 a diferen\xE7a de ", fmt9(Math.abs(diferenca)), " ", "virou estoque, conta a receber, pagamento de d\xEDvida ou retirada. \xC9 o Balan\xE7o que mostra onde exatamente.")), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Quanto voc\xEA pode tirar"), /* @__PURE__ */ React13.createElement("div", { className: "text-2xl font-bold mb-2", style: { fontFamily: "var(--font-display)", color: "var(--accent)" } }, fmt9(disp.podeTirar)), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt9(disp.disponivelHoje), " dispon\xEDvel hoje em caixa e banco"), disp.aReceber > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt9(disp.aReceber), " a receber nos pr\xF3ximos 30 dias"), disp.compromissos > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt9(disp.compromissos), " em compromissos que vencem nos pr\xF3ximos 30 dias"), disp.reserva > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt9(disp.reserva), " de reserva m\xEDnima")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "\xC9 uma recomenda\xE7\xE3o com base no que foi lan\xE7ado, n\xE3o uma garantia.")), /* @__PURE__ */ React13.createElement(
+  return /* @__PURE__ */ React13.createElement("div", { className: "max-w-lg" }, /* @__PURE__ */ React13.createElement("div", { className: "mb-4 max-w-xs" }, /* @__PURE__ */ React13.createElement(Select, { value: mes, onChange: setMes, options: opcoesMes })), /* @__PURE__ */ React13.createElement(AvisoAprofundamento, { quantidade: pendentesDeAprofundamento2, onAbrir: onAbrirRoteiro }), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4", style: { background: "linear-gradient(160deg, var(--surface), var(--paper))" } }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-1", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, negocio.apelido || negocio.nome, " \xB7 ", fmtMes2(mes)), /* @__PURE__ */ React13.createElement("div", { className: "text-3xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: sobrouPositivo ? "var(--credit)" : "var(--debit)" } }, fmt10(r.resultado)), /* @__PURE__ */ React13.createElement("div", { className: "text-sm mb-1", style: { color: "var(--ink)" } }, "Entrou ", fmt10(r.receita), ", saiu ", fmt10(r.despesa), ", ", sobrouPositivo ? "sobrou" : "faltou", " ", fmt10(Math.abs(r.resultado)), "."), Math.abs(diferenca) >= 0.01 && /* @__PURE__ */ React13.createElement("div", { className: "text-xs mt-2", style: { color: "var(--muted)" } }, "O caixa e o banco se mexeram ", fmt10(r.variacaoCaixaBanco), " \u2014 a diferen\xE7a de ", fmt10(Math.abs(diferenca)), " ", "virou estoque, conta a receber, pagamento de d\xEDvida ou retirada. \xC9 o Balan\xE7o que mostra onde exatamente.")), /* @__PURE__ */ React13.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React13.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Quanto voc\xEA pode tirar"), /* @__PURE__ */ React13.createElement("div", { className: "text-2xl font-bold mb-2", style: { fontFamily: "var(--font-display)", color: "var(--accent)" } }, fmt10(disp.podeTirar)), /* @__PURE__ */ React13.createElement("div", { className: "text-xs space-y-0.5", style: { color: "var(--muted)" } }, /* @__PURE__ */ React13.createElement("div", null, fmt10(disp.disponivelHoje), " dispon\xEDvel hoje em caixa e banco"), disp.aReceber > 0 && /* @__PURE__ */ React13.createElement("div", null, "+ ", fmt10(disp.aReceber), " a receber nos pr\xF3ximos 30 dias"), disp.compromissos > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt10(disp.compromissos), " em compromissos que vencem nos pr\xF3ximos 30 dias"), disp.reserva > 0 && /* @__PURE__ */ React13.createElement("div", null, "\u2212 ", fmt10(disp.reserva), " de reserva m\xEDnima")), /* @__PURE__ */ React13.createElement("div", { className: "text-[11px] mt-3", style: { color: "var(--muted)" } }, "\xC9 uma recomenda\xE7\xE3o com base no que foi lan\xE7ado, n\xE3o uma garantia.")), /* @__PURE__ */ React13.createElement(
     OQueVemPorAi,
     {
       lancamentos,
@@ -2267,7 +2471,7 @@ function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, periodos
 // src/telas/PlanoContas.jsx
 import React14, { useState as useState11, useMemo as useMemo8 } from "react";
 import { Plus as Plus4, X as X5 } from "lucide-react";
-var uid3 = () => Math.random().toString(36).slice(2, 10);
+var uid4 = () => Math.random().toString(36).slice(2, 10);
 var TIPO_LABEL3 = { ativo: "Ativo", passivo: "Passivo", pl: "Patrim\xF4nio L\xEDquido", receita: "Receita", despesa: "Despesa" };
 var slug = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 function FormularioNovaConta({ contas, onAdicionar, onFechar }) {
@@ -2280,7 +2484,7 @@ function FormularioNovaConta({ contas, onAdicionar, onFechar }) {
       setErro("C\xF3digo e nome s\xE3o obrigat\xF3rios.");
       return;
     }
-    const id = slug(nome) + "_" + uid3().slice(0, 4);
+    const id = slug(nome) + "_" + uid4().slice(0, 4);
     if (contas.some((c) => c.codigo === codigo.trim())) {
       setErro("J\xE1 existe uma conta com esse c\xF3digo.");
       return;
@@ -2364,9 +2568,9 @@ function ConfigNegocio({ negocioId, onAtualizado }) {
 // src/telas/Recorrentes.jsx
 import React16, { useState as useState13, useMemo as useMemo9 } from "react";
 import { Plus as Plus5, Trash2 as Trash24, RefreshCw } from "lucide-react";
-var uid4 = () => Math.random().toString(36).slice(2, 10);
-var fmt10 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
-var linhaVazia2 = () => ({ chave: uid4(), contaId: "", tipo: "D", valor: "" });
+var uid5 = () => Math.random().toString(36).slice(2, 10);
+var fmt11 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var linhaVazia2 = () => ({ chave: uid5(), contaId: "", tipo: "D", valor: "" });
 function FormularioNovoRecorrente({ opcoesContas, onAdicionar, onFechar }) {
   const [descricao, setDescricao] = useState13("");
   const [linhas, setLinhas] = useState13([linhaVazia2(), linhaVazia2()]);
@@ -2384,14 +2588,14 @@ function FormularioNovoRecorrente({ opcoesContas, onAdicionar, onFechar }) {
   const podeGravar = descricao.trim() && linhasValidas.length >= 2 && diferenca === 0 && somaD > 0;
   const salvar = () => {
     if (!podeGravar) return;
-    const recorrenteId = uid4();
+    const recorrenteId = uid5();
     onAdicionar({
       recorrente: { id: recorrenteId, descricao: descricao.trim(), ativa: true },
-      linhas: linhasValidas.map((l) => ({ id: uid4(), recorrenteId, contaId: l.contaId, tipo: l.tipo, valor: numero(l.valor) }))
+      linhas: linhasValidas.map((l) => ({ id: uid5(), recorrenteId, contaId: l.contaId, tipo: l.tipo, valor: numero(l.valor) }))
     });
     onFechar();
   };
-  return /* @__PURE__ */ React16.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React16.createElement("div", { className: "mb-3" }, /* @__PURE__ */ React16.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React16.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Aluguel" })), /* @__PURE__ */ React16.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React16.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center" }, /* @__PURE__ */ React16.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React16.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React16.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React16.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), /* @__PURE__ */ React16.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React16.createElement(Trash24, { size: 15 })))), /* @__PURE__ */ React16.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React16.createElement(Plus5, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React16.createElement("span", null, "D\xE9bitos: ", fmt10(somaD), " \xB7 Cr\xE9ditos: ", fmt10(somaC)), diferenca !== 0 && /* @__PURE__ */ React16.createElement(AlertLine, null, "Diferen\xE7a de ", fmt10(Math.abs(diferenca)), " \u2014 precisa fechar antes de gravar")), /* @__PURE__ */ React16.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React16.createElement(Button, { onClick: salvar, disabled: !podeGravar }, "Salvar recorrente"), /* @__PURE__ */ React16.createElement(Button, { variant: "ghost", onClick: onFechar }, "Cancelar")));
+  return /* @__PURE__ */ React16.createElement(Card, { className: "mb-4" }, /* @__PURE__ */ React16.createElement("div", { className: "mb-3" }, /* @__PURE__ */ React16.createElement(Label, null, "Descri\xE7\xE3o"), /* @__PURE__ */ React16.createElement(Input, { value: descricao, onChange: (e) => setDescricao(e.target.value), placeholder: "ex.: Aluguel" })), /* @__PURE__ */ React16.createElement(Label, null, "Linhas"), linhas.map((l) => /* @__PURE__ */ React16.createElement("div", { key: l.chave, className: "flex gap-2 mb-2 items-center" }, /* @__PURE__ */ React16.createElement(Select, { value: l.tipo, onChange: (v) => editarLinha(l.chave, "tipo", v), options: [{ value: "D", label: "D" }, { value: "C", label: "C" }] }), /* @__PURE__ */ React16.createElement("div", { className: "flex-[2]" }, /* @__PURE__ */ React16.createElement(Select, { value: l.contaId, onChange: (v) => editarLinha(l.chave, "contaId", v), placeholder: "conta", options: opcoesContas })), /* @__PURE__ */ React16.createElement(Input, { money: true, placeholder: "valor", value: l.valor, onChange: (e) => editarLinha(l.chave, "valor", e.target.value), className: "flex-1" }), /* @__PURE__ */ React16.createElement("button", { type: "button", onClick: () => removerLinha(l.chave), disabled: linhas.length <= 2, className: "transition-opacity hover:opacity-70 disabled:opacity-30 shrink-0", style: { color: "var(--debit)" }, "aria-label": "Remover" }, /* @__PURE__ */ React16.createElement(Trash24, { size: 15 })))), /* @__PURE__ */ React16.createElement("button", { type: "button", onClick: adicionarLinha, className: "text-xs inline-flex items-center gap-1 mt-1 mb-4 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React16.createElement(Plus5, { size: 13 }), " adicionar linha"), /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-4 text-xs", style: { color: "var(--muted)" } }, /* @__PURE__ */ React16.createElement("span", null, "D\xE9bitos: ", fmt11(somaD), " \xB7 Cr\xE9ditos: ", fmt11(somaC)), diferenca !== 0 && /* @__PURE__ */ React16.createElement(AlertLine, null, "Diferen\xE7a de ", fmt11(Math.abs(diferenca)), " \u2014 precisa fechar antes de gravar")), /* @__PURE__ */ React16.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React16.createElement(Button, { onClick: salvar, disabled: !podeGravar }, "Salvar recorrente"), /* @__PURE__ */ React16.createElement(Button, { variant: "ghost", onClick: onFechar }, "Cancelar")));
 }
 function Recorrentes({ contas, recorrentes, recorrenteLinhas, onAdicionar, onAlternarAtiva, onGerar }) {
   const [mostrarForm, setMostrarForm] = useState13(false);
@@ -2407,7 +2611,7 @@ function Recorrentes({ contas, recorrentes, recorrenteLinhas, onAdicionar, onAlt
     setResultado(gerados);
     setTimeout(() => setResultado(null), 4e3);
   };
-  return /* @__PURE__ */ React16.createElement("div", null, /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-4 flex-wrap gap-2" }, /* @__PURE__ */ React16.createElement(Button, { onClick: gerar, disabled: !recorrentes.some((r) => r.ativa) }, /* @__PURE__ */ React16.createElement(RefreshCw, { size: 14 }), " Gerar lan\xE7amentos do m\xEAs"), !mostrarForm && /* @__PURE__ */ React16.createElement(Button, { variant: "ghost", onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React16.createElement(Plus5, { size: 14 }), " Novo recorrente")), resultado !== null && /* @__PURE__ */ React16.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--credit-soft)", color: "var(--credit)" } }, resultado > 0 ? `${resultado} lan\xE7amento(s) gerado(s) \u2014 confira no Di\xE1rio.` : "Nada para gerar: j\xE1 foi feito este m\xEAs, ou n\xE3o h\xE1 recorrente ativa."), mostrarForm && /* @__PURE__ */ React16.createElement(FormularioNovoRecorrente, { opcoesContas, onAdicionar, onFechar: () => setMostrarForm(false) }), recorrentes.length === 0 && !mostrarForm && /* @__PURE__ */ React16.createElement(Card, { className: "text-center py-10" }, /* @__PURE__ */ React16.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum recorrente cadastrado ainda."), /* @__PURE__ */ React16.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)" } }, "Aluguel, internet, mensalidade \u2014 o que se repete todo m\xEAs.")), /* @__PURE__ */ React16.createElement("div", { className: "space-y-3" }, recorrentes.map((r) => /* @__PURE__ */ React16.createElement(Card, { key: r.id, pad: "apertado", style: { opacity: r.ativa ? 1 : 0.45 } }, /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-2" }, /* @__PURE__ */ React16.createElement("span", { className: "text-sm font-medium", style: { color: "var(--ink)" } }, r.descricao), /* @__PURE__ */ React16.createElement("button", { onClick: () => onAlternarAtiva(r.id, !r.ativa), className: "text-xs transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, r.ativa ? "desativar" : "ativar")), linhasDe(r.id).map((l) => /* @__PURE__ */ React16.createElement("div", { key: l.id, className: "flex justify-between text-xs py-0.5", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, /* @__PURE__ */ React16.createElement("span", null, l.tipo, " \xB7 ", contasPorId.get(l.contaId)?.nome || l.contaId), /* @__PURE__ */ React16.createElement("span", null, fmt10(l.valor))))))));
+  return /* @__PURE__ */ React16.createElement("div", null, /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-4 flex-wrap gap-2" }, /* @__PURE__ */ React16.createElement(Button, { onClick: gerar, disabled: !recorrentes.some((r) => r.ativa) }, /* @__PURE__ */ React16.createElement(RefreshCw, { size: 14 }), " Gerar lan\xE7amentos do m\xEAs"), !mostrarForm && /* @__PURE__ */ React16.createElement(Button, { variant: "ghost", onClick: () => setMostrarForm(true) }, /* @__PURE__ */ React16.createElement(Plus5, { size: 14 }), " Novo recorrente")), resultado !== null && /* @__PURE__ */ React16.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--credit-soft)", color: "var(--credit)" } }, resultado > 0 ? `${resultado} lan\xE7amento(s) gerado(s) \u2014 confira no Di\xE1rio.` : "Nada para gerar: j\xE1 foi feito este m\xEAs, ou n\xE3o h\xE1 recorrente ativa."), mostrarForm && /* @__PURE__ */ React16.createElement(FormularioNovoRecorrente, { opcoesContas, onAdicionar, onFechar: () => setMostrarForm(false) }), recorrentes.length === 0 && !mostrarForm && /* @__PURE__ */ React16.createElement(Card, { className: "text-center py-10" }, /* @__PURE__ */ React16.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum recorrente cadastrado ainda."), /* @__PURE__ */ React16.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)" } }, "Aluguel, internet, mensalidade \u2014 o que se repete todo m\xEAs.")), /* @__PURE__ */ React16.createElement("div", { className: "space-y-3" }, recorrentes.map((r) => /* @__PURE__ */ React16.createElement(Card, { key: r.id, pad: "apertado", style: { opacity: r.ativa ? 1 : 0.45 } }, /* @__PURE__ */ React16.createElement("div", { className: "flex items-center justify-between mb-2" }, /* @__PURE__ */ React16.createElement("span", { className: "text-sm font-medium", style: { color: "var(--ink)" } }, r.descricao), /* @__PURE__ */ React16.createElement("button", { onClick: () => onAlternarAtiva(r.id, !r.ativa), className: "text-xs transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, r.ativa ? "desativar" : "ativar")), linhasDe(r.id).map((l) => /* @__PURE__ */ React16.createElement("div", { key: l.id, className: "flex justify-between text-xs py-0.5", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, /* @__PURE__ */ React16.createElement("span", null, l.tipo, " \xB7 ", contasPorId.get(l.contaId)?.nome || l.contaId), /* @__PURE__ */ React16.createElement("span", null, fmt11(l.valor))))))));
 }
 
 // src/telas/Baixas.jsx
@@ -2442,19 +2646,19 @@ function construirBaixa(linhaOriginal, contaTransitoId, data, gerarId = uidPadra
 }
 
 // src/telas/Baixas.jsx
-var fmt11 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmt12 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 var fmtData6 = (d) => d ? d.split("-").reverse().join("/") : "sem vencimento";
-var hojeISO4 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+var hojeISO5 = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 var OPCOES_TRANSITO = [{ value: "caixa", label: "Caixa" }, { value: "banco", label: "Banco" }];
 function LinhaItem({ item, nomeConta, onDarBaixa }) {
   const [abrindo, setAbrindo] = useState14(false);
-  const [data, setData] = useState14(hojeISO4());
+  const [data, setData] = useState14(hojeISO5());
   const [contaTransito, setContaTransito] = useState14("caixa");
   const confirmar = () => {
     onDarBaixa(item, contaTransito, data);
     setAbrindo(false);
   };
-  return /* @__PURE__ */ React17.createElement("div", { className: "py-2", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React17.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React17.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React17.createElement("div", { className: "text-sm truncate", style: { color: "var(--ink)" } }, item.descricao || nomeConta(item.contaId)), /* @__PURE__ */ React17.createElement("div", { className: "text-xs", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, fmtData6(item.vencimento))), /* @__PURE__ */ React17.createElement("div", { className: "flex items-center gap-2 shrink-0" }, /* @__PURE__ */ React17.createElement("span", { className: "text-sm tabular-nums", style: { color: "var(--ink)" } }, fmt11(item.valor)), !abrindo && /* @__PURE__ */ React17.createElement("button", { onClick: () => setAbrindo(true), className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React17.createElement(CheckCircle22, { size: 13 }), " Dar baixa"))), abrindo && /* @__PURE__ */ React17.createElement("div", { className: "flex items-end gap-2 mt-2 flex-wrap" }, /* @__PURE__ */ React17.createElement("div", null, /* @__PURE__ */ React17.createElement("div", { className: "text-[10px] uppercase mb-1", style: { color: "var(--muted)" } }, "Data"), /* @__PURE__ */ React17.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React17.createElement("div", { className: "w-28" }, /* @__PURE__ */ React17.createElement("div", { className: "text-[10px] uppercase mb-1", style: { color: "var(--muted)" } }, "Onde"), /* @__PURE__ */ React17.createElement(Select, { value: contaTransito, onChange: setContaTransito, options: OPCOES_TRANSITO })), /* @__PURE__ */ React17.createElement(Button, { small: true, onClick: confirmar }, "Confirmar"), /* @__PURE__ */ React17.createElement("button", { onClick: () => setAbrindo(false), className: "transition-opacity hover:opacity-70", style: { color: "var(--muted)" }, "aria-label": "Cancelar" }, /* @__PURE__ */ React17.createElement(X6, { size: 15 }))));
+  return /* @__PURE__ */ React17.createElement("div", { className: "py-2", style: { borderBottom: "1px solid var(--rule-faint)" } }, /* @__PURE__ */ React17.createElement("div", { className: "flex items-center justify-between gap-3" }, /* @__PURE__ */ React17.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React17.createElement("div", { className: "text-sm truncate", style: { color: "var(--ink)" } }, item.descricao || nomeConta(item.contaId)), /* @__PURE__ */ React17.createElement("div", { className: "text-xs", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, fmtData6(item.vencimento))), /* @__PURE__ */ React17.createElement("div", { className: "flex items-center gap-2 shrink-0" }, /* @__PURE__ */ React17.createElement("span", { className: "text-sm tabular-nums", style: { color: "var(--ink)" } }, fmt12(item.valor)), !abrindo && /* @__PURE__ */ React17.createElement("button", { onClick: () => setAbrindo(true), className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70", style: { color: "var(--accent)" } }, /* @__PURE__ */ React17.createElement(CheckCircle22, { size: 13 }), " Dar baixa"))), abrindo && /* @__PURE__ */ React17.createElement("div", { className: "flex items-end gap-2 mt-2 flex-wrap" }, /* @__PURE__ */ React17.createElement("div", null, /* @__PURE__ */ React17.createElement("div", { className: "text-[10px] uppercase mb-1", style: { color: "var(--muted)" } }, "Data"), /* @__PURE__ */ React17.createElement(Input, { type: "date", value: data, onChange: (e) => setData(e.target.value) })), /* @__PURE__ */ React17.createElement("div", { className: "w-28" }, /* @__PURE__ */ React17.createElement("div", { className: "text-[10px] uppercase mb-1", style: { color: "var(--muted)" } }, "Onde"), /* @__PURE__ */ React17.createElement(Select, { value: contaTransito, onChange: setContaTransito, options: OPCOES_TRANSITO })), /* @__PURE__ */ React17.createElement(Button, { small: true, onClick: confirmar }, "Confirmar"), /* @__PURE__ */ React17.createElement("button", { onClick: () => setAbrindo(false), className: "transition-opacity hover:opacity-70", style: { color: "var(--muted)" }, "aria-label": "Cancelar" }, /* @__PURE__ */ React17.createElement(X6, { size: 15 }))));
 }
 function Baixas({ contas, lancamentoLinhas, onDarBaixa }) {
   const nomeConta = useMemo10(() => {
@@ -2464,6 +2668,191 @@ function Baixas({ contas, lancamentoLinhas, onDarBaixa }) {
   const recebiveis = useMemo10(() => recebiveisEmAberto(lancamentoLinhas), [lancamentoLinhas]);
   const pagaveis = useMemo10(() => pagaveisEmAberto(lancamentoLinhas), [lancamentoLinhas]);
   return /* @__PURE__ */ React17.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ React17.createElement(Card, null, /* @__PURE__ */ React17.createElement("div", { className: "font-medium mb-2", style: { color: "var(--ink)" } }, "A receber em aberto"), recebiveis.length === 0 ? /* @__PURE__ */ React17.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nada em aberto \u2014 nenhuma venda a prazo esperando pagamento.") : recebiveis.map((item) => /* @__PURE__ */ React17.createElement(LinhaItem, { key: item.id, item, nomeConta, onDarBaixa }))), /* @__PURE__ */ React17.createElement(Card, null, /* @__PURE__ */ React17.createElement("div", { className: "font-medium mb-2", style: { color: "var(--ink)" } }, "A pagar em aberto"), pagaveis.length === 0 ? /* @__PURE__ */ React17.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Nada em aberto \u2014 nenhum compromisso esperando pagamento.") : pagaveis.map((item) => /* @__PURE__ */ React17.createElement(LinhaItem, { key: item.id, item, nomeConta, onDarBaixa }))), /* @__PURE__ */ React17.createElement("div", { className: "text-[11px]", style: { color: "var(--muted)" } }, 'Dar baixa aqui liga o recebimento/pagamento a este item espec\xEDfico \u2014 \xE9 o que deixa "quanto voc\xEA pode tirar" mais preciso (docs/08 \xA72). Baixa \xE9 sempre do valor cheio; pagamento parcial ainda n\xE3o tem uma tela pr\xF3pria.'));
+}
+
+// src/telas/Roteiro.jsx
+import React18, { useMemo as useMemo11, useState as useState15 } from "react";
+import { HelpCircle as HelpCircle3 } from "lucide-react";
+var NOMES_BLOCO2 = {
+  1: "Quem \xE9",
+  2: "Como o dinheiro anda",
+  4: "O ritmo do neg\xF3cio",
+  5: "O que ele quer",
+  6: "O combinado"
+};
+function PorQueImporta2({ texto }) {
+  const [aberto, setAberto] = useState15(false);
+  if (!texto) return null;
+  return /* @__PURE__ */ React18.createElement("div", { className: "mt-1" }, /* @__PURE__ */ React18.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => setAberto((a) => !a),
+      className: "text-[10px] inline-flex items-center gap-1 transition-opacity hover:opacity-70",
+      style: { color: "var(--muted)" }
+    },
+    /* @__PURE__ */ React18.createElement(HelpCircle3, { size: 11 }),
+    " por que isso importa?"
+  ), aberto && /* @__PURE__ */ React18.createElement("div", { className: "text-xs mt-1.5 rounded-md px-3 py-2 animate-[surgir_.2s_ease-out]", style: { background: "var(--accent-soft)", color: "var(--ink)" } }, texto));
+}
+function CampoRoteiro2({ pergunta, valor, onSalvar }) {
+  const [rascunho, setRascunho] = useState15(valor ?? "");
+  const [salvo, setSalvo] = useState15(false);
+  const confirmar = (v) => {
+    if (v === (valor ?? "")) return;
+    onSalvar(v);
+    setSalvo(true);
+    setTimeout(() => setSalvo(false), 1500);
+  };
+  return /* @__PURE__ */ React18.createElement("div", { className: "mb-5" }, /* @__PURE__ */ React18.createElement("div", { className: "flex items-center gap-2 mb-1 flex-wrap" }, /* @__PURE__ */ React18.createElement(Label, null, pergunta.pergunta), !pergunta.essencial && /* @__PURE__ */ React18.createElement(
+    "span",
+    {
+      className: "text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full",
+      style: { background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" }
+    },
+    "aprofundamento"
+  )), pergunta.tipo_resposta === "sim_nao" ? /* @__PURE__ */ React18.createElement(
+    Select,
+    {
+      value: rascunho,
+      onChange: (v) => {
+        setRascunho(v);
+        confirmar(v);
+      },
+      placeholder: "Escolha",
+      options: [{ value: "sim", label: "Sim" }, { value: "nao", label: "N\xE3o" }]
+    }
+  ) : pergunta.tipo_resposta === "data" ? /* @__PURE__ */ React18.createElement(Input, { type: "date", value: rascunho, onChange: (e) => {
+    setRascunho(e.target.value);
+    confirmar(e.target.value);
+  } }) : pergunta.tipo_resposta === "moeda" ? /* @__PURE__ */ React18.createElement(Input, { money: true, placeholder: "0,00", value: rascunho, onChange: (e) => setRascunho(e.target.value), onBlur: () => confirmar(rascunho) }) : pergunta.tipo_resposta === "texto_longo" ? /* @__PURE__ */ React18.createElement(
+    "textarea",
+    {
+      rows: 3,
+      value: rascunho,
+      onChange: (e) => setRascunho(e.target.value),
+      onBlur: () => confirmar(rascunho),
+      className: "w-full rounded-md border px-3 py-2 text-sm transition-colors duration-150",
+      style: { borderColor: "var(--rule-faint)", background: "var(--paper)", color: "var(--ink)" }
+    }
+  ) : /* @__PURE__ */ React18.createElement(Input, { value: rascunho, onChange: (e) => setRascunho(e.target.value), onBlur: () => confirmar(rascunho) }), salvo && /* @__PURE__ */ React18.createElement("div", { className: "text-[10px] mt-1", style: { color: "var(--credit)" } }, "salvo"), /* @__PURE__ */ React18.createElement(PorQueImporta2, { texto: pergunta.porque_importa }));
+}
+function Roteiro({ negocio, perguntas, respostasPorPerguntaId, onSalvarResposta }) {
+  const opcoes = { tipo: negocio.tipo, arquetipo: negocio.arquetipo };
+  const visiveis = useMemo11(
+    () => perguntasPara(perguntas, opcoes).filter((p) => p.bloco !== 3).filter((p) => !p.destino?.startsWith("retrato.")).filter((p) => !p.destino?.startsWith("negocios.")),
+    [perguntas, negocio.tipo, negocio.arquetipo]
+  );
+  const pendentes = useMemo11(
+    () => pendentesDeAprofundamento(perguntas, respostasPorPerguntaId, opcoes),
+    [perguntas, respostasPorPerguntaId, negocio.tipo, negocio.arquetipo]
+  );
+  const porBloco = useMemo11(() => {
+    const grupos = {};
+    for (const p of visiveis) (grupos[p.bloco] ||= []).push(p);
+    return grupos;
+  }, [visiveis]);
+  if (!perguntas.length) return /* @__PURE__ */ React18.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026");
+  return /* @__PURE__ */ React18.createElement("div", null, /* @__PURE__ */ React18.createElement("div", { className: "text-xs mb-5", style: { color: "var(--muted)", lineHeight: 1.6 } }, "Todas as perguntas do roteiro deste cliente \u2014 inclusive as de aprofundamento, que n\xE3o precisaram ser respondidas na primeira conversa. Edit\xE1vel a qualquer momento; cada resposta salva sozinha ao sair do campo."), pendentes.length > 0 && /* @__PURE__ */ React18.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-5", style: { background: "var(--accent-soft)", color: "var(--ink)" } }, "Faltam ", pendentes.length, " pergunta", pendentes.length > 1 ? "s" : "", " de aprofundamento \u2014 a conversa do m\xEAs \xE9 a boa hora, n\xE3o uma mensagem avulsa."), Object.entries(porBloco).sort(([a], [b]) => a - b).map(([bloco, ps]) => /* @__PURE__ */ React18.createElement(Card, { key: bloco, className: "mb-4" }, /* @__PURE__ */ React18.createElement("div", { className: "text-xs font-medium mb-3", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, NOMES_BLOCO2[bloco] || `Bloco ${bloco}`), ps.map((p) => /* @__PURE__ */ React18.createElement(
+    CampoRoteiro2,
+    {
+      key: p.id,
+      pergunta: p,
+      valor: respostasPorPerguntaId[p.id],
+      onSalvar: (v) => onSalvarResposta(p.id, v)
+    }
+  )))));
+}
+
+// src/telas/Memoria.jsx
+import React19, { useMemo as useMemo12 } from "react";
+import { Sparkles, FileText } from "lucide-react";
+
+// src/dominio/memoria.mjs
+function mesesFechadosDe(periodosFechados) {
+  return [...periodosFechados || []].filter((p) => p.startsWith("mes:")).map((p) => p.slice(4)).sort();
+}
+function medidoAgora(contas, lancamentos, lancamentoLinhas, periodosFechados) {
+  const contasPorId = new Map(contas.map((c) => [c.id, c]));
+  const saldoDe = (id) => {
+    const c = contasPorId.get(id);
+    return c ? saldoDeConta(c, lancamentoLinhas) : 0;
+  };
+  const caixaEBanco = CONTAS_DINHEIRO.reduce((s, id) => s + saldoDe(id), 0);
+  const aReceber = saldoDe("clientes");
+  const dividas = Math.abs(saldoDe("fornecedores")) + Math.abs(saldoDe("emprestimos"));
+  const patrimonioLiquido = Math.round(saldoDe("capital_titular") * 100) / 100;
+  const mesesFechados = mesesFechadosDe(periodosFechados);
+  const mesReferencia = mesesFechados[mesesFechados.length - 1] || null;
+  let faturamentoMensal = null;
+  let retiradaMensal = null;
+  if (mesReferencia) {
+    faturamentoMensal = resultadoDoMes(contas, lancamentos, lancamentoLinhas, mesReferencia).receita;
+    const idsDoMes = new Set(lancamentos.filter((l) => (l.data || "").slice(0, 7) === mesReferencia).map((l) => l.id));
+    let retirada = 0;
+    for (const linha of lancamentoLinhas) {
+      if (linha.contaId !== "retiradas_titular" || !idsDoMes.has(linha.lancamentoId)) continue;
+      retirada += linha.tipo === "D" ? linha.valor : -linha.valor;
+    }
+    retiradaMensal = Math.round(retirada * 100) / 100;
+  }
+  return {
+    caixaEBanco: Math.round(caixaEBanco * 100) / 100,
+    aReceber: Math.round(aReceber * 100) / 100,
+    dividasDoNegocio: Math.round(dividas * 100) / 100,
+    patrimonioLiquido,
+    faturamentoMensal,
+    retiradaMensal,
+    mesReferencia
+  };
+}
+function linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas }) {
+  const eventos = [];
+  if (negocio?.retrato_de_entrada) {
+    eventos.push({ tipo: "abertura", data: negocio.retrato_de_entrada.capturadoEm, retrato: negocio.retrato_de_entrada });
+  }
+  for (const mes of mesesFechadosDe(periodosFechados)) {
+    const resultado = resultadoDoMes(contas, lancamentos, lancamentoLinhas, mes);
+    const carta = (cartas || []).find((c) => c.mes === mes) || null;
+    eventos.push({ tipo: "mes", data: `${mes}-01`, mes, resultado, carta });
+  }
+  return eventos.sort((a, b) => (a.data || "").localeCompare(b.data || ""));
+}
+
+// src/telas/Memoria.jsx
+var fmt13 = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+var fmtMes3 = (m) => {
+  const [ano, mes] = m.split("-");
+  return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+};
+var fmtData7 = (d) => d ? d.split("-").reverse().join("/") : "\u2014";
+function SeloSeguida({ seguida }) {
+  if (seguida === true) return /* @__PURE__ */ React19.createElement("span", { className: "text-[10px] px-1.5 py-0.5 rounded-full", style: { background: "var(--credit-soft)", color: "var(--credit)" } }, "seguida");
+  if (seguida === false) return /* @__PURE__ */ React19.createElement("span", { className: "text-[10px] px-1.5 py-0.5 rounded-full", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, "n\xE3o seguida");
+  return /* @__PURE__ */ React19.createElement("span", { className: "text-[10px] px-1.5 py-0.5 rounded-full", style: { background: "var(--rule-faint)", color: "var(--muted)" } }, "ainda n\xE3o avaliada");
+}
+function EventoAbertura({ retrato }) {
+  const d = retrato.declarado || {};
+  return /* @__PURE__ */ React19.createElement(Card, { className: "mb-3", pad: "apertado" }, /* @__PURE__ */ React19.createElement("div", { className: "flex items-center gap-2 mb-1.5" }, /* @__PURE__ */ React19.createElement(Sparkles, { size: 13, style: { color: "var(--accent)" } }), /* @__PURE__ */ React19.createElement("span", { className: "text-xs font-medium", style: { color: "var(--ink)" } }, "In\xEDcio \u2014 ", fmtData7(retrato.capturadoEm))), /* @__PURE__ */ React19.createElement("div", { className: "text-xs", style: { color: "var(--muted)", lineHeight: 1.6 } }, d.faturamentoMensal != null && /* @__PURE__ */ React19.createElement(React19.Fragment, null, "Disse que faturava ", fmt13(d.faturamentoMensal), "/m\xEAs. "), d.retiradaMensal != null && /* @__PURE__ */ React19.createElement(React19.Fragment, null, "Disse que tirava ", fmt13(d.retiradaMensal), "/m\xEAs. "), d.meta && /* @__PURE__ */ React19.createElement(React19.Fragment, null, 'Meta: "', d.meta, '". '), d.oQueIncomoda && /* @__PURE__ */ React19.createElement(React19.Fragment, null, 'O que incomodava: "', d.oQueIncomoda, '".')));
+}
+function EventoMes({ mes, resultado, carta }) {
+  const positivo = resultado.resultado >= 0;
+  return /* @__PURE__ */ React19.createElement(Card, { className: "mb-3", pad: "apertado" }, /* @__PURE__ */ React19.createElement("div", { className: "flex items-center justify-between mb-1.5" }, /* @__PURE__ */ React19.createElement("span", { className: "text-xs font-medium capitalize", style: { color: "var(--ink)" } }, fmtMes3(mes)), /* @__PURE__ */ React19.createElement("span", { className: "text-xs font-medium", style: { color: positivo ? "var(--credit)" : "var(--debit)" } }, positivo ? "sobrou" : "faltou", " ", fmt13(Math.abs(resultado.resultado)))), carta?.texto ? /* @__PURE__ */ React19.createElement("div", { className: "text-xs flex items-start gap-1.5", style: { color: "var(--muted)", lineHeight: 1.6 } }, /* @__PURE__ */ React19.createElement(FileText, { size: 12, style: { marginTop: 2, flexShrink: 0 } }), /* @__PURE__ */ React19.createElement("span", null, '"', carta.texto, '" ', /* @__PURE__ */ React19.createElement(SeloSeguida, { seguida: carta.seguida }))) : /* @__PURE__ */ React19.createElement("div", { className: "text-xs", style: { color: "var(--muted)" } }, "Sem carta registrada neste m\xEAs."));
+}
+function Memoria({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas }) {
+  const eventos = useMemo12(
+    () => linhaDoTempo({ negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas }),
+    [negocio, contas, lancamentos, lancamentoLinhas, periodosFechados, cartas]
+  );
+  const comparacao = useMemo12(() => {
+    if (!negocio?.retrato_de_entrada) return [];
+    const agora = medidoAgora(contas, lancamentos, lancamentoLinhas, periodosFechados);
+    return compararComAEntrada(negocio.retrato_de_entrada, agora);
+  }, [negocio, contas, lancamentos, lancamentoLinhas, periodosFechados]);
+  if (!eventos.length) {
+    return /* @__PURE__ */ React19.createElement(Card, { className: "text-center py-10" }, /* @__PURE__ */ React19.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Ainda n\xE3o h\xE1 hist\xF3ria para contar."), /* @__PURE__ */ React19.createElement("div", { className: "text-xs mt-1", style: { color: "var(--muted)" } }, "Aparece aqui assim que houver um retrato de entrada ou o primeiro m\xEAs fechado."));
+  }
+  return /* @__PURE__ */ React19.createElement("div", null, comparacao.length > 0 && /* @__PURE__ */ React19.createElement(Card, { className: "mb-4", style: { background: "linear-gradient(160deg, var(--surface), var(--paper))" } }, /* @__PURE__ */ React19.createElement("div", { className: "text-xs uppercase tracking-wide mb-2", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Desde que come\xE7amos"), /* @__PURE__ */ React19.createElement("div", { className: "space-y-2" }, comparacao.map((a, i) => /* @__PURE__ */ React19.createElement("div", { key: i, className: "text-sm", style: { color: "var(--ink)", lineHeight: 1.6 } }, a.frase)))), /* @__PURE__ */ React19.createElement("div", null, eventos.map((ev, i) => ev.tipo === "abertura" ? /* @__PURE__ */ React19.createElement(EventoAbertura, { key: i, retrato: ev.retrato }) : /* @__PURE__ */ React19.createElement(EventoMes, { key: i, mes: ev.mes, resultado: ev.resultado, carta: ev.carta }))));
 }
 
 // src/dominio/recorrentes.mjs
@@ -2495,7 +2884,7 @@ function gerarLancamentosDoMes(recorrentes, recorrenteLinhas, lancamentos, mes, 
 }
 
 // src/telas/Livro.jsx
-var uid5 = () => Math.random().toString(36).slice(2, 10);
+var uid6 = () => Math.random().toString(36).slice(2, 10);
 var mesDe = (dataIso) => (dataIso || "").slice(0, 7);
 var ABAS = [
   { id: "caixa", label: "Caixa de Entrada" },
@@ -2507,18 +2896,21 @@ var ABAS = [
   { id: "baixas", label: "A receber/pagar" },
   { id: "revisao", label: "Revis\xE3o" },
   { id: "entregas", label: "Entregas" },
+  { id: "memoria", label: "Mem\xF3ria" },
+  { id: "roteiro", label: "Roteiro" },
   { id: "plano", label: "Plano de contas" },
   { id: "recorrentes", label: "Recorrentes" },
   { id: "negocio", label: "Neg\xF3cio" }
 ];
 function Livro({ negocio, onVoltar }) {
-  const [aba, setAba] = useState15("caixa");
-  const [estado, setEstado] = useState15(null);
-  const [loaded, setLoaded] = useState15(false);
-  const [erro, setErro] = useState15("");
-  const [salvando, setSalvando] = useState15(false);
-  const [confirmado, setConfirmado] = useState15(false);
-  const [editandoId, setEditandoId] = useState15(null);
+  const [aba, setAba] = useState16("caixa");
+  const [estado, setEstado] = useState16(null);
+  const [loaded, setLoaded] = useState16(false);
+  const [erro, setErro] = useState16("");
+  const [salvando, setSalvando] = useState16(false);
+  const [confirmado, setConfirmado] = useState16(false);
+  const [editandoId, setEditandoId] = useState16(null);
+  const [roteiro, setRoteiro] = useState16(null);
   const fotoRef = useRef2(null);
   const estadoRef = useRef2(null);
   const timerRef = useRef2(null);
@@ -2538,6 +2930,28 @@ function Livro({ negocio, onVoltar }) {
     return () => {
       vivo = false;
     };
+  }, [negocio.id]);
+  useEffect8(() => {
+    let vivo = true;
+    Promise.all([
+      supabase.from("roteiro_perguntas").select("*").eq("ativo", true).order("bloco").order("ordem"),
+      supabase.from("roteiro_respostas").select("pergunta_id, resposta").eq("negocio_id", negocio.id)
+    ]).then(([{ data: perguntas, error: e1 }, { data: respostas, error: e2 }]) => {
+      if (!vivo || e1 || e2) return;
+      const respostasPorPerguntaId = {};
+      for (const r of respostas || []) respostasPorPerguntaId[r.pergunta_id] = r.resposta;
+      setRoteiro({ perguntas: perguntas || [], respostasPorPerguntaId });
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [negocio.id]);
+  const salvarRespostaRoteiro = useCallback2(async (perguntaId, resposta) => {
+    setRoteiro((prev) => prev && { ...prev, respostasPorPerguntaId: { ...prev.respostasPorPerguntaId, [perguntaId]: resposta } });
+    await supabase.from("roteiro_respostas").upsert(
+      { negocio_id: negocio.id, pergunta_id: perguntaId, resposta: String(resposta) },
+      { onConflict: "negocio_id,pergunta_id" }
+    );
   }, [negocio.id]);
   useEffect8(() => {
     if (!loaded || !estado) return;
@@ -2633,7 +3047,7 @@ function Livro({ negocio, onVoltar }) {
       const regraExistente = prev.regrasClassificacao.find(
         (r) => (r.padrao || "").toUpperCase() === padrao.toUpperCase() && r.contaId === contaCategoriaId
       );
-      const regrasClassificacao = regraExistente ? prev.regrasClassificacao.map((r) => r === regraExistente ? { ...r, acertos: (r.acertos || 1) + 1 } : r) : [...prev.regrasClassificacao, { id: uid5(), padrao, contaId: contaCategoriaId, acertos: 1 }];
+      const regrasClassificacao = regraExistente ? prev.regrasClassificacao.map((r) => r === regraExistente ? { ...r, acertos: (r.acertos || 1) + 1 } : r) : [...prev.regrasClassificacao, { id: uid6(), padrao, contaId: contaCategoriaId, acertos: 1 }];
       return {
         ...prev,
         lancamentos: [...prev.lancamentos, lancamento],
@@ -2785,9 +3199,9 @@ function Livro({ negocio, onVoltar }) {
   }, [mesEstaFechado]);
   const editando = editandoId && estado ? { lancamento: estado.lancamentos.find((l) => l.id === editandoId), linhas: estado.lancamentoLinhas.filter((l) => l.lancamentoId === editandoId) } : null;
   if (!loaded || !estado) {
-    return /* @__PURE__ */ React18.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React18.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
+    return /* @__PURE__ */ React20.createElement("div", { className: "min-h-screen flex items-center justify-center", style: { background: "var(--paper)" } }, /* @__PURE__ */ React20.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, erro || "Carregando o livro\u2026"));
   }
-  return /* @__PURE__ */ React18.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React18.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React18.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React18.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React18.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React18.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React18.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React18.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React18.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React18.createElement(
+  return /* @__PURE__ */ React20.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React20.createElement("div", { className: "max-w-4xl mx-auto px-5 py-8" }, /* @__PURE__ */ React20.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React20.createElement(ArrowLeft2, { size: 14 }), " Voltar"), /* @__PURE__ */ React20.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ React20.createElement("div", { className: "text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome), /* @__PURE__ */ React20.createElement(Confirmacao, { texto: salvando ? "Salvando\u2026" : "Salvo.", ativa: salvando || confirmado })), erro && /* @__PURE__ */ React20.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React20.createElement(Tabs, { tabs: ABAS, active: aba, onChange: setAba }), aba === "caixa" && /* @__PURE__ */ React20.createElement(
     CaixaEntrada,
     {
       contas: estado.contas,
@@ -2799,7 +3213,7 @@ function Livro({ negocio, onVoltar }) {
       onDuvida: (item) => marcarSituacao(item, "duvida"),
       dinheiroMisturado: negocio.dinheiro_misturado
     }
-  ), aba === "lancar" && /* @__PURE__ */ React18.createElement(
+  ), aba === "lancar" && /* @__PURE__ */ React20.createElement(
     Lancar,
     {
       contas: estado.contas,
@@ -2808,7 +3222,7 @@ function Livro({ negocio, onVoltar }) {
       onEditar: editarLancamento,
       onCancelarEdicao: cancelarEdicao
     }
-  ), aba === "diario" && /* @__PURE__ */ React18.createElement(
+  ), aba === "diario" && /* @__PURE__ */ React20.createElement(
     Diario,
     {
       contas: estado.contas,
@@ -2817,7 +3231,7 @@ function Livro({ negocio, onVoltar }) {
       onEditar: iniciarEdicao,
       onExcluir: excluirLancamento
     }
-  ), aba === "razao" && /* @__PURE__ */ React18.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React18.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React18.createElement(
+  ), aba === "razao" && /* @__PURE__ */ React20.createElement(Razao, { contas: estado.contas, lancamentos: estado.lancamentos, lancamentoLinhas: estado.lancamentoLinhas }), aba === "balancete" && /* @__PURE__ */ React20.createElement(Balancete, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas }), aba === "conciliacao" && /* @__PURE__ */ React20.createElement(
     Conciliacao,
     {
       lancamentos: estado.lancamentos,
@@ -2825,9 +3239,10 @@ function Livro({ negocio, onVoltar }) {
       conciliacoes: estado.conciliacoes,
       onAlternar: alternarConciliacao
     }
-  ), aba === "baixas" && /* @__PURE__ */ React18.createElement(Baixas, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas, onDarBaixa: darBaixa }), aba === "revisao" && /* @__PURE__ */ React18.createElement(
+  ), aba === "baixas" && /* @__PURE__ */ React20.createElement(Baixas, { contas: estado.contas, lancamentoLinhas: estado.lancamentoLinhas, onDarBaixa: darBaixa }), aba === "revisao" && /* @__PURE__ */ React20.createElement(
     Revisao,
     {
+      negocio,
       contas: estado.contas,
       lancamentos: estado.lancamentos,
       lancamentoLinhas: estado.lancamentoLinhas,
@@ -2836,7 +3251,7 @@ function Livro({ negocio, onVoltar }) {
       onFechar: fecharMes,
       onReabrir: reabrirMes
     }
-  ), aba === "entregas" && /* @__PURE__ */ React18.createElement(
+  ), aba === "entregas" && /* @__PURE__ */ React20.createElement(
     RetratoDoMes,
     {
       negocio,
@@ -2848,9 +3263,21 @@ function Livro({ negocio, onVoltar }) {
       recorrentes: estado.recorrentes,
       recorrenteLinhas: estado.recorrenteLinhas,
       onSalvarCarta: salvarCarta,
-      onAvaliarCartaSeguida: avaliarCartaSeguida
+      onAvaliarCartaSeguida: avaliarCartaSeguida,
+      pendentesDeAprofundamento: roteiro ? pendentesDeAprofundamento(roteiro.perguntas, roteiro.respostasPorPerguntaId, { tipo: negocio.tipo, arquetipo: negocio.arquetipo }).length : 0,
+      onAbrirRoteiro: () => setAba("roteiro")
     }
-  ), aba === "plano" && /* @__PURE__ */ React18.createElement(PlanoContas, { contas: estado.contas, onAdicionar: adicionarConta, onAlternarAtiva: alternarAtivaConta }), aba === "recorrentes" && /* @__PURE__ */ React18.createElement(
+  ), aba === "memoria" && /* @__PURE__ */ React20.createElement(
+    Memoria,
+    {
+      negocio,
+      contas: estado.contas,
+      lancamentos: estado.lancamentos,
+      lancamentoLinhas: estado.lancamentoLinhas,
+      periodosFechados: estado.periodosFechados,
+      cartas: estado.cartas
+    }
+  ), aba === "roteiro" && (roteiro ? /* @__PURE__ */ React20.createElement(Roteiro, { negocio, perguntas: roteiro.perguntas, respostasPorPerguntaId: roteiro.respostasPorPerguntaId, onSalvarResposta: salvarRespostaRoteiro }) : /* @__PURE__ */ React20.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026")), aba === "plano" && /* @__PURE__ */ React20.createElement(PlanoContas, { contas: estado.contas, onAdicionar: adicionarConta, onAlternarAtiva: alternarAtivaConta }), aba === "recorrentes" && /* @__PURE__ */ React20.createElement(
     Recorrentes,
     {
       contas: estado.contas,
@@ -2860,11 +3287,11 @@ function Livro({ negocio, onVoltar }) {
       onAlternarAtiva: alternarAtivaRecorrente,
       onGerar: gerarRecorrentesDoMes
     }
-  ), aba === "negocio" && /* @__PURE__ */ React18.createElement(ConfigNegocio, { negocioId: negocio.id })));
+  ), aba === "negocio" && /* @__PURE__ */ React20.createElement(ConfigNegocio, { negocioId: negocio.id })));
 }
 
 // src/telas/PainelDoMes.jsx
-import React19, { useEffect as useEffect9, useState as useState16 } from "react";
+import React21, { useEffect as useEffect9, useState as useState17 } from "react";
 import { ArrowLeft as ArrowLeft3, Copy, Check as Check4 } from "lucide-react";
 
 // src/dados/painelDoMes.mjs
@@ -2934,17 +3361,17 @@ var STATUS_INFO = {
   fechado: { texto: "m\xEAs fechado", cor: "var(--muted)" }
 };
 function BotaoCopiar({ texto }) {
-  const [copiado, setCopiado] = useState16(false);
+  const [copiado, setCopiado] = useState17(false);
   const copiar = async () => {
     await navigator.clipboard.writeText(texto);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 1800);
   };
-  return /* @__PURE__ */ React19.createElement("button", { onClick: copiar, className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70 shrink-0", style: { color: "var(--accent)" } }, copiado ? /* @__PURE__ */ React19.createElement(React19.Fragment, null, /* @__PURE__ */ React19.createElement(Check4, { size: 13 }), " Copiado") : /* @__PURE__ */ React19.createElement(React19.Fragment, null, /* @__PURE__ */ React19.createElement(Copy, { size: 13 }), " Copiar mensagem"));
+  return /* @__PURE__ */ React21.createElement("button", { onClick: copiar, className: "text-xs inline-flex items-center gap-1 transition-opacity hover:opacity-70 shrink-0", style: { color: "var(--accent)" } }, copiado ? /* @__PURE__ */ React21.createElement(React21.Fragment, null, /* @__PURE__ */ React21.createElement(Check4, { size: 13 }), " Copiado") : /* @__PURE__ */ React21.createElement(React21.Fragment, null, /* @__PURE__ */ React21.createElement(Copy, { size: 13 }), " Copiar mensagem"));
 }
 function PainelDoMes({ onVoltar }) {
-  const [dados, setDados] = useState16(null);
-  const [erro, setErro] = useState16("");
+  const [dados, setDados] = useState17(null);
+  const [erro, setErro] = useState17("");
   useEffect9(() => {
     let vivo = true;
     carregarPainelDoMes().then((d) => {
@@ -2956,22 +3383,22 @@ function PainelDoMes({ onVoltar }) {
       vivo = false;
     };
   }, []);
-  return /* @__PURE__ */ React19.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React19.createElement("div", { className: "max-w-2xl mx-auto px-5 py-8" }, /* @__PURE__ */ React19.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React19.createElement(ArrowLeft3, { size: 14 }), " Voltar"), /* @__PURE__ */ React19.createElement("div", { className: "mb-1 text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Painel do M\xEAs"), dados && /* @__PURE__ */ React19.createElement("div", { className: "text-xs mb-6", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, nomeDoMes(dados.mes), " \u2014 quem mandou, quem falta"), erro && /* @__PURE__ */ React19.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), !dados && !erro && /* @__PURE__ */ React19.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026"), dados && (() => {
+  return /* @__PURE__ */ React21.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React21.createElement("div", { className: "max-w-2xl mx-auto px-5 py-8" }, /* @__PURE__ */ React21.createElement("button", { onClick: onVoltar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React21.createElement(ArrowLeft3, { size: 14 }), " Voltar"), /* @__PURE__ */ React21.createElement("div", { className: "mb-1 text-xl font-bold", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Painel do M\xEAs"), dados && /* @__PURE__ */ React21.createElement("div", { className: "text-xs mb-6", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, nomeDoMes(dados.mes), " \u2014 quem mandou, quem falta"), erro && /* @__PURE__ */ React21.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), !dados && !erro && /* @__PURE__ */ React21.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026"), dados && (() => {
     const painel = montarPainelDoMes(dados.negocios, dados.itensPorNegocio, dados.negociosComMesFechado);
     if (!painel.length) {
-      return /* @__PURE__ */ React19.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React19.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum neg\xF3cio ativo com onboarding conclu\xEDdo ainda."));
+      return /* @__PURE__ */ React21.createElement(Card, { className: "text-center py-12" }, /* @__PURE__ */ React21.createElement("div", { className: "text-sm", style: { color: "var(--ink)" } }, "Nenhum neg\xF3cio ativo com onboarding conclu\xEDdo ainda."));
     }
-    return /* @__PURE__ */ React19.createElement("div", { className: "space-y-2" }, painel.map((linha) => {
+    return /* @__PURE__ */ React21.createElement("div", { className: "space-y-2" }, painel.map((linha) => {
       const info = STATUS_INFO[linha.status];
       const texto = linha.status === "faltando" ? `falta: ${linha.pendentes} ${linha.pendentes === 1 ? "item" : "itens"} por classificar` : info.texto;
       const mensagem = mensagemCobranca(linha, dados.mes);
-      return /* @__PURE__ */ React19.createElement(Card, { key: linha.negocioId, pad: "apertado" }, /* @__PURE__ */ React19.createElement("div", { className: "flex items-center justify-between gap-3 flex-wrap" }, /* @__PURE__ */ React19.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React19.createElement("span", { className: "text-sm font-medium mr-2", style: { color: "var(--ink)" } }, linha.apelido || linha.nome), /* @__PURE__ */ React19.createElement("span", { className: "text-xs", style: { color: info.cor } }, texto)), mensagem && /* @__PURE__ */ React19.createElement(BotaoCopiar, { texto: mensagem })));
+      return /* @__PURE__ */ React21.createElement(Card, { key: linha.negocioId, pad: "apertado" }, /* @__PURE__ */ React21.createElement("div", { className: "flex items-center justify-between gap-3 flex-wrap" }, /* @__PURE__ */ React21.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React21.createElement("span", { className: "text-sm font-medium mr-2", style: { color: "var(--ink)" } }, linha.apelido || linha.nome), /* @__PURE__ */ React21.createElement("span", { className: "text-xs", style: { color: info.cor } }, texto)), mensagem && /* @__PURE__ */ React21.createElement(BotaoCopiar, { texto: mensagem })));
     }));
   })()));
 }
 
 // src/telas/FormularioPublico.jsx
-import React20, { useState as useState17, useEffect as useEffect10, useCallback as useCallback3 } from "react";
+import React22, { useState as useState18, useEffect as useEffect10, useCallback as useCallback3 } from "react";
 import { Check as Check5, ArrowLeft as ArrowLeft4, ArrowRight as ArrowRight2 } from "lucide-react";
 var fmtBloco = {
   1: "Sobre voc\xEA e o neg\xF3cio",
@@ -2982,7 +3409,7 @@ var fmtBloco = {
 };
 function Capa({ negocio, total, jaRespondidas, onComecar }) {
   const retomando = jaRespondidas > 0;
-  return /* @__PURE__ */ React20.createElement("div", { className: "text-center" }, /* @__PURE__ */ React20.createElement("div", { className: "text-[11px] uppercase mb-3", style: { color: "var(--gold)", letterSpacing: "0.18em", fontFamily: "var(--font-mono)" } }, "Contadoria"), /* @__PURE__ */ React20.createElement("h1", { className: "text-2xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, retomando ? `Bem-vindo de volta, ${negocio}` : `Vamos organizar o ${negocio}`), /* @__PURE__ */ React20.createElement("p", { className: "text-sm mb-2", style: { color: "var(--muted)", lineHeight: 1.6 } }, retomando ? `Voc\xEA j\xE1 respondeu ${jaRespondidas} de ${total}. Continua de onde parou.` : `S\xE3o ${total} perguntas r\xE1pidas sobre o seu neg\xF3cio. Leva uns 10 minutos.`), /* @__PURE__ */ React20.createElement("p", { className: "text-xs mb-8", style: { color: "var(--muted)", lineHeight: 1.6 } }, "Pode parar no meio e voltar depois \u2014 o que voc\xEA responder fica salvo.", /* @__PURE__ */ React20.createElement("br", null), "N\xE3o sabe algum n\xFAmero? Responde por alto, a gente acerta depois."), /* @__PURE__ */ React20.createElement(
+  return /* @__PURE__ */ React22.createElement("div", { className: "text-center" }, /* @__PURE__ */ React22.createElement("div", { className: "text-[11px] uppercase mb-3", style: { color: "var(--gold)", letterSpacing: "0.18em", fontFamily: "var(--font-mono)" } }, "Contadoria"), /* @__PURE__ */ React22.createElement("h1", { className: "text-2xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, retomando ? `Bem-vindo de volta, ${negocio}` : `Vamos organizar o ${negocio}`), /* @__PURE__ */ React22.createElement("p", { className: "text-sm mb-2", style: { color: "var(--muted)", lineHeight: 1.6 } }, retomando ? `Voc\xEA j\xE1 respondeu ${jaRespondidas} de ${total}. Continua de onde parou.` : `S\xE3o ${total} perguntas r\xE1pidas sobre o seu neg\xF3cio. Leva uns 10 minutos.`), /* @__PURE__ */ React22.createElement("p", { className: "text-xs mb-8", style: { color: "var(--muted)", lineHeight: 1.6 } }, "Pode parar no meio e voltar depois \u2014 o que voc\xEA responder fica salvo.", /* @__PURE__ */ React22.createElement("br", null), "N\xE3o sabe algum n\xFAmero? Responde por alto, a gente acerta depois."), /* @__PURE__ */ React22.createElement(
     "button",
     {
       onClick: onComecar,
@@ -2993,22 +3420,22 @@ function Capa({ negocio, total, jaRespondidas, onComecar }) {
   ));
 }
 function Fim({ negocio, onRevisar }) {
-  return /* @__PURE__ */ React20.createElement("div", { className: "text-center" }, /* @__PURE__ */ React20.createElement(
+  return /* @__PURE__ */ React22.createElement("div", { className: "text-center" }, /* @__PURE__ */ React22.createElement(
     "div",
     {
       className: "mx-auto mb-5 rounded-full flex items-center justify-center",
       style: { width: 54, height: 54, background: "var(--credit-soft)" }
     },
-    /* @__PURE__ */ React20.createElement(Check5, { size: 26, style: { color: "var(--credit)" } })
-  ), /* @__PURE__ */ React20.createElement("h1", { className: "text-2xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Pronto, obrigado!"), /* @__PURE__ */ React20.createElement("p", { className: "text-sm mb-8", style: { color: "var(--muted)", lineHeight: 1.7 } }, "J\xE1 recebi as suas respostas sobre o ", negocio, ".", /* @__PURE__ */ React20.createElement("br", null), "Agora eu monto a organiza\xE7\xE3o das suas contas e volto com o primeiro retrato do seu m\xEAs."), /* @__PURE__ */ React20.createElement("button", { onClick: onRevisar, className: "text-xs underline", style: { color: "var(--muted)" } }, "rever ou corrigir alguma resposta"));
+    /* @__PURE__ */ React22.createElement(Check5, { size: 26, style: { color: "var(--credit)" } })
+  ), /* @__PURE__ */ React22.createElement("h1", { className: "text-2xl font-bold mb-3", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, "Pronto, obrigado!"), /* @__PURE__ */ React22.createElement("p", { className: "text-sm mb-8", style: { color: "var(--muted)", lineHeight: 1.7 } }, "J\xE1 recebi as suas respostas sobre o ", negocio, ".", /* @__PURE__ */ React22.createElement("br", null), "Agora eu monto a organiza\xE7\xE3o das suas contas e volto com o primeiro retrato do seu m\xEAs."), /* @__PURE__ */ React22.createElement("button", { onClick: onRevisar, className: "text-xs underline", style: { color: "var(--muted)" } }, "rever ou corrigir alguma resposta"));
 }
 function FormularioPublico({ token }) {
-  const [dados, setDados] = useState17(null);
-  const [erro, setErro] = useState17("");
-  const [etapa, setEtapa] = useState17("capa");
-  const [indice, setIndice] = useState17(0);
-  const [respostas, setRespostas] = useState17({});
-  const [salvando, setSalvando] = useState17(false);
+  const [dados, setDados] = useState18(null);
+  const [erro, setErro] = useState18("");
+  const [etapa, setEtapa] = useState18("capa");
+  const [indice, setIndice] = useState18(0);
+  const [respostas, setRespostas] = useState18({});
+  const [salvando, setSalvando] = useState18(false);
   useEffect10(() => {
     supabase.rpc("formulario_abrir", { p_token: token }).then(({ data, error }) => {
       if (error) return setErro("N\xE3o consegui abrir este formul\xE1rio.");
@@ -3039,14 +3466,14 @@ function FormularioPublico({ token }) {
     setIndice(Math.max(0, indice - 1));
   };
   if (erro) {
-    return /* @__PURE__ */ React20.createElement(Moldura, null, /* @__PURE__ */ React20.createElement("div", { className: "text-center text-sm", style: { color: "var(--muted)" } }, erro));
+    return /* @__PURE__ */ React22.createElement(Moldura, null, /* @__PURE__ */ React22.createElement("div", { className: "text-center text-sm", style: { color: "var(--muted)" } }, erro));
   }
   if (!dados) {
-    return /* @__PURE__ */ React20.createElement(Moldura, null, /* @__PURE__ */ React20.createElement("div", { className: "text-center text-sm", style: { color: "var(--muted)" } }, "Abrindo\u2026"));
+    return /* @__PURE__ */ React22.createElement(Moldura, null, /* @__PURE__ */ React22.createElement("div", { className: "text-center text-sm", style: { color: "var(--muted)" } }, "Abrindo\u2026"));
   }
   const respondidas = perguntas.filter((p) => String(respostas[p.id] ?? "").trim()).length;
   if (etapa === "capa") {
-    return /* @__PURE__ */ React20.createElement(Moldura, null, /* @__PURE__ */ React20.createElement(
+    return /* @__PURE__ */ React22.createElement(Moldura, null, /* @__PURE__ */ React22.createElement(
       Capa,
       {
         negocio: dados.negocio,
@@ -3061,7 +3488,7 @@ function FormularioPublico({ token }) {
     ));
   }
   if (etapa === "fim") {
-    return /* @__PURE__ */ React20.createElement(Moldura, null, /* @__PURE__ */ React20.createElement(Fim, { negocio: dados.negocio, onRevisar: () => {
+    return /* @__PURE__ */ React22.createElement(Moldura, null, /* @__PURE__ */ React22.createElement(Fim, { negocio: dados.negocio, onRevisar: () => {
       setIndice(0);
       setEtapa("perguntas");
     } }));
@@ -3069,13 +3496,13 @@ function FormularioPublico({ token }) {
   const valor = respostas[atual.id] ?? "";
   const definir = (v) => setRespostas({ ...respostas, [atual.id]: v });
   const fracao = perguntas.length ? (indice + 1) / perguntas.length : 1;
-  return /* @__PURE__ */ React20.createElement(Moldura, null, /* @__PURE__ */ React20.createElement("div", { className: "mb-1 flex justify-between text-[10px]", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, /* @__PURE__ */ React20.createElement("span", null, fmtBloco[atual.bloco] || ""), /* @__PURE__ */ React20.createElement("span", null, indice + 1, " de ", perguntas.length)), /* @__PURE__ */ React20.createElement("div", { className: "h-1 rounded-full mb-8", style: { background: "var(--rule-faint)" } }, /* @__PURE__ */ React20.createElement(
+  return /* @__PURE__ */ React22.createElement(Moldura, null, /* @__PURE__ */ React22.createElement("div", { className: "mb-1 flex justify-between text-[10px]", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, /* @__PURE__ */ React22.createElement("span", null, fmtBloco[atual.bloco] || ""), /* @__PURE__ */ React22.createElement("span", null, indice + 1, " de ", perguntas.length)), /* @__PURE__ */ React22.createElement("div", { className: "h-1 rounded-full mb-8", style: { background: "var(--rule-faint)" } }, /* @__PURE__ */ React22.createElement(
     "div",
     {
       className: "h-1 rounded-full transition-all duration-300",
       style: { width: `${fracao * 100}%`, background: "linear-gradient(90deg, var(--gold-2), var(--gold))" }
     }
-  )), /* @__PURE__ */ React20.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React20.createElement("div", { className: "text-lg font-medium mb-2", style: { color: "var(--ink)", fontFamily: "var(--font-display)", lineHeight: 1.4 } }, atual.pergunta), atual.explicacao && /* @__PURE__ */ React20.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--accent-soft)", color: "var(--ink)", lineHeight: 1.6 } }, atual.explicacao), /* @__PURE__ */ React20.createElement(CampoResposta, { pergunta: atual, valor, onChange: definir, onEnter: avancar })), /* @__PURE__ */ React20.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React20.createElement(
+  )), /* @__PURE__ */ React22.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React22.createElement("div", { className: "text-lg font-medium mb-2", style: { color: "var(--ink)", fontFamily: "var(--font-display)", lineHeight: 1.4 } }, atual.pergunta), atual.explicacao && /* @__PURE__ */ React22.createElement("div", { className: "text-xs rounded-md px-3 py-2 mb-4", style: { background: "var(--accent-soft)", color: "var(--ink)", lineHeight: 1.6 } }, atual.explicacao), /* @__PURE__ */ React22.createElement(CampoResposta, { pergunta: atual, valor, onChange: definir, onEnter: avancar })), /* @__PURE__ */ React22.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React22.createElement(
     "button",
     {
       onClick: voltar,
@@ -3083,9 +3510,9 @@ function FormularioPublico({ token }) {
       className: "text-xs inline-flex items-center gap-1 disabled:opacity-30",
       style: { color: "var(--muted)" }
     },
-    /* @__PURE__ */ React20.createElement(ArrowLeft4, { size: 13 }),
+    /* @__PURE__ */ React22.createElement(ArrowLeft4, { size: 13 }),
     " Voltar"
-  ), /* @__PURE__ */ React20.createElement("div", { className: "flex items-center gap-3" }, !String(valor).trim() && /* @__PURE__ */ React20.createElement("button", { onClick: avancar, className: "text-xs", style: { color: "var(--muted)" } }, "pular"), /* @__PURE__ */ React20.createElement(
+  ), /* @__PURE__ */ React22.createElement("div", { className: "flex items-center gap-3" }, !String(valor).trim() && /* @__PURE__ */ React22.createElement("button", { onClick: avancar, className: "text-xs", style: { color: "var(--muted)" } }, "pular"), /* @__PURE__ */ React22.createElement(
     "button",
     {
       onClick: avancar,
@@ -3095,7 +3522,7 @@ function FormularioPublico({ token }) {
     },
     indice + 1 === perguntas.length ? "Terminei" : "Pr\xF3xima",
     " ",
-    /* @__PURE__ */ React20.createElement(ArrowRight2, { size: 14 })
+    /* @__PURE__ */ React22.createElement(ArrowRight2, { size: 14 })
   ))));
 }
 function CampoResposta({ pergunta, valor, onChange, onEnter }) {
@@ -3105,7 +3532,7 @@ function CampoResposta({ pergunta, valor, onChange, onEnter }) {
     color: "var(--ink)"
   };
   if (pergunta.tipo_resposta === "sim_nao") {
-    return /* @__PURE__ */ React20.createElement("div", { className: "flex gap-2" }, [["sim", "Sim"], ["nao", "N\xE3o"]].map(([v, rotulo]) => /* @__PURE__ */ React20.createElement(
+    return /* @__PURE__ */ React22.createElement("div", { className: "flex gap-2" }, [["sim", "Sim"], ["nao", "N\xE3o"]].map(([v, rotulo]) => /* @__PURE__ */ React22.createElement(
       "button",
       {
         key: v,
@@ -3117,7 +3544,7 @@ function CampoResposta({ pergunta, valor, onChange, onEnter }) {
     )));
   }
   if (pergunta.tipo_resposta === "texto_longo" || pergunta.tipo_resposta === "lista_valores") {
-    return /* @__PURE__ */ React20.createElement(
+    return /* @__PURE__ */ React22.createElement(
       "textarea",
       {
         rows: 4,
@@ -3130,7 +3557,7 @@ function CampoResposta({ pergunta, valor, onChange, onEnter }) {
     );
   }
   const tipo = pergunta.tipo_resposta === "data" ? "date" : pergunta.tipo_resposta === "moeda" ? "text" : "text";
-  return /* @__PURE__ */ React20.createElement(
+  return /* @__PURE__ */ React22.createElement(
     "input",
     {
       type: tipo,
@@ -3147,30 +3574,30 @@ function CampoResposta({ pergunta, valor, onChange, onEnter }) {
   );
 }
 function Moldura({ children }) {
-  return /* @__PURE__ */ React20.createElement(
+  return /* @__PURE__ */ React22.createElement(
     "div",
     {
       className: "min-h-screen flex items-center justify-center px-5 py-10",
       style: { background: "radial-gradient(120% 70% at 50% -10%, #1a1108 0%, transparent 55%), var(--paper)" }
     },
-    /* @__PURE__ */ React20.createElement("div", { className: "w-full", style: { maxWidth: 460 } }, /* @__PURE__ */ React20.createElement(
+    /* @__PURE__ */ React22.createElement("div", { className: "w-full", style: { maxWidth: 460 } }, /* @__PURE__ */ React22.createElement(
       "div",
       {
         className: "rounded-lg border p-6 sm:p-8",
         style: { borderColor: "var(--rule-faint)", background: "var(--surface)" }
       },
       children
-    ), /* @__PURE__ */ React20.createElement("div", { className: "text-center text-[10px] mt-4", style: { color: "var(--muted)" } }, "Suas respostas s\xE3o vistas s\xF3 por quem cuida das suas contas."))
+    ), /* @__PURE__ */ React22.createElement("div", { className: "text-center text-[10px] mt-4", style: { color: "var(--muted)" } }, "Suas respostas s\xE3o vistas s\xF3 por quem cuida das suas contas."))
   );
 }
 
 // src/app/App.jsx
 var TOKEN_FORMULARIO = new URLSearchParams(window.location.search).get("f");
 function App() {
-  const [authSession, setAuthSession] = useState18(void 0);
-  const [dark] = useState18(true);
-  const [negocioAberto, setNegocioAberto] = useState18(null);
-  const [painelAberto, setPainelAberto] = useState18(false);
+  const [authSession, setAuthSession] = useState19(void 0);
+  const [dark] = useState19(true);
+  const [negocioAberto, setNegocioAberto] = useState19(null);
+  const [painelAberto, setPainelAberto] = useState19(false);
   useEffect11(() => {
     let vivo = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -3186,16 +3613,16 @@ function App() {
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
   if (TOKEN_FORMULARIO) {
-    return /* @__PURE__ */ React21.createElement(React21.Fragment, null, /* @__PURE__ */ React21.createElement(EstiloGlobal, { dark }), /* @__PURE__ */ React21.createElement(FormularioPublico, { token: TOKEN_FORMULARIO }));
+    return /* @__PURE__ */ React23.createElement(React23.Fragment, null, /* @__PURE__ */ React23.createElement(EstiloGlobal, { dark }), /* @__PURE__ */ React23.createElement(FormularioPublico, { token: TOKEN_FORMULARIO }));
   }
-  return /* @__PURE__ */ React21.createElement(React21.Fragment, null, /* @__PURE__ */ React21.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React21.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React21.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React21.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
+  return /* @__PURE__ */ React23.createElement(React23.Fragment, null, /* @__PURE__ */ React23.createElement(EstiloGlobal, { dark }), authSession === void 0 ? /* @__PURE__ */ React23.createElement(TelaCarregandoAuth, null) : authSession === null ? /* @__PURE__ */ React23.createElement(TelaAutenticacao, { redirectTo: window.location.origin }) : negocioAberto && !negocioAberto.configuracao?.onboarded ? /* @__PURE__ */ React23.createElement(ClienteNovo, { negocio: negocioAberto, onConcluido: fecharNegocio, onVoltarSemSalvar: fecharNegocio }) : negocioAberto ? (
     /* `key={negocioAberto.id}` desmonta e remonta o Livro inteiro ao
        trocar de negócio — é o que elimina por construção a classe de
        bug H3 do ContLife (doc 26): sem isso, o estado em memória de
        um negócio podia vazar para dentro da chave do próximo por um
        instante, entre trocar o id e a carga nova terminar. */
-    /* @__PURE__ */ React21.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
-  ) : painelAberto ? /* @__PURE__ */ React21.createElement(PainelDoMes, { onVoltar: () => setPainelAberto(false) }) : /* @__PURE__ */ React21.createElement(Negocios, { onAbrirNegocio: setNegocioAberto, onAbrirPainel: () => setPainelAberto(true) }));
+    /* @__PURE__ */ React23.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+  ) : painelAberto ? /* @__PURE__ */ React23.createElement(PainelDoMes, { onVoltar: () => setPainelAberto(false) }) : /* @__PURE__ */ React23.createElement(Negocios, { onAbrirNegocio: setNegocioAberto, onAbrirPainel: () => setPainelAberto(true) }));
 }
 export {
   App as default
