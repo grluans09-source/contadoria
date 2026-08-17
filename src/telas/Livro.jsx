@@ -545,7 +545,12 @@ export function Livro({ negocio, onVoltar, onNegocioAtualizado }) {
             onSalvarCarta={salvarCarta}
             onAvaliarCartaSeguida={avaliarCartaSeguida}
             onAdicionarEvitado={adicionarEvitado}
-            metaDoCliente={roteiro ? respostaPorDestino(roteiro.perguntas, roteiro.respostasPorPerguntaId, "carta.meta") : null}
+            /* `retrato.meta`, não `carta.meta`: a meta é congelada no
+               retrato de entrada (write-once), e quem só LÊ se adapta ao
+               destino de quem CONGELA — ver 0018, que desfez a inversão
+               criada pela 0016. Bônus: aqui a Carta mostra a meta como
+               ela foi dita no dia 1, que é o que interessa comparar. */
+            metaDoCliente={roteiro ? respostaPorDestino(roteiro.perguntas, roteiro.respostasPorPerguntaId, "retrato.meta") : null}
             pendentesDeAprofundamento={roteiro
               ? pendentesDeAprofundamento(roteiro.perguntas, roteiro.respostasPorPerguntaId, { tipo: negocio.tipo, arquetipo: negocio.arquetipo }).length
               : 0}

@@ -495,6 +495,15 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
          RLS já garante que só o contador dele grava aqui. */
       const patchNegocio = { inicio_do_servico: hojeISO(), configuracao: { ...(negocio.configuracao || {}), onboarded: true } };
 
+      /* Os campos do cadastro vêm ANTES do retrato de entrada, e a ordem
+         importa (bug achado testando ao vivo, 17/ago): o retrato lê
+         `dinheiro_misturado` do negócio, e se fosse montado com o objeto
+         carregado quando a tela abriu, congelaria `false` mesmo o cliente
+         tendo acabado de responder "sim" no Bloco 2 — num campo
+         write-once, portanto sem conserto. Aplicando o patch primeiro,
+         o retrato enxerga o estado que vai de fato para o banco. */
+      Object.assign(patchNegocio, respostasParaNegocio(perguntas, respostas));
+
       /* A LINHA DE BASE (docs/09, P6). Congelada aqui, uma vez só: o
          que ele ACREDITAVA, ao lado do que o balanço MEDIU. Sem isto,
          daqui a seis meses não há como provar transformação nenhuma —
@@ -514,14 +523,13 @@ export function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
         }
 
         patchNegocio.retrato_de_entrada = montarRetratoDeEntrada({
-          negocio,
+          negocio: { ...negocio, ...patchNegocio },
           hoje: hojeISO(),
           contas: planoDeFabrica(negocio.arquetipo),
           linhasAbertura: linhas,
           declarado,
         });
       }
-      Object.assign(patchNegocio, respostasParaNegocio(perguntas, respostas));
       const { error: erroNegocio } = await supabase.from("negocios").update(patchNegocio).eq("id", negocio.id);
       if (erroNegocio) throw new Error(`Balanço gravado, mas não consegui atualizar o cadastro: ${erroNegocio.message}`);
 
