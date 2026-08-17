@@ -39,9 +39,12 @@ const DOCUMENTOS = ["09_PRINCIPIOS_DE_VALOR.md", "10_MANUAL_DE_OPERACAO.md", "11
 const COR = {
   papel: "#FDFCF9",
   tinta: "#1A1613",
-  ouro: "#B06A2C",
-  ouroClaro: "#C97A3D",
-  ouroFraco: "#F2E7D8",
+  /* Os tons do TEMA CLARO (src/ui/tema.mjs) — o PDF imprime sobre papel
+     branco, então usa o ouro escurecido/auditado do claro, não o
+     metálico do escuro (#D4AF37 sobre branco fica ilegível). */
+  ouro: "#7A5C10",
+  ouroClaro: "#C9A227",
+  ouroFraco: "#F4EDD9",
   muted: "#6E6455",
   regra: "#E3DDD1",
   capaFundo: "#0B0A07",

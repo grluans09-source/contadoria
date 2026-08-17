@@ -30,7 +30,7 @@ export function Balancete({ contas, lancamentoLinhas }) {
                 <td className="py-1.5 pr-3 font-mono text-xs" style={{ color: "var(--muted)" }}>{c.codigo}</td>
                 <td className="py-1.5 pr-3">
                   {c.nome}
-                  <span className="text-[10px] ml-2 uppercase tracking-wide" style={{ color: "var(--muted)" }}>{TIPO_LABEL[c.tipo]}</span>
+                  <span className="etiqueta ml-2 uppercase tracking-wide" style={{ color: "var(--muted)" }}>{TIPO_LABEL[c.tipo]}</span>
                 </td>
                 <td className="py-1.5 pr-3 text-right tabular-nums">{c.debito ? fmt(c.debito) : "—"}</td>
                 <td className="py-1.5 pr-3 text-right tabular-nums">{c.credito ? fmt(c.credito) : "—"}</td>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Card, Select, Button, Input } from "../ui/primitivas.jsx";
+import { Card, Select, Button, Input, TituloCard } from "../ui/primitivas.jsx";
 import { resultadoDoMes } from "../dominio/razao.mjs";
 import { quantoPodeTirar } from "../dominio/disponivel.mjs";
 import { cartaPendenteDeAvaliacao } from "../dominio/cartas.mjs";
@@ -40,9 +40,9 @@ function OQueVemPorAi({ lancamentos, lancamentoLinhas, recorrentes, recorrenteLi
 
   return (
     <Card className="mb-4">
-      <div className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+      <TituloCard>
         O que vem por aí · próximos 60 dias
-      </div>
+      </TituloCard>
 
       {aviso ? (
         <>
@@ -63,7 +63,7 @@ function OQueVemPorAi({ lancamentos, lancamentoLinhas, recorrentes, recorrenteLi
         {fluxo.saem > 0 && <div>− {fmt(fluxo.saem)} a pagar e contas fixas no período</div>}
       </div>
 
-      <div className="text-[11px] mt-3" style={{ color: "var(--muted)" }}>
+      <div className="nota mt-3" style={{ color: "var(--muted)" }}>
         Só entra o que já está prometido — venda futura não registrada não é contada, de
         propósito.
       </div>
@@ -93,9 +93,9 @@ function CartaDeRecomendacoes({ mes, cartas, onSalvar, onAvaliarSeguida, metaDoC
 
   return (
     <Card className="mb-4">
-      <div className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+      <TituloCard>
         Carta de recomendações
-      </div>
+      </TituloCard>
 
       {pendente && (
         <div className="text-xs rounded-md px-3 py-2 mb-3" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
@@ -154,9 +154,9 @@ function OQueEvitamos({ mes, evitados, onAdicionar }) {
   return (
     <Card className="mb-4">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
-        <div className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+        <TituloCard>
           O que evitamos
-        </div>
+        </TituloCard>
         {total > 0 && <div className="text-xs" style={{ color: "var(--credit)" }}>{fmt(total)} evitado desde o início</div>}
       </div>
 
@@ -179,7 +179,7 @@ function OQueEvitamos({ mes, evitados, onAdicionar }) {
         <Button small onClick={adicionar} disabled={!descricao.trim()}>Registrar</Button>
         {confirmado && <span className="text-xs" style={{ color: "var(--credit)" }}>Registrado.</span>}
       </div>
-      <div className="text-[11px] mt-2" style={{ color: "var(--muted)" }}>
+      <div className="nota mt-2" style={{ color: "var(--muted)" }}>
         A transformação que impede um erro não deixa rastro sozinha — registrar aqui é o que
         permite mostrar isso daqui a um ano.
       </div>
@@ -244,9 +244,9 @@ export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, p
       <AvisoAprofundamento quantidade={pendentesDeAprofundamento} onAbrir={onAbrirRoteiro} />
 
       <Card className="mb-4" style={{ background: "linear-gradient(160deg, var(--surface), var(--paper))" }}>
-        <div className="text-xs uppercase tracking-wide mb-1" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+        <TituloCard className="mb-1">
           {negocio.apelido || negocio.nome} · {fmtMes(mes)}
-        </div>
+        </TituloCard>
         <div className="text-3xl font-bold mb-3" style={{ fontFamily: "var(--font-display)", color: sobrouPositivo ? "var(--credit)" : "var(--debit)" }}>
           {fmt(r.resultado)}
         </div>
@@ -262,9 +262,9 @@ export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, p
       </Card>
 
       <Card className="mb-4">
-        <div className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+        <TituloCard>
           Quanto você pode tirar
-        </div>
+        </TituloCard>
         <div className="text-2xl font-bold mb-2" style={{ fontFamily: "var(--font-display)", color: "var(--accent)" }}>
           {fmt(disp.podeTirar)}
         </div>
@@ -274,7 +274,7 @@ export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, p
           {disp.compromissos > 0 && <div>− {fmt(disp.compromissos)} em compromissos que vencem nos próximos 30 dias</div>}
           {disp.reserva > 0 && <div>− {fmt(disp.reserva)} de reserva mínima</div>}
         </div>
-        <div className="text-[11px] mt-3" style={{ color: "var(--muted)" }}>
+        <div className="nota mt-3" style={{ color: "var(--muted)" }}>
           É uma recomendação com base no que foi lançado, não uma garantia.
         </div>
       </Card>
@@ -287,7 +287,7 @@ export function RetratoDoMes({ negocio, contas, lancamentos, lancamentoLinhas, p
 
       <OQueEvitamos mes={mes} evitados={evitados} onAdicionar={onAdicionarEvitado} />
 
-      <div className="text-[10px] text-center" style={{ color: "var(--muted)" }}>
+      <div className="etiqueta text-center" style={{ color: "var(--muted)" }}>
         Relatório gerencial — não é peça contábil oficial assinada.
       </div>
     </div>

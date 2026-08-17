@@ -21,6 +21,24 @@ export function EstiloGlobal({ dark }) {
       /* alvo de toque mínimo no celular — lição paga do ContLife (série D) */
       button, select, input[type="checkbox"] { min-height: 40px; }
 
+      /* ── A ESCALA MIÚDA (auditoria de 17/ago) ──────────────────
+         Antes desta auditoria havia TRÊS tamanhos abaixo de text-xs
+         (9px, 10px, 11px) fazendo o mesmo papel, escolhidos a esmo em
+         14 arquivos — o tipo de inconsistência que ninguém nomeia mas
+         que faz a tela parecer descuidada. Agora são dois, com papel
+         definido:
+
+           .etiqueta — 10px: rótulo, selo, metadado. Sempre em maiúsculas
+                       ou mono; é moldura, não leitura.
+           .nota     — 11px: frase de apoio ("por que isso importa",
+                       ressalvas). É leitura de verdade, por isso maior
+                       e com entrelinha folgada.
+
+         Cor NÃO entra aqui de propósito: a mesma etiqueta aparece em
+         --muted, --accent ou --debit conforme o caso. */
+      .etiqueta { font-size: 10px; line-height: 1.4; }
+      .nota { font-size: 11px; line-height: 1.6; }
+
       /* "surgir": usada em Negocios.jsx quando um card acabou de ser
          criado — um leve deslizar + aparecer, não um piscar seco. */
       @keyframes surgir {

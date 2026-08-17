@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { CheckCircle2, AlertTriangle, Lock, Unlock, Search, HelpCircle } from "lucide-react";
-import { Card, Select, Button } from "../ui/primitivas.jsx";
+import { Card, Select, Button, TituloCard } from "../ui/primitivas.jsx";
 import { mesaDeRevisao, podeFecharPeriodo } from "../dominio/revisao.mjs";
 import { encontrarAchados } from "../dominio/achados.mjs";
 
@@ -40,13 +40,13 @@ function LinhaDeAchado({ a }) {
       </div>
       <div className="flex items-center gap-3 mt-1 ml-[23px]">
         {nEvidencia > 0 && (
-          <span className="text-[10px]" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+          <span className="etiqueta" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
             {nEvidencia} lançamento{nEvidencia > 1 ? "s" : ""} — ver no Diário
           </span>
         )}
         {a.hipoteseInocente && (
           <button type="button" onClick={() => setAberto((v) => !v)}
-            className="text-[10px] inline-flex items-center gap-1 transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }}>
+            className="etiqueta inline-flex items-center gap-1 transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }}>
             <HelpCircle size={10} /> pode não ser problema?
           </button>
         )}
@@ -127,7 +127,7 @@ function Fechamento({ lancamentos, periodosFechados, mesaPassa, onFechar, onReab
 
       {fechados.size > 0 && (
         <div>
-          <div className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>Meses fechados</div>
+          <TituloCard>Meses fechados</TituloCard>
           {[...fechados].sort().reverse().map((m) => (
             <div key={m} className="flex items-center justify-between py-1.5 text-sm" style={{ borderBottom: "1px solid var(--rule-faint)" }}>
               <span style={{ color: "var(--ink)" }}>{fmtMes(m)}</span>

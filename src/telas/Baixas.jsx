@@ -38,11 +38,11 @@ function LinhaItem({ item, nomeConta, onDarBaixa }) {
       {abrindo && (
         <div className="flex items-end gap-2 mt-2 flex-wrap">
           <div>
-            <div className="text-[10px] uppercase mb-1" style={{ color: "var(--muted)" }}>Data</div>
+            <div className="etiqueta uppercase mb-1" style={{ color: "var(--muted)" }}>Data</div>
             <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
           </div>
           <div className="w-28">
-            <div className="text-[10px] uppercase mb-1" style={{ color: "var(--muted)" }}>Onde</div>
+            <div className="etiqueta uppercase mb-1" style={{ color: "var(--muted)" }}>Onde</div>
             <Select value={contaTransito} onChange={setContaTransito} options={OPCOES_TRANSITO} />
           </div>
           <Button small onClick={confirmar}>Confirmar</Button>
@@ -85,7 +85,7 @@ export function Baixas({ contas, lancamentoLinhas, onDarBaixa }) {
         )}
       </Card>
 
-      <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+      <div className="nota" style={{ color: "var(--muted)" }}>
         Dar baixa aqui liga o recebimento/pagamento a este item específico — é o que deixa
         "quanto você pode tirar" mais preciso (docs/08 §2). Baixa é sempre do valor cheio;
         pagamento parcial ainda não tem uma tela própria.

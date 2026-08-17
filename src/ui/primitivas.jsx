@@ -46,8 +46,36 @@ export const Card = ({ children, className = "", pad = true, elevavel = false, o
 );
 
 export const Label = ({ children }) => (
-  <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>{children}</div>
+  <div className="nota uppercase tracking-wide mb-1" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>{children}</div>
 );
+
+/* ── TituloCard e Selo (auditoria de 17/ago) ──────────────────
+   Os dois nasceram de repetição literal encontrada na auditoria: o
+   cabeçalho "text-xs uppercase tracking-wide + mono + muted" estava
+   copiado em 10 arquivos, e o selo arredondado em 4. Não é só menos
+   linha — é o que garante que mudar a régua da casa uma vez mude em
+   todo lugar, em vez de deixar uma tela para trás na próxima revisão
+   de estilo (foi assim que os três tamanhos miúdos surgiram). */
+export const TituloCard = ({ children, className = "mb-2", cor = "var(--muted)" }) => (
+  <div className={`text-xs uppercase tracking-wide ${className}`}
+    style={{ color: cor, fontFamily: "var(--font-mono)" }}>{children}</div>
+);
+
+/* `tom`: "accent" (padrão), "credit", "debit" ou "neutro". A cor do
+   texto e o fundo saem em par — evita a combinação ilegível que
+   aparece quando cada tela escolhe as duas separadamente. */
+export const Selo = ({ children, tom = "accent", className = "" }) => {
+  const tons = {
+    accent: { background: "var(--accent-soft)", color: "var(--accent)" },
+    credit: { background: "var(--credit-soft)", color: "var(--credit)" },
+    debit: { background: "var(--debit-soft)", color: "var(--debit)" },
+    neutro: { background: "var(--rule-faint)", color: "var(--muted)" },
+  };
+  return (
+    <span className={`etiqueta uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap ${className}`}
+      style={{ ...tons[tom], fontFamily: "var(--font-mono)" }}>{children}</span>
+  );
+};
 
 /* transição suave na borda ao focar — sensação de resposta, não só o
    outline seco do navegador */

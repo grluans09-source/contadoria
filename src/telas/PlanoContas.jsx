@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Plus, X } from "lucide-react";
-import { Card, Label, Input, Select, Button } from "../ui/primitivas.jsx";
+import { Card, Label, Input, Select, Button, TituloCard } from "../ui/primitivas.jsx";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const TIPO_LABEL = { ativo: "Ativo", passivo: "Passivo", pl: "Patrimônio Líquido", receita: "Receita", despesa: "Despesa" };
@@ -71,7 +71,7 @@ export function PlanoContas({ contas, onAdicionar, onAlternarAtiva }) {
       {Object.entries(TIPO_LABEL).map(([tipo, label]) => (
         (porTipo[tipo] || []).length > 0 && (
           <div key={tipo} className="mb-5">
-            <div className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>{label}</div>
+            <TituloCard>{label}</TituloCard>
             <Card pad="apertado">
               {porTipo[tipo].map((c) => (
                 <div key={c.id} className="flex items-center justify-between py-1.5" style={{ borderBottom: "1px solid var(--rule-faint)", opacity: c.ativa ? 1 : 0.45 }}>

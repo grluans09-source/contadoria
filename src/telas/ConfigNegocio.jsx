@@ -90,7 +90,7 @@ export function ConfigNegocio({ negocioId, onAtualizado }) {
         <div>
           <Label>Usa o mesmo dinheiro para o negócio e para as coisas dele?</Label>
           <Select value={campo.dinheiro_misturado} onChange={(v) => set("dinheiro_misturado", v)} options={[{ value: "sim", label: "Sim" }, { value: "nao", label: "Não" }]} />
-          <div className="text-[11px] mt-1.5" style={{ color: "var(--muted)" }}>
+          <div className="nota mt-1.5" style={{ color: "var(--muted)" }}>
             Se sim, gasto pessoal marcado na Caixa de Entrada vira retirada de verdade — não some
             do livro (docs/DECISOES.md C5). Corrigido depois que a resposta do onboarding não
             estava gravando aqui (achado em teste, 15/ago) — se o cliente já respondeu isso antes

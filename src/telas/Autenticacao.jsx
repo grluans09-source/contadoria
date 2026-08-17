@@ -83,13 +83,13 @@ function TelaAutenticacao({ redirectTo }) {
   const rotuloBotao = { entrar: "Entrar", cadastrar: "Criar conta", link_magico: "Mandar link mágico", recuperar: "Mandar link de redefinição" }[modo];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: "radial-gradient(120% 80% at 50% -10%, #1a1108 0%, transparent 55%), var(--paper)" }}>
+    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: "radial-gradient(120% 80% at 50% -10%, #171206 0%, transparent 55%), var(--paper)" }}>
       <div className="min-h-full flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="text-3xl font-bold" style={{ fontFamily: "var(--font-display)", letterSpacing: "0.08em", background: "linear-gradient(100deg, var(--word-gold-2), var(--gold) 45%, var(--word-gold-2))", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>CONTADORIA</div>
             <TracoAnimado />
-            <div className="text-[11px] mt-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}>escrituração · revisão · consultoria</div>
+            <div className="nota mt-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.16em" }}>escrituração · revisão · consultoria</div>
           </div>
 
           {(modo === "entrar" || modo === "cadastrar") && (

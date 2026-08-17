@@ -41,7 +41,7 @@ function PorQueImporta({ texto }) {
   return (
     <div className="mt-1.5">
       <button type="button" onClick={() => setAberto((a) => !a)}
-        className="text-[10px] inline-flex items-center gap-1 transition-opacity hover:opacity-70"
+        className="etiqueta inline-flex items-center gap-1 transition-opacity hover:opacity-70"
         style={{ color: "var(--muted)" }}>
         <HelpCircle size={11} /> por que isso importa?
       </button>
@@ -147,7 +147,7 @@ function MandarParaOCliente({ negocioId, whatsapp }) {
         <Button small onClick={gerar} disabled={gerando}>{gerando ? "Gerando…" : "Gerar link do cliente"}</Button>
       ) : (
         <div>
-          <div className="text-[11px] rounded-md px-3 py-2 mb-2 break-all"
+          <div className="nota rounded-md px-3 py-2 mb-2 break-all"
             style={{ background: "var(--paper)", color: "var(--muted)", fontFamily: "var(--font-mono)" }}>{link}</div>
           <div className="flex items-center gap-2 flex-wrap">
             <Button small onClick={copiar}>{copiado ? "Copiado!" : "Copiar mensagem pronta"}</Button>
@@ -157,7 +157,7 @@ function MandarParaOCliente({ negocioId, whatsapp }) {
                 abrir no WhatsApp
               </a>
             )}
-            <span className="text-[10px]" style={{ color: "var(--muted)" }}>vale 30 dias</span>
+            <span className="etiqueta" style={{ color: "var(--muted)" }}>vale 30 dias</span>
           </div>
         </div>
       )}
@@ -195,12 +195,12 @@ function ListaDividas({ itens, onChange }) {
             <Select value={item.classificacao} onChange={(v) => editar(i, "classificacao", v)}
               options={CLASSIFICACOES_DIVIDA.map((c) => ({ value: c.id, label: c.rotulo }))} />
             {classe && (
-              <div className="text-[11px] mt-1" style={{ color: classe.entraNoLivro ? "var(--muted)" : "var(--accent)" }}>
+              <div className="nota mt-1" style={{ color: classe.entraNoLivro ? "var(--muted)" : "var(--accent)" }}>
                 {classe.ajuda}
               </div>
             )}
             {item.classificacao === "negocio" && (
-              <label className="text-[11px] inline-flex items-center gap-1.5 mt-1.5" style={{ color: "var(--muted)" }}>
+              <label className="nota inline-flex items-center gap-1.5 mt-1.5" style={{ color: "var(--muted)" }}>
                 <input type="checkbox" checked={item.ehFornecedor !== false}
                   onChange={(e) => editar(i, "ehFornecedor", e.target.checked)} />
                 é fornecedor (se não, entra como empréstimo)
@@ -260,7 +260,7 @@ function BlocoContasFixas({ itens, onChange, opcoesDespesa }) {
       <button type="button" onClick={add} className="text-xs inline-flex items-center gap-1 mt-1 transition-opacity hover:opacity-70" style={{ color: "var(--accent)" }}>
         <Plus size={13} /> adicionar conta fixa
       </button>
-      <div className="text-[11px] mt-1.5" style={{ color: "var(--muted)" }}>
+      <div className="nota mt-1.5" style={{ color: "var(--muted)" }}>
         Cadastradas aqui, elas já aparecem prontas no mês seguinte — é o que faz o segundo mês do cliente ser rápido.
         Não precisa ser exato nem completo hoje: dá para ajustar e acrescentar depois, na aba Recorrentes.
       </div>

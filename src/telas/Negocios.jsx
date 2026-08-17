@@ -3,7 +3,7 @@ import { Building2, Plus, X, LogOut, ClipboardList } from "lucide-react";
 import { supabase } from "../dados/supabase.mjs";
 import { resumoDoMesAtual } from "../dados/resumoNegocio.mjs";
 import { ARQUETIPOS, acharArquetipo } from "../dominio/arquetipos.mjs";
-import { Card, Label, Input, Select, Button, Confirmacao } from "../ui/primitivas.jsx";
+import { Card, Label, Input, Select, Button, Confirmacao, Selo } from "../ui/primitivas.jsx";
 
 /* A prateleira (docs/04_MAPA_DO_APP.md §2). */
 
@@ -47,12 +47,7 @@ function CardNegocio({ negocio, recemCriado, onAbrir }) {
             <div className="text-xs truncate" style={{ color: "var(--muted)" }}>{negocio.nome}</div>
           )}
         </div>
-        <span
-          className="text-[10px] uppercase tracking-wide px-2 py-1 rounded-full shrink-0"
-          style={{ background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" }}
-        >
-          {TIPO_LABEL[negocio.tipo] || negocio.tipo}
-        </span>
+        <Selo className="shrink-0">{TIPO_LABEL[negocio.tipo] || negocio.tipo}</Selo>
       </div>
       <div className="mt-3 text-xs">
         {negocio.situacao !== "ativo" ? (
@@ -133,11 +128,11 @@ function FormularioNovoNegocio({ onCriado, onFechar }) {
           <Select value={arquetipo} onChange={setArquetipo} placeholder="escolha"
             options={ARQUETIPOS.map((a) => ({ value: a.id, label: `${a.nome} — ${a.resumo}` }))} />
           {escolhido && (
-            <div className="text-[11px] mt-1.5" style={{ color: "var(--muted)" }}>
+            <div className="nota mt-1.5" style={{ color: "var(--muted)" }}>
               ex.: {escolhido.exemplos}
             </div>
           )}
-          <div className="text-[11px] mt-1.5" style={{ color: "var(--muted)" }}>
+          <div className="nota mt-1.5" style={{ color: "var(--muted)" }}>
             Isto decide o plano de contas e as perguntas da entrevista. Dá pra trocar depois, na aba Negócio.
           </div>
         </div>

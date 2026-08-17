@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Pencil, Trash2, Check, X } from "lucide-react";
-import { Card } from "../ui/primitivas.jsx";
+import { Card, Selo } from "../ui/primitivas.jsx";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const fmtData = (d) => (d ? d.split("-").reverse().join("/") : "—");
@@ -20,7 +20,7 @@ function LinhaExcluir({ lancamento, onConfirmar }) {
   if (confirmando) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px]" style={{ color: "var(--debit)" }}>Excluir de vez?</span>
+        <span className="etiqueta" style={{ color: "var(--debit)" }}>Excluir de vez?</span>
         <button onClick={() => onConfirmar(lancamento.id)} className="transition-opacity hover:opacity-70" style={{ color: "var(--debit)" }} aria-label="Confirmar exclusão"><Check size={13} /></button>
         <button onClick={() => setConfirmando(false)} className="transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }} aria-label="Cancelar"><X size={13} /></button>
       </div>
@@ -70,9 +70,7 @@ export function Diario({ contas, lancamentos, lancamentoLinhas, onEditar, onExcl
                 <span style={{ color: "var(--ink)" }}>{l.descricao}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" }}>
-                  {ORIGEM_LABEL[l.origem] || l.origem}
-                </span>
+                <Selo>{ORIGEM_LABEL[l.origem] || l.origem}</Selo>
                 {editavel && (
                   <>
                     <button onClick={() => onEditar(l.id)} className="transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }} aria-label="Editar">

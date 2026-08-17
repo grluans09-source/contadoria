@@ -37,7 +37,7 @@ function Capa({ negocio, total, jaRespondidas, onComecar }) {
   const retomando = jaRespondidas > 0;
   return (
     <div className="text-center">
-      <div className="text-[11px] uppercase mb-3" style={{ color: "var(--gold)", letterSpacing: "0.18em", fontFamily: "var(--font-mono)" }}>
+      <div className="nota uppercase mb-3" style={{ color: "var(--gold)", letterSpacing: "0.18em", fontFamily: "var(--font-mono)" }}>
         Contadoria
       </div>
       <h1 className="text-2xl font-bold mb-3" style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}>
@@ -165,7 +165,7 @@ export function FormularioPublico({ token }) {
   return (
     <Moldura>
       {/* progresso */}
-      <div className="mb-1 flex justify-between text-[10px]" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+      <div className="mb-1 flex justify-between etiqueta" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
         <span>{fmtBloco[atual.bloco] || ""}</span>
         <span>{indice + 1} de {perguntas.length}</span>
       </div>
@@ -255,13 +255,13 @@ function CampoResposta({ pergunta, valor, onChange, onEnter }) {
 function Moldura({ children }) {
   return (
     <div className="min-h-screen flex items-center justify-center px-5 py-10"
-      style={{ background: "radial-gradient(120% 70% at 50% -10%, #1a1108 0%, transparent 55%), var(--paper)" }}>
+      style={{ background: "radial-gradient(120% 70% at 50% -10%, #171206 0%, transparent 55%), var(--paper)" }}>
       <div className="w-full" style={{ maxWidth: 460 }}>
         <div className="rounded-lg border p-6 sm:p-8"
           style={{ borderColor: "var(--rule-faint)", background: "var(--surface)" }}>
           {children}
         </div>
-        <div className="text-center text-[10px] mt-4" style={{ color: "var(--muted)" }}>
+        <div className="text-center etiqueta mt-4" style={{ color: "var(--muted)" }}>
           Suas respostas são vistas só por quem cuida das suas contas.
         </div>
       </div>

@@ -44,7 +44,7 @@ function PorQueImporta({ texto }) {
   return (
     <div className="mt-1">
       <button type="button" onClick={() => setAberto((a) => !a)}
-        className="text-[10px] inline-flex items-center gap-1 transition-opacity hover:opacity-70"
+        className="etiqueta inline-flex items-center gap-1 transition-opacity hover:opacity-70"
         style={{ color: "var(--muted)" }}>
         <HelpCircle size={11} /> por que isso importa?
       </button>
@@ -73,7 +73,7 @@ function CampoRoteiro({ pergunta, valor, onSalvar }) {
       <div className="flex items-center gap-2 mb-1 flex-wrap">
         <Label>{pergunta.pergunta}</Label>
         {!pergunta.essencial && (
-          <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+          <span className="etiqueta uppercase tracking-wide px-1.5 py-0.5 rounded-full"
             style={{ background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-mono)" }}>
             aprofundamento
           </span>
@@ -93,7 +93,7 @@ function CampoRoteiro({ pergunta, valor, onSalvar }) {
       ) : (
         <Input value={rascunho} onChange={(e) => setRascunho(e.target.value)} onBlur={() => confirmar(rascunho)} />
       )}
-      {salvo && <div className="text-[10px] mt-1" style={{ color: "var(--credit)" }}>salvo</div>}
+      {salvo && <div className="etiqueta mt-1" style={{ color: "var(--credit)" }}>salvo</div>}
       <PorQueImporta texto={pergunta.porque_importa} />
     </div>
   );

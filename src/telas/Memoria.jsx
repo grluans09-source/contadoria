@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Sparkles, FileText } from "lucide-react";
-import { Card } from "../ui/primitivas.jsx";
+import { Card, TituloCard, Selo } from "../ui/primitivas.jsx";
 import { linhaDoTempo, medidoAgora } from "../dominio/memoria.mjs";
 import { compararComAEntrada } from "../dominio/linhaDeBase.mjs";
 
@@ -25,9 +25,9 @@ const fmtMes = (m) => {
 const fmtData = (d) => (d ? d.split("-").reverse().join("/") : "—");
 
 function SeloSeguida({ seguida }) {
-  if (seguida === true) return <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--credit-soft)", color: "var(--credit)" }}>seguida</span>;
-  if (seguida === false) return <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--debit-soft)", color: "var(--debit)" }}>não seguida</span>;
-  return <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--rule-faint)", color: "var(--muted)" }}>ainda não avaliada</span>;
+  if (seguida === true) return <Selo tom="credit">seguida</Selo>;
+  if (seguida === false) return <Selo tom="debit">não seguida</Selo>;
+  return <Selo tom="neutro">ainda não avaliada</Selo>;
 }
 
 function EventoAbertura({ retrato }) {
@@ -104,9 +104,9 @@ export function Memoria({ negocio, contas, lancamentos, lancamentoLinhas, period
     <div>
       {comparacao.length > 0 && (
         <Card className="mb-4" style={{ background: "linear-gradient(160deg, var(--surface), var(--paper))" }}>
-          <div className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+          <TituloCard>
             Desde que começamos
-          </div>
+          </TituloCard>
           <div className="space-y-2">
             {comparacao.map((a, i) => (
               <div key={i} className="text-sm" style={{ color: "var(--ink)", lineHeight: 1.6 }}>{a.frase}</div>

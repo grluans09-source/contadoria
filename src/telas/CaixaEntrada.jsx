@@ -119,7 +119,7 @@ function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida
           <div className="text-xs" style={{ color: "var(--muted)" }}>{fmtData(item.data)} · {item.contaOrigemId === "banco" ? "Banco" : "Caixa"}</div>
           <div className="truncate" style={{ color: "var(--ink)" }}>{item.descricaoBruta}</div>
           {sugestao && !classificando && (
-            <div className="text-[10px] mt-0.5" style={{ color: "var(--accent)" }}>
+            <div className="etiqueta mt-0.5" style={{ color: "var(--accent)" }}>
               sugestão: {contas.find((c) => c.id === sugestao.contaId)?.nome}
             </div>
           )}
@@ -152,7 +152,7 @@ function ItemPendente({ item, contas, regras, onClassificar, onPessoal, onDuvida
           </Button>
           <Button small variant="ghost" onClick={() => onDuvida(item)}><HelpCircle size={12} /> Não sei</Button>
           {dinheiroMisturado && (
-            <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+            <span className="etiqueta" style={{ color: "var(--muted)" }}>
               {item.valor > 0 ? "entra como aporte, não como receita" : "vira retirada — não some do livro"}
             </span>
           )}
