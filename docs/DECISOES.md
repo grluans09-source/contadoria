@@ -160,6 +160,18 @@ Ciclo permanente: **ANALISAR → DECIDIR → IMPLEMENTAR → REGISTRAR → ATUAL
 Toda decisão importante entra neste arquivo, com estado. Decisão trocada vira SUBSTITUÍDA,
 nunca some.
 
+### E7 · `destino` é chave única, e QUEM CONGELA GANHA — **REGRA** (17/ago) 🆕
+Duas features quiseram a mesma resposta do roteiro (a meta): a Carta (F6, migração 0016)
+tomou o destino `retrato.meta` para si como `carta.meta`, e o retrato de entrada — que é
+**write-once** — passou a gravar `meta: null` em silêncio.
+**Regra:** `destino` é chave ÚNICA por pergunta, nunca lista de assinantes. Quando houver
+disputa, **quem congela ganha** (retrato é irrecuperável; Carta é reeditável a qualquer
+momento), e quem só lê se adapta. Desfeito pela migração 0018.
+**Guardado por teste:** `tests/destinos.test.mjs` lê as migrações na ordem e recalcula o
+estado final de cada `destino`, como o Postgres faria — provado com teste negativo (sem a
+0018, ele falha apontando o bug). Existe porque a lógica estava certa dos DOIS lados: o que
+quebrou foi um dado escrito por migração, terreno que nenhum teste cobria.
+
 ### E6 · Créditos do Netlify são da conta, não do site — **REGRA** (15/ago) 🆕
 A conta `grluans09-source` é plano gratuito (300 créditos/mês, ~15 por deploy de produção),
 e o teto é **compartilhado** entre `contadoria-luan`, `contlife-beta` e qualquer outro site
