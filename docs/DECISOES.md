@@ -172,6 +172,30 @@ estado final de cada `destino`, como o Postgres faria — provado com teste nega
 0018, ele falha apontando o bug). Existe porque a lógica estava certa dos DOIS lados: o que
 quebrou foi um dado escrito por migração, terreno que nenhum teste cobria.
 
+### E8 · Identidade visual ÚNICA com o ContLife — **DECIDIDO** (17/ago) 🆕
+**Substitui** a variação em cobre que vigorou de 12 a 17/ago (registrada em `02_ESCOPO.md` §5,
+já corrigido lá).
+**Era:** ouro no ContLife, cobre no Contadoria — para distinguir num relance qual sistema
+estava aberto.
+**Agora:** o **ouro do ContLife nos dois** (`#D4AF37` escuro, `#7A5C10` claro).
+**Por quê:** os dois sistemas são do mesmo dono, para o mesmo tipo de trabalho; uma casa com
+duas caras enfraquece as duas. Distinguir qual sistema está aberto é papel do NOME na tela.
+**Regra derivada:** os hexadecimais são copiados do ContLife **sem alteração** — lá já
+passaram por auditoria de contraste WCAG (notas A16 e D1). Mexer em qualquer tom refaz a
+auditoria. Vale para app, tela de boot e PDF (este usa os tons do tema CLARO, porque imprime
+sobre papel branco).
+**Continua fora:** mascotes, Caduceu Vivo, vozes, léxico — identidade fechada do ContLife.
+
+### E9 · Duas classes para a escala miúda — **REGRA** (17/ago) 🆕
+`.etiqueta` (10px) é moldura — rótulo, selo, metadado, sempre em maiúsculas ou mono.
+`.nota` (11px) é leitura — explicação, ressalva; entrelinha folgada.
+**Por quê:** a auditoria de 17/ago achou TRÊS tamanhos abaixo de `text-xs` (9/10/11px) fazendo
+o mesmo papel, escolhidos a esmo em 14 arquivos. Não use tamanho arbitrário novo; se precisar
+de um terceiro, o problema provavelmente é outro.
+**Mesma lógica** criou `<TituloCard>` e `<Selo>` em `primitivas.jsx`: o cabeçalho de card
+estava copiado em 10 arquivos e o selo em 4. Repetição literal é como a inconsistência nasce —
+a próxima mudança de régua deixa uma tela para trás.
+
 ### E6 · Créditos do Netlify são da conta, não do site — **REGRA** (15/ago) 🆕
 A conta `grluans09-source` é plano gratuito (300 créditos/mês, ~15 por deploy de produção),
 e o teto é **compartilhado** entre `contadoria-luan`, `contlife-beta` e qualquer outro site

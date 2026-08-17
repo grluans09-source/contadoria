@@ -171,8 +171,16 @@ ar de papel de convite. Passa luxo, seriedade e dinheiro, e os dois são "primos
 São identidade fechada do ContLife, e aqui não há usuário leigo para acolher — o usuário é
 o Luan.
 
-**Consequência prática:** copiar o bloco `THEMES` e a convenção de variáveis CSS, ajustar a
-paleta o suficiente para o sistema ter cara própria, e **não** copiar nada da pasta `marca/`.
+**Consequência prática:** copiar o bloco `THEMES` e a convenção de variáveis CSS **sem
+alterar os tons**, e **não** copiar nada da pasta `marca/`.
+
+⚠️ **Isto mudou em 17/ago/2026.** A versão anterior mandava "ajustar a paleta o suficiente
+para o sistema ter cara própria" — e foi o que se fez entre 12 e 17/ago, com o Contadoria em
+COBRE e o ContLife em ouro. O dono reverteu: **uma identidade só, o ouro nos dois**, porque
+uma casa com duas caras enfraquece as duas. Saber qual sistema está aberto é papel do nome na
+tela, não da cor. Os hexadecimais são copiados sem mexer também por um motivo prático: os do
+ContLife já passaram por auditoria de contraste WCAG (ver `src/ui/tema.mjs`), e inventar um
+tom novo obrigaria a refazer a medição.
 
 ---
 
