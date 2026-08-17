@@ -888,37 +888,100 @@ Também corrigido de passagem: `serve.mjs` não conhecia `.pdf` e servia como do
 
 ---
 
+## ✅ 15/ago — O TESTE QUE ACHOU CINCO BUGS REAIS
+
+Primeira vez que o sistema foi exercido de ponta a ponta **com login de verdade**, criando
+cliente fictício e clicando tela por tela. Rendeu **5 bugs que nenhum teste automatizado
+tinha pegado** — três deles atingiam o retrato de entrada, que é write-once (gravaria errado
+**para sempre**, sem conserto):
+
+1. **`dinheiro_misturado` nunca era gravado.** A pergunta é do Bloco 2; o código só varria o
+   Bloco 1. Gasto pessoal continuava sumindo do livro — exatamente o buraco que C5 existe
+   para fechar. Corrigido varrendo qualquer bloco por `destino`, e extraído para
+   `respostasParaNegocio` (roteiro.mjs) com teste de regressão.
+2. **Editar "Negócio" não refletia nas outras abas** na mesma sessão — só recarregando.
+   `negocioAberto` vive em App.jsx e ninguém o atualizava.
+3. **Respostas do Formulário Público não apareciam** para o contador. ClienteNovo carregava
+   as perguntas mas nunca as respostas já gravadas — então o retrato sairia VAZIO para todo
+   cliente que usasse o link (o caminho que a peça mais precisa dela).
+4. **A meta sumia do retrato** — regressão criada no mesmo dia pela migração 0016, que roubou
+   o destino `retrato.meta` para `carta.meta`. Virou a regra E7: destino é chave única.
+5. **`dinheiroMisturado` gravava `false` no retrato** mesmo com o cliente respondendo "sim".
+
+**Cobertura verificada ao vivo:** os 8 arquétipos (campo específico na tela, contas próprias
+no banco, balanço fechando em todos), formulário público ponta a ponta, MEI e informal,
+achados com evidência e hipótese inocente, fechamento de mês, carta com meta, "o que
+evitamos", memória, editar/excluir, conciliação, baixas, plano de contas, recorrentes,
+painel do mês. O caso mais delicado passou: intermediação com R$3.000 recebidos e R$2.500 de
+repasse resulta em patrimônio de R$500, não R$3.000.
+
+**Lição registrada:** o disclaimer repetido de "não verificado ao vivo" que apareceu em F3,
+F8 e F9 não era formalidade — era risco real, e ele se materializou em cinco lugares.
+
+---
+
+## ✅ 17/ago — Identidade dourada única e auditoria visual
+
+**Decisão do dono (E8):** acabou a variação em cobre que vigorou de 12 a 17/ago. Agora é o
+**ouro do ContLife nos dois sistemas** — uma casa com duas caras enfraquece as duas; saber
+qual sistema está aberto é papel do nome na tela, não da cor. Os hexadecimais foram copiados
+sem alteração porque já passaram por auditoria de contraste WCAG no ContLife. Trocado no app,
+na tela de boot, no gradiente das telas sem login e no PDF (este com os tons do tema claro,
+porque imprime sobre papel branco).
+
+**Auditoria visual — dois achados objetivos (E9):**
+- **Três tamanhos abaixo de `text-xs`** (9/10/11px) faziam o mesmo papel, escolhidos a esmo em
+  14 arquivos. Viraram dois com papel definido: `.etiqueta` (moldura) e `.nota` (leitura).
+- **Repetição literal:** cabeçalho de card copiado em 10 arquivos, selo em 4. Viraram
+  `<TituloCard>` e `<Selo>`.
+
+⚠️ **O que NÃO foi verificado:** os screenshots falharam a sessão inteira (o painel do
+navegador não compunha quadros). O ouro e os tamanhos estão confirmados por **medição de CSS
+computado**, não por alguém olhando. O julgamento de "ficou bom" continua pendente.
+
+---
+
+## ⚠️ Bloqueio ativo: Netlify sem créditos até ~27/ago
+
+`npm run publicar` devolve `Forbidden` / "Account credit usage exceeded". **Não é o token** —
+é a conta `grluans09-source` no plano gratuito: 300 créditos/mês (~15 por deploy),
+compartilhados entre TODOS os sites da conta, inclusive um já apagado. Ver E6.
+
+**Contorno em uso:** o app está publicado em
+`https://grluans09-source.github.io/contadoria-site/` — repositório **separado e público**
+contendo só o build (`index.html` + `contadoria.js`), sem código-fonte e sem docs. O repo
+`contadoria` continua privado.
+
+**O que funciona lá:** tudo, inclusive o Formulário Público (testado: link aberto sem login,
+resposta gravada no banco).
+**O que não funciona:** link mágico e "esqueci a senha" — dependem de a URL estar na allowlist
+de redirect do Supabase, e essa é nova. Login com e-mail e senha funciona normal.
+
+**Quando os créditos voltarem:** `npm run build && npm run bump && npm run publicar`, depois
+apagar o repo `contadoria-site` (é temporário, e links de formulário gerados nele deixam de
+funcionar).
+
+---
+
 ## ➡️ Próxima tarefa
 
-> Esta seção ficou parada em 13/ago. Desde então (14/ago) o projeto passou pelos
-> arquétipos de negócio, dinheiro misturado, roteiro adaptativo, formulário público,
-> fluxo de caixa projetado, hora do dono e retrato de entrada — tudo isso está
-> registrado em [`DECISOES.md`](DECISOES.md), não repetido aqui (é a fonte de verdade
-> do que vale hoje; este arquivo é só o diário cronológico, e reescrevê-lo por inteiro
-> é trabalho da Fase 8, ainda não feita).
+**O sistema está pronto para receber cliente real.** Todo o plano original (Fases 1-11) e as
+propostas que faziam sentido hoje (F4, F6, F7) estão implementados, testados ao vivo e
+registrados. O banco está limpo dos dados de teste.
 
-**Concluído em 14/ago:** Fase 5 do plano — o Bloco 4 do Roteiro do Cliente Novo (`ClienteNovo.jsx`)
-deixou de jogar fora "quais contas você paga todo mês": agora é uma lista estruturada
-(`BlocoContasFixas`) que cria `recorrentes` + `recorrente_linhas` de verdade, reaproveitando
-o mesmo desenho cabeçalho+linhas já usado pela aba Recorrentes — é o que faz o segundo mês do
-cliente ser rápido. Build limpo, 189 testes passando, bundle carregado e conferido no navegador
-sem erro (login/rendering); o clique-a-clique do Bloco 4 em si não foi exercido ao vivo — mesma
-limitação de sessão/login já registrada para o Retrato de Entrada.
+Pendências que não são construção:
+- **Publicar no Netlify** quando os créditos resetarem (~27/ago) e apagar `contadoria-site`
+- **Alguém olhar as telas** — a auditoria visual de 17/ago foi medida, não vista
+- **F5 (recomendação como hipótese testável)** — deliberadamente adiada: "efeito medido" só
+  fica honesto com 2-3 meses de histórico depois da recomendação, e isso só existe com
+  cliente real usando (mesmo raciocínio de F0)
 
-**Pendente, na ordem do plano** (`docs/DECISOES.md` e a lista de tarefas têm o detalhe de cada uma):
-- Fase 6 — aba Roteiro no Livro (aprofundamento pendente, editável a qualquer momento) + aviso nas Entregas
-- Fase 7 — achados que revelam a dor invisível (retirada acima do resultado, mercadoria parada com terceiro, taxa engolindo margem, sem receita no período)
-- Fase 8 — reescrever (substituindo, não acumulando) docs/10, docs/11, docs/05 §4, docs/06, regenerar PDF, `build && bump && publicar`
-- Fase 11 — memória do cliente (linha do tempo)
-
-O que resta é rotina, não tarefa:
+Rotina, não tarefa:
 - Reconferir `parametros_fiscais` todo janeiro (salário mínimo muda, DAS sobe) e antes do
-  primeiro cliente real (os dois PLPs de aumento do teto do MEI ainda não são lei)
-- Rodar `npm run backup` semanalmente (ou antes de qualquer migração arriscada)
-- Lembrar de subir `serve.mjs` (ou `preview_start`) no início de cada sessão de trabalho de
-  DESENVOLVIMENTO — ele não fica rodando sozinho entre uma sessão e outra (isso é diferente
-  do site publicado no Netlify, que fica no ar sozinho, sem precisar de PC ligado)
-- Depois de qualquer mudança de código que deva valer em produção: `npm run build && npm
-  run bump && npm run publicar` — nenhum desses passos acontece sozinho
-
-**Modelo:** alvo claro, segue em **Sonnet**.
+  primeiro cliente real (os PLPs de aumento do teto do MEI ainda não são lei)
+- `npm run backup` semanalmente — **a partir do primeiro cliente**; hoje o banco tem só um
+  negócio e backup de banco vazio não serve para nada
+- Subir `serve.mjs` no início de cada sessão de DESENVOLVIMENTO (não fica rodando sozinho)
+- Depois de qualquer mudança que valha em produção: `build && bump && publicar` — nenhum
+  desses passos acontece sozinho, e cada `publicar` gasta ~15 dos 300 créditos do mês
+  **compartilhados com o ContLife** (E6): junte mudanças, publique uma vez.
