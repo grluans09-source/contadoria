@@ -823,6 +823,17 @@ function respostaPorDestino(perguntas, respostasPorPerguntaId, destino) {
   const resposta = respostasPorPerguntaId?.[pergunta.id];
   return resposta != null && String(resposta).trim() !== "" ? resposta : null;
 }
+function respostasParaNegocio(perguntas, respostasPorPerguntaId) {
+  const patch = {};
+  for (const p of perguntas || []) {
+    if (!p.destino?.startsWith("negocios.")) continue;
+    const valor = respostasPorPerguntaId?.[p.id];
+    if (valor === void 0 || valor === "") continue;
+    const campo = p.destino.slice("negocios.".length);
+    patch[campo] = p.tipo_resposta === "sim_nao" ? valor === "sim" : valor;
+  }
+  return patch;
+}
 
 // src/dominio/valorDoTempo.mjs
 var SEMANAS_POR_MES = 4.345;
@@ -1166,10 +1177,23 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
   const [erro, setErro] = useState4("");
   const opcoesDespesa = planoDeFabrica(negocio.arquetipo).filter((c) => c.tipo === "despesa").sort((a, b) => a.codigo.localeCompare(b.codigo)).map((c) => ({ value: c.id, label: `${c.codigo} \u2014 ${c.nome}` }));
   useEffect4(() => {
-    supabase.from("roteiro_perguntas").select("*").eq("ativo", true).order("bloco").order("ordem").then(({ data, error }) => {
-      if (!error) setPerguntas(data || []);
+    let vivo = true;
+    Promise.all([
+      supabase.from("roteiro_perguntas").select("*").eq("ativo", true).order("bloco").order("ordem"),
+      supabase.from("roteiro_respostas").select("pergunta_id, resposta").eq("negocio_id", negocio.id)
+    ]).then(([{ data: perguntasData, error: e1 }, { data: respostasData, error: e2 }]) => {
+      if (!vivo) return;
+      if (!e1) setPerguntas(perguntasData || []);
+      if (!e2 && respostasData?.length) {
+        const existentes = {};
+        for (const r of respostasData) existentes[r.pergunta_id] = r.resposta;
+        setRespostas((prev) => ({ ...existentes, ...prev }));
+      }
     });
-  }, []);
+    return () => {
+      vivo = false;
+    };
+  }, [negocio.id]);
   const doBloco = (n) => perguntasPara(perguntas, {
     tipo: negocio.tipo,
     arquetipo: negocio.arquetipo,
@@ -1251,6 +1275,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       const { error: erroLote } = await supabase.rpc("aplicar_lote", { p_negocio: negocio.id, p_ops: ops });
       if (erroLote) throw new Error(`N\xE3o consegui gravar o balan\xE7o de abertura: ${erroLote.message}`);
       const patchNegocio = { inicio_do_servico: hojeISO(), configuracao: { ...negocio.configuracao || {}, onboarded: true } };
+      Object.assign(patchNegocio, respostasParaNegocio(perguntas, respostas));
       if (!negocio.retrato_de_entrada) {
         const declarado = {};
         for (const p of perguntas) {
@@ -1259,21 +1284,12 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
           declarado[chave] = respostas[p.id];
         }
         patchNegocio.retrato_de_entrada = montarRetratoDeEntrada({
-          negocio,
+          negocio: { ...negocio, ...patchNegocio },
           hoje: hojeISO(),
           contas: planoDeFabrica(negocio.arquetipo),
           linhasAbertura: linhas,
           declarado
         });
-      }
-      for (const p of perguntas) {
-        if (p.bloco !== 1) continue;
-        const valor = respostas[p.id];
-        if (valor === void 0 || valor === "") continue;
-        if (p.destino === "negocios.data_abertura") patchNegocio.data_abertura = valor;
-        if (p.destino === "negocios.atividade") patchNegocio.atividade = valor;
-        if (p.destino === "negocios.tem_funcionario") patchNegocio.tem_funcionario = valor === "sim";
-        if (p.destino === "negocios.whatsapp") patchNegocio.whatsapp = valor;
       }
       const { error: erroNegocio } = await supabase.from("negocios").update(patchNegocio).eq("id", negocio.id);
       if (erroNegocio) throw new Error(`Balan\xE7o gravado, mas n\xE3o consegui atualizar o cadastro: ${erroNegocio.message}`);
@@ -1289,6 +1305,8 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
     }
   };
   const ultimoBloco = bloco === 6;
+  const respostaMisturado = respostaPorDestino(perguntas, respostas, "negocios.dinheiro_misturado");
+  const dinheiroMisturado = respostaMisturado != null ? respostaMisturado === "sim" : !!negocio.dinheiro_misturado;
   return /* @__PURE__ */ React5.createElement("div", { className: "min-h-screen", style: { background: "var(--paper)" } }, /* @__PURE__ */ React5.createElement("div", { className: "max-w-2xl mx-auto px-5 py-8" }, /* @__PURE__ */ React5.createElement("button", { onClick: onVoltarSemSalvar, className: "inline-flex items-center gap-1.5 text-xs mb-6 transition-opacity hover:opacity-70", style: { color: "var(--muted)" } }, /* @__PURE__ */ React5.createElement(ArrowLeft, { size: 14 }), " Voltar"), /* @__PURE__ */ React5.createElement("div", { className: "mb-2 text-xs", style: { color: "var(--muted)", fontFamily: "var(--font-mono)" } }, "Roteiro do Cliente Novo \xB7 Bloco ", bloco, " de 6"), /* @__PURE__ */ React5.createElement("div", { className: "text-xl font-bold mb-6", style: { fontFamily: "var(--font-display)", color: "var(--ink)" } }, negocio.apelido || negocio.nome, " \u2014 ", NOMES_BLOCO[bloco]), /* @__PURE__ */ React5.createElement("div", { className: "flex gap-1 mb-8" }, [1, 2, 3, 4, 5, 6].map((n) => /* @__PURE__ */ React5.createElement(
     "div",
     {
@@ -1303,7 +1321,7 @@ function ClienteNovo({ negocio, onConcluido, onVoltarSemSalvar }) {
       setAbertura,
       perguntas,
       arquetipo: negocio.arquetipo,
-      dinheiroMisturado: negocio.dinheiro_misturado
+      dinheiroMisturado
     }
   ) : bloco === 4 ? /* @__PURE__ */ React5.createElement(React5.Fragment, null, doBloco(4).map((p) => /* @__PURE__ */ React5.createElement(
     CampoRoteiro,
@@ -2629,6 +2647,7 @@ function ConfigNegocio({ negocioId, onAtualizado }) {
         atividade: data.atividade || "",
         whatsapp: data.whatsapp || "",
         tem_funcionario: data.tem_funcionario ? "sim" : "nao",
+        dinheiro_misturado: data.dinheiro_misturado ? "sim" : "nao",
         situacao: data.situacao || "ativo"
       });
       setCarregando(false);
@@ -2641,15 +2660,17 @@ function ConfigNegocio({ negocioId, onAtualizado }) {
   const salvar = async () => {
     setSalvando(true);
     setErro("");
-    const { error } = await supabase.from("negocios").update({
+    const patch = {
       nome: campo.nome.trim(),
       apelido: campo.apelido.trim() || null,
       cnpj: campo.cnpj.trim() || null,
       atividade: campo.atividade.trim() || null,
       whatsapp: campo.whatsapp.trim() || null,
       tem_funcionario: campo.tem_funcionario === "sim",
+      dinheiro_misturado: campo.dinheiro_misturado === "sim",
       situacao: campo.situacao
-    }).eq("id", negocioId);
+    };
+    const { error } = await supabase.from("negocios").update(patch).eq("id", negocioId);
     setSalvando(false);
     if (error) {
       setErro(error.message);
@@ -2657,10 +2678,10 @@ function ConfigNegocio({ negocioId, onAtualizado }) {
     }
     setConfirmado(true);
     setTimeout(() => setConfirmado(false), 2e3);
-    onAtualizado?.();
+    onAtualizado?.(patch);
   };
   if (carregando) return /* @__PURE__ */ React15.createElement("div", { className: "text-sm", style: { color: "var(--muted)" } }, "Carregando\u2026");
-  return /* @__PURE__ */ React15.createElement(Card, { className: "max-w-lg" }, /* @__PURE__ */ React15.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Nome"), /* @__PURE__ */ React15.createElement(Input, { value: campo.nome, onChange: (e) => set("nome", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Apelido"), /* @__PURE__ */ React15.createElement(Input, { value: campo.apelido, onChange: (e) => set("apelido", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "CNPJ"), /* @__PURE__ */ React15.createElement(Input, { value: campo.cnpj, onChange: (e) => set("cnpj", e.target.value), placeholder: "opcional" })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Atividade principal"), /* @__PURE__ */ React15.createElement(Input, { value: campo.atividade, onChange: (e) => set("atividade", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "WhatsApp"), /* @__PURE__ */ React15.createElement(Input, { value: campo.whatsapp, onChange: (e) => set("whatsapp", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Tem funcion\xE1rio?"), /* @__PURE__ */ React15.createElement(Select, { value: campo.tem_funcionario, onChange: (v) => set("tem_funcionario", v), options: [{ value: "sim", label: "Sim" }, { value: "nao", label: "N\xE3o" }] })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Situa\xE7\xE3o"), /* @__PURE__ */ React15.createElement(Select, { value: campo.situacao, onChange: (v) => set("situacao", v), options: [{ value: "ativo", label: "Ativo" }, { value: "encerrado", label: "Encerrado" }] })), erro && /* @__PURE__ */ React15.createElement("div", { className: "text-xs rounded-md px-3 py-2", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React15.createElement("div", { className: "flex items-center gap-3 pt-1" }, /* @__PURE__ */ React15.createElement(Button, { onClick: salvar, disabled: salvando }, salvando ? "Salvando\u2026" : "Salvar"), confirmado && /* @__PURE__ */ React15.createElement("span", { className: "text-xs", style: { color: "var(--credit)" } }, "Salvo."))));
+  return /* @__PURE__ */ React15.createElement(Card, { className: "max-w-lg" }, /* @__PURE__ */ React15.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Nome"), /* @__PURE__ */ React15.createElement(Input, { value: campo.nome, onChange: (e) => set("nome", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Apelido"), /* @__PURE__ */ React15.createElement(Input, { value: campo.apelido, onChange: (e) => set("apelido", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "CNPJ"), /* @__PURE__ */ React15.createElement(Input, { value: campo.cnpj, onChange: (e) => set("cnpj", e.target.value), placeholder: "opcional" })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Atividade principal"), /* @__PURE__ */ React15.createElement(Input, { value: campo.atividade, onChange: (e) => set("atividade", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "WhatsApp"), /* @__PURE__ */ React15.createElement(Input, { value: campo.whatsapp, onChange: (e) => set("whatsapp", e.target.value) })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Tem funcion\xE1rio?"), /* @__PURE__ */ React15.createElement(Select, { value: campo.tem_funcionario, onChange: (v) => set("tem_funcionario", v), options: [{ value: "sim", label: "Sim" }, { value: "nao", label: "N\xE3o" }] })), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Usa o mesmo dinheiro para o neg\xF3cio e para as coisas dele?"), /* @__PURE__ */ React15.createElement(Select, { value: campo.dinheiro_misturado, onChange: (v) => set("dinheiro_misturado", v), options: [{ value: "sim", label: "Sim" }, { value: "nao", label: "N\xE3o" }] }), /* @__PURE__ */ React15.createElement("div", { className: "text-[11px] mt-1.5", style: { color: "var(--muted)" } }, 'Se sim, gasto pessoal marcado na Caixa de Entrada vira retirada de verdade \u2014 n\xE3o some do livro (docs/DECISOES.md C5). Corrigido depois que a resposta do onboarding n\xE3o estava gravando aqui (achado em teste, 15/ago) \u2014 se o cliente j\xE1 respondeu isso antes e o bot\xE3o da Caixa de Entrada ainda mostra "\xC9 pessoal, ignorar", confirme aqui.')), /* @__PURE__ */ React15.createElement("div", null, /* @__PURE__ */ React15.createElement(Label, null, "Situa\xE7\xE3o"), /* @__PURE__ */ React15.createElement(Select, { value: campo.situacao, onChange: (v) => set("situacao", v), options: [{ value: "ativo", label: "Ativo" }, { value: "encerrado", label: "Encerrado" }] })), erro && /* @__PURE__ */ React15.createElement("div", { className: "text-xs rounded-md px-3 py-2", style: { background: "var(--debit-soft)", color: "var(--debit)" } }, erro), /* @__PURE__ */ React15.createElement("div", { className: "flex items-center gap-3 pt-1" }, /* @__PURE__ */ React15.createElement(Button, { onClick: salvar, disabled: salvando }, salvando ? "Salvando\u2026" : "Salvar"), confirmado && /* @__PURE__ */ React15.createElement("span", { className: "text-xs", style: { color: "var(--credit)" } }, "Salvo."))));
 }
 
 // src/telas/Recorrentes.jsx
@@ -3001,7 +3022,7 @@ var ABAS = [
   { id: "recorrentes", label: "Recorrentes" },
   { id: "negocio", label: "Neg\xF3cio" }
 ];
-function Livro({ negocio, onVoltar }) {
+function Livro({ negocio, onVoltar, onNegocioAtualizado }) {
   const [aba, setAba] = useState16("caixa");
   const [estado, setEstado] = useState16(null);
   const [loaded, setLoaded] = useState16(false);
@@ -3372,7 +3393,7 @@ function Livro({ negocio, onVoltar }) {
       onSalvarCarta: salvarCarta,
       onAvaliarCartaSeguida: avaliarCartaSeguida,
       onAdicionarEvitado: adicionarEvitado,
-      metaDoCliente: roteiro ? respostaPorDestino(roteiro.perguntas, roteiro.respostasPorPerguntaId, "carta.meta") : null,
+      metaDoCliente: roteiro ? respostaPorDestino(roteiro.perguntas, roteiro.respostasPorPerguntaId, "retrato.meta") : null,
       pendentesDeAprofundamento: roteiro ? pendentesDeAprofundamento(roteiro.perguntas, roteiro.respostasPorPerguntaId, { tipo: negocio.tipo, arquetipo: negocio.arquetipo }).length : 0,
       onAbrirRoteiro: () => setAba("roteiro")
     }
@@ -3397,7 +3418,7 @@ function Livro({ negocio, onVoltar }) {
       onAlternarAtiva: alternarAtivaRecorrente,
       onGerar: gerarRecorrentesDoMes
     }
-  ), aba === "negocio" && /* @__PURE__ */ React20.createElement(ConfigNegocio, { negocioId: negocio.id })));
+  ), aba === "negocio" && /* @__PURE__ */ React20.createElement(ConfigNegocio, { negocioId: negocio.id, onAtualizado: onNegocioAtualizado })));
 }
 
 // src/telas/PainelDoMes.jsx
@@ -3722,6 +3743,7 @@ function App() {
     };
   }, []);
   const fecharNegocio = () => setNegocioAberto(null);
+  const atualizarNegocioAberto = (patch) => setNegocioAberto((prev) => prev && { ...prev, ...patch });
   if (TOKEN_FORMULARIO) {
     return /* @__PURE__ */ React23.createElement(React23.Fragment, null, /* @__PURE__ */ React23.createElement(EstiloGlobal, { dark }), /* @__PURE__ */ React23.createElement(FormularioPublico, { token: TOKEN_FORMULARIO }));
   }
@@ -3731,7 +3753,7 @@ function App() {
        bug H3 do ContLife (doc 26): sem isso, o estado em memória de
        um negócio podia vazar para dentro da chave do próximo por um
        instante, entre trocar o id e a carga nova terminar. */
-    /* @__PURE__ */ React23.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio })
+    /* @__PURE__ */ React23.createElement(Livro, { key: negocioAberto.id, negocio: negocioAberto, onVoltar: fecharNegocio, onNegocioAtualizado: atualizarNegocioAberto })
   ) : painelAberto ? /* @__PURE__ */ React23.createElement(PainelDoMes, { onVoltar: () => setPainelAberto(false) }) : /* @__PURE__ */ React23.createElement(Negocios, { onAbrirNegocio: setNegocioAberto, onAbrirPainel: () => setPainelAberto(true) }));
 }
 export {
