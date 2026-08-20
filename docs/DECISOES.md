@@ -172,6 +172,19 @@ estado final de cada `destino`, como o Postgres faria — provado com teste nega
 0018, ele falha apontando o bug). Existe porque a lógica estava certa dos DOIS lados: o que
 quebrou foi um dado escrito por migração, terreno que nenhum teste cobria.
 
+### E10 · O projeto NÃO mora em pasta de terceiro — **REGRA** (17/ago) 🆕
+Até 17/ago o projeto morava em `OneDriveDocumentos...` — e o OneDrive é **da empresa onde
+o dono trabalha**. Movido para `C:UsersLUAN SProjetoscontadoria`.
+**O que estava exposto, em ordem de gravidade:** a chave de administração do Supabase (quem a
+tem lê e apaga o banco inteiro), os backups em JSON — que passarão a conter **dado financeiro
+de cliente real**, com o sigilo respondendo por ele —, e a estratégia comercial
+(`11_GO_TO_MARKET.md`). Soma-se o risco de continuidade: sair da empresa é perder o acesso.
+**A divisão que vale:** o GitHub privado é o cofre (código, docs e PDFs — 121 arquivos); o
+computador é a bancada (cópia do repo + as duas chaves, que por D3 nunca entram no git).
+Perder a pasta local custa um `git clone` e recriar dois `.access-token`.
+**Regra derivada:** backup, token e dado de cliente **nunca** em pasta sincronizada por conta
+de terceiro — nem OneDrive corporativo, nem Drive compartilhado, nem pasta de rede da empresa.
+
 ### E8 · Identidade visual ÚNICA com o ContLife — **DECIDIDO** (17/ago) 🆕
 **Substitui** a variação em cobre que vigorou de 12 a 17/ago (registrada em `02_ESCOPO.md` §5,
 já corrigido lá).
