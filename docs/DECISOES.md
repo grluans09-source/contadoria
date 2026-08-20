@@ -173,8 +173,8 @@ estado final de cada `destino`, como o Postgres faria — provado com teste nega
 quebrou foi um dado escrito por migração, terreno que nenhum teste cobria.
 
 ### E10 · O projeto NÃO mora em pasta de terceiro — **REGRA** (17/ago) 🆕
-Até 17/ago o projeto morava em `OneDriveDocumentos...` — e o OneDrive é **da empresa onde
-o dono trabalha**. Movido para `C:UsersLUAN SProjetoscontadoria`.
+Até 17/ago o projeto morava em `OneDrive\Documentos\...` — e o OneDrive é **da empresa onde
+o dono trabalha**. Movido para `C:\Users\LUAN S\Projetos\contadoria`.
 **O que estava exposto, em ordem de gravidade:** a chave de administração do Supabase (quem a
 tem lê e apaga o banco inteiro), os backups em JSON — que passarão a conter **dado financeiro
 de cliente real**, com o sigilo respondendo por ele —, e a estratégia comercial
