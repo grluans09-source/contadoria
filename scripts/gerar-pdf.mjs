@@ -64,7 +64,12 @@ const FONTE = {
   displayItalic: "Times-Italic",
 };
 
-const MARGEM = { topo: 62, base: 58, esq: 58, dir: 58 };
+/* Margens largas de propósito (revisão de legibilidade, 20/ago): com
+   58pt de margem a linha saía com ~114 caracteres — o olho perde o
+   rumo ao voltar para a linha seguinte, e o texto cansa mesmo com a
+   fonte grande. 100pt com corpo em 12pt deixa a linha em ~75 caracteres, no teto da faixa
+   confortável de leitura contínua. Custa páginas; vale o custo. */
+const MARGEM = { topo: 72, base: 68, esq: 100, dir: 100 };
 const LARGURA_UTIL = 595.28 - MARGEM.esq - MARGEM.dir; // A4 retrato
 
 /* ── Emoji: mapear os que carregam sentido, remover o resto ──
@@ -305,7 +310,7 @@ class Render {
       /* H1 sempre abre página — cada capítulo começa limpo */
       if (this.pagina > 0) this.novaPagina();
       this.y += 6;
-      d.font(FONTE.display).fontSize(21).fillColor(COR.tinta);
+      d.font(FONTE.display).fontSize(25).fillColor(COR.tinta);
       d.text(limpo, MARGEM.esq, this.y, { width: LARGURA_UTIL });
       this.y = d.y + 8;
       d.moveTo(MARGEM.esq, this.y).lineTo(MARGEM.esq + 54, this.y).lineWidth(2).stroke(COR.ouro);
@@ -313,13 +318,13 @@ class Render {
       return;
     }
 
-    const tam = nivel === 2 ? 13.5 : 11.5;
-    this.espaco(tam + 22);
-    this.y += nivel === 2 ? 12 : 9;
+    const tam = nivel === 2 ? 17 : 13.5;
+    this.espaco(tam + 28);
+    this.y += nivel === 2 ? 18 : 13;
     d.font(nivel === 2 ? FONTE.display : FONTE.bold).fontSize(tam);
     d.fillColor(nivel === 2 ? COR.tinta : COR.ouro);
     d.text(limpo, MARGEM.esq, this.y, { width: LARGURA_UTIL });
-    this.y = d.y + (nivel === 2 ? 7 : 5);
+    this.y = d.y + (nivel === 2 ? 10 : 7);
   }
 
   paragrafo(texto) {
@@ -328,8 +333,8 @@ class Render {
     if (!runs.length) return;
 
     if (ehAviso) return this.callout(runs, COR.avisoFundo, COR.aviso, COR.tinta);
-    this.desenharRuns(runs, MARGEM.esq, LARGURA_UTIL, 9.5, 14, COR.tinta);
-    this.y += 7;
+    this.desenharRuns(runs, MARGEM.esq, LARGURA_UTIL, 12, 18, COR.tinta);
+    this.y += 11;
   }
 
   callout(runs, fundo, barra, corTexto, italico = false) {
@@ -346,7 +351,7 @@ class Render {
     d.rect(MARGEM.esq, this.y, 3, altura).fill(barra);
 
     this.y += pad;
-    this.desenharRuns(runsFinais, MARGEM.esq + pad + 4, largura, 9.5, 14, corTexto);
+    this.desenharRuns(runsFinais, MARGEM.esq + pad + 4, largura, 12, 18, corTexto);
     this.y += pad + 9;
   }
 
@@ -384,7 +389,7 @@ class Render {
         d.circle(MARGEM.esq + 4, yMarca + 5, 1.7).fill(COR.ouro);
       }
 
-      this.desenharRuns(runs, MARGEM.esq + recuo, LARGURA_UTIL - recuo, 9.5, 13.5, COR.tinta);
+      this.desenharRuns(runs, MARGEM.esq + recuo, LARGURA_UTIL - recuo, 12, 17.5, COR.tinta);
       this.y += 3;
     });
     this.y += 6;
@@ -405,12 +410,12 @@ class Render {
     const soma = pesos.reduce((s, p) => s + p, 0);
     const larguras = pesos.map((p) => (p / soma) * LARGURA_UTIL);
 
-    const alturaLinhaTabela = 12;
+    const alturaLinhaTabela = 15;
 
     const desenharLinha = (celulas, ehCabecalho) => {
       const runsPorCel = celulas.map((c) => partirInline(sanitizar(c || "")));
       const alturas = runsPorCel.map((runs, idx) =>
-        this.alturaDeRuns(runs, larguras[idx] - padCel * 2, 8.5, alturaLinhaTabela)
+        this.alturaDeRuns(runs, larguras[idx] - padCel * 2, 10, alturaLinhaTabela)
       );
       const alturaCel = Math.max(...alturas, alturaLinhaTabela) + padCel * 1.6;
 
@@ -426,7 +431,7 @@ class Render {
         const finais = ehCabecalho
           ? runs.map((r) => ({ ...r, estilo: r.estilo === "normal" ? "bold" : r.estilo }))
           : runs;
-        this.desenharRuns(finais, cx + padCel, larguras[idx] - padCel * 2, 8.5, alturaLinhaTabela,
+        this.desenharRuns(finais, cx + padCel, larguras[idx] - padCel * 2, 10, alturaLinhaTabela,
           ehCabecalho ? COR.tinta : COR.tinta);
         this.y = yGuardado;
         cx += larguras[idx];
