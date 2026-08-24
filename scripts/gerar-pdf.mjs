@@ -67,9 +67,11 @@ const FONTE = {
 /* Margens largas de propósito (revisão de legibilidade, 20/ago): com
    58pt de margem a linha saía com ~114 caracteres — o olho perde o
    rumo ao voltar para a linha seguinte, e o texto cansa mesmo com a
-   fonte grande. 100pt com corpo em 12pt deixa a linha em ~75 caracteres, no teto da faixa
+   fonte grande. 80pt com corpo em 12pt deixa a linha em ~82 caracteres — acima da faixa
+   ideal de 65-75, mas é o equilíbrio que o dono pediu depois de ver 100pt
+   deixar folha demais em branco. Legibilidade é o conjunto, não um número
    confortável de leitura contínua. Custa páginas; vale o custo. */
-const MARGEM = { topo: 72, base: 68, esq: 100, dir: 100 };
+const MARGEM = { topo: 66, base: 60, esq: 80, dir: 80 };
 const LARGURA_UTIL = 595.28 - MARGEM.esq - MARGEM.dir; // A4 retrato
 
 /* ── Emoji: mapear os que carregam sentido, remover o resto ──
@@ -307,8 +309,15 @@ class Render {
     const limpo = sanitizar(texto);
 
     if (nivel === 1) {
-      /* H1 sempre abre página — cada capítulo começa limpo */
-      if (this.pagina > 0) this.novaPagina();
+      /* H1 abre página nova só quando NÃO CABE um começo de capítulo no
+         que resta (revisão de 20/ago). Antes quebrava sempre, e com
+         13 capítulos em 27 páginas o Go-to-Market ficava com metade das
+         folhas terminando no meio. Se ainda há espaço para o título mais
+         algumas linhas, o capítulo começa aqui mesmo, com respiro maior. */
+      const restante = this.doc.page.height - MARGEM.base - this.y;
+      const precisaDe = 150; /* título + regra + ~4 linhas de texto */
+      if (this.pagina > 0 && restante < precisaDe) this.novaPagina();
+      else if (this.pagina > 0) this.y += 26;
       this.y += 6;
       d.font(FONTE.display).fontSize(25).fillColor(COR.tinta);
       d.text(limpo, MARGEM.esq, this.y, { width: LARGURA_UTIL });
