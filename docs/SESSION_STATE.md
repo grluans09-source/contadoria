@@ -941,13 +941,13 @@ computado**, não por alguém olhando. O julgamento de "ficou bom" continua pend
 
 ---
 
-## ⚠️ Bloqueio ativo: Netlify sem créditos até ~27/ago
+## ⚠️ Histórico do bloqueio Netlify — créditos (13/ago a ~27/ago)
 
-`npm run publicar` devolve `Forbidden` / "Account credit usage exceeded". **Não é o token** —
-é a conta `grluans09-source` no plano gratuito: 300 créditos/mês (~15 por deploy),
-compartilhados entre TODOS os sites da conta, inclusive um já apagado. Ver E6.
+`npm run publicar` devolvia `Forbidden` / "Account credit usage exceeded". **Não era o
+token** — era a conta `grluans09-source` no plano gratuito: 300 créditos/mês (~15 por
+deploy), compartilhados entre TODOS os sites da conta, inclusive um já apagado. Ver E6.
 
-**Contorno em uso:** o app está publicado em
+**Contorno usado:** o app foi publicado em
 `https://grluans09-source.github.io/contadoria-site/` — repositório **separado e público**
 contendo só o build (`index.html` + `contadoria.js`), sem código-fonte e sem docs. O repo
 `contadoria` continua privado.
@@ -957,9 +957,47 @@ resposta gravada no banco).
 **O que não funciona:** link mágico e "esqueci a senha" — dependem de a URL estar na allowlist
 de redirect do Supabase, e essa é nova. Login com e-mail e senha funciona normal.
 
-**Quando os créditos voltarem:** `npm run build && npm run bump && npm run publicar`, depois
-apagar o repo `contadoria-site` (é temporário, e links de formulário gerados nele deixam de
-funcionar).
+---
+
+## ⚠️ Bloqueio ativo agora (15/set): token do Netlify morto — não é mais o teto de créditos
+
+O ciclo de créditos já devia ter resetado (~27/ago; hoje é 15/set). Mas ao testar,
+`netlify/.access-token` está **inválido de verdade**: `curl` direto em
+`https://api.netlify.com/api/v1/user` com esse token devolve `401 Access Denied` — um
+endpoint que nem olha pra site ou créditos, só autentica o token. Ou seja, o problema mudou:
+não sabemos mais se os créditos estão liberados, porque nem dá pra perguntar.
+
+**Nada foi publicado nesta verificação** — as chamadas feitas (`getSite`, `/user`) são
+somente leitura, não disparam deploy. `dist/` nem existe localmente ainda (não rodei
+`npm run build` desde 23/ago). O que está no ar em `contadoria-luan.netlify.app` continua
+sendo a versão **anterior a todo o trabalho desde então** (identidade dourada, correções dos
+5 bugs do teste de 15/ago, Roteiro, Memória — nenhum desses chegou lá).
+
+**Para destravar:** o Luan precisa gerar um Personal Access Token novo em
+`app.netlify.com/user/applications` e colar direto em `netlify/.access-token` (nunca no
+chat — mesma regra de sempre). Depois disso, publicar tudo de uma vez:
+`npm run build && npm run pdf && npm run bump && npm run publicar`.
+
+**Enquanto isso**, foi criado um atalho no desktop do Windows (`Contadoria - Sistema.url`,
+em `C:\Users\LUAN S\OneDrive\Desktop`) apontando para o endereço temporário do GitHub Pages
+— será atualizado para `contadoria-luan.netlify.app` assim que o deploy novo for feito.
+
+---
+
+## ✅ 15/set — Panorama geral e simulação de aprendizado (materiais, não código)
+
+A pedido do Luan, dois artefatos foram publicados como Claude Artifacts (fora do
+repositório — são material de estudo/consulta, não parte do sistema):
+
+- **Panorama geral do sistema** — o que existe, como funciona, como está estruturado:
+  https://claude.ai/code/artifact/5eaba0c4-edfd-4ed8-a046-3dd903a02944
+- **Simulação "O caso Salgados da Léia"** — roteiro de 7 etapas (abordagem → diagnóstico
+  grátis → retrato de entrada → lançar o extrato de agosto → ler os achados → conversa de
+  entrega → carta e o que foi evitado) com números fechados de propósito para disparar os
+  achados reais do sistema (retirada acima do resultado, hora abaixo do mínimo). Serve para
+  o Luan treinar o serviço — vender, entregar, ajudar — antes do primeiro cliente real.
+
+Nenhum dos dois altera código, dados ou docs de decisão; são leitura à parte.
 
 ---
 
@@ -970,8 +1008,12 @@ propostas que faziam sentido hoje (F4, F6, F7) estão implementados, testados ao
 registrados. O banco está limpo dos dados de teste.
 
 Pendências que não são construção:
-- **Publicar no Netlify** quando os créditos resetarem (~27/ago) e apagar `contadoria-site`
+- **Renovar o token do Netlify e publicar tudo de uma vez** (build + pdf + bump + publicar)
+  — bloqueio ativo, ver seção acima
+- **Apagar o repo `contadoria-site`** depois que o Netlify novo estiver no ar (é temporário;
+  links de formulário público gerados nele deixam de funcionar quando for apagado)
 - **Alguém olhar as telas** — a auditoria visual de 17/ago foi medida, não vista
+- **Rodar a simulação da Léia de verdade** — o Luan ainda não executou o roteiro
 - **F5 (recomendação como hipótese testável)** — deliberadamente adiada: "efeito medido" só
   fica honesto com 2-3 meses de histórico depois da recomendação, e isso só existe com
   cliente real usando (mesmo raciocínio de F0)
