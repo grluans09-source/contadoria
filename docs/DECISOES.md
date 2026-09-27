@@ -220,6 +220,31 @@ da conta — inclusive um já apagado (o crédito gasto por ele no ciclo não vo
 juntar várias mudanças num só `npm run publicar` estica o orçamento de deploys entre os
 projetos que dividem a conta. Documentado também em `scripts/publicar.mjs`.
 
+### E11 · Publicado no endereço definitivo (27/set) — e um segundo problema de conta achado no caminho 🆕
+**Publicado:** `contadoria-luan.netlify.app`, build v35, com tudo que faltava (identidade
+dourada, 5 correções de bugs, Roteiro, Memória). Confirmado ao vivo, não só pelo log do
+deploy: bundle certo carregado (`contadoria.js?v=35`), sem erro no console, e as variáveis
+de CSS `--accent`/`--gold` batendo com `#D4AF37` direto na página em produção.
+**Repositório `contadoria-site` (GitHub Pages, temporário) ainda não foi apagado** — ver
+abaixo, mesma causa do bloqueio de Git.
+
+**Achado no caminho:** o mesmo problema de "conta errada" que trava o Netlify (token) também
+trava o **Git**. O Gerenciador de Credenciais do Windows guardava a senha do GitHub com a
+conta de **trabalho** (`nba99926`), não a pessoal (`grluans09-source`, dona do repositório
+privado `contadoria`). Resultado: `git push`/`git fetch` falhavam com "Repository not
+found" — não porque o repo sumiu, mas porque a autenticação era da conta errada.
+**Correção:** `cmdkey /delete:LegacyGeneric:target=git:https://github.com` limpa a credencial
+errada; o próximo `git push` **precisa ser rodado pelo dono, na própria tela dele** — a
+ferramenta do assistente não tem janela interativa para completar o login OAuth que abre no
+navegador. Enquanto isso não roda, os commits ficam válidos e salvos **só localmente**, sem
+chegar no GitHub — regra derivada de E10: **duas contas Google/GitHub no mesmo Windows exige
+conferir qual delas está autenticada antes de assumir que "está no Git" significa "está no
+GitHub"**.
+**Token colado no chat (27/set):** o token novo do Netlify foi colado direto na conversa em
+vez de só no arquivo, quebrando a regra de D3/E10. Foi usado para não travar a publicação do
+dia, mas fica marcado como **exposto** — revogar em `app.netlify.com/user/applications` e
+gerar outro só pelo arquivo assim que a publicação de hoje estiver fechada.
+
 ---
 
 # F · Decisões tomadas sob a lente (14/ago)

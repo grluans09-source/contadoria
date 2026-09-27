@@ -1001,17 +1001,40 @@ Nenhum dos dois altera código, dados ou docs de decisão; são leitura à parte
 
 ---
 
+## ✅ 27/set — Publicado no endereço definitivo, e um segundo bloqueio de conta achado
+
+`contadoria-luan.netlify.app` está no ar com tudo (build v35): identidade dourada, os 5
+bugs corrigidos, Roteiro, Memória. Verificado ao vivo — bundle certo, console limpo,
+`--accent`/`--gold` = `#D4AF37` confirmado direto na página publicada, não só no código.
+Atalho do desktop (`Contadoria - Sistema.url`) trocado para este endereço definitivo.
+
+**Achado no caminho:** o Git deste computador também estava preso na conta errada (a de
+trabalho, `nba99926`, salva no Gerenciador de Credenciais do Windows, em vez da pessoal
+`grluans09-source`). Ver E11 em `DECISOES.md`. Consequência: os commits desta sessão
+(incluindo este arquivo) estão **salvos localmente, mas ainda não chegaram no GitHub** —
+falta o Luan rodar `git push origin main` na própria tela dele para completar o login.
+
+**Também pendente por causa disso:** apagar o repositório temporário `contadoria-site` —
+precisa da mesma conta pessoal autenticada, então só depois que o Git for destravado.
+
+⚠️ O token do Netlify usado hoje foi colado no chat em vez de só no arquivo — funcionou, mas
+está marcado como exposto. Revogar e gerar outro (só pelo arquivo) depois de fechar o dia.
+
+---
+
 ## ➡️ Próxima tarefa
 
-**O sistema está pronto para receber cliente real.** Todo o plano original (Fases 1-11) e as
-propostas que faziam sentido hoje (F4, F6, F7) estão implementados, testados ao vivo e
-registrados. O banco está limpo dos dados de teste.
+**O sistema está pronto para receber cliente real e já está publicado no endereço
+definitivo.** Todo o plano original (Fases 1-11) e as propostas que faziam sentido hoje
+(F4, F6, F7) estão implementados, testados ao vivo e registrados. O banco está limpo dos
+dados de teste.
 
 Pendências que não são construção:
-- **Renovar o token do Netlify e publicar tudo de uma vez** (build + pdf + bump + publicar)
-  — bloqueio ativo, ver seção acima
-- **Apagar o repo `contadoria-site`** depois que o Netlify novo estiver no ar (é temporário;
+- **Rodar `git push origin main` na tela do Luan** (login da conta pessoal) — sem isso os
+  commits de hoje não chegam no GitHub, mesmo já publicados no Netlify
+- **Apagar o repo `contadoria-site`** assim que o Git acima for destravado (é temporário;
   links de formulário público gerados nele deixam de funcionar quando for apagado)
+- **Revogar o token do Netlify exposto no chat e gerar outro** só pelo arquivo
 - **Alguém olhar as telas** — a auditoria visual de 17/ago foi medida, não vista
 - **Rodar a simulação da Léia de verdade** — o Luan ainda não executou o roteiro
 - **F5 (recomendação como hipótese testável)** — deliberadamente adiada: "efeito medido" só
