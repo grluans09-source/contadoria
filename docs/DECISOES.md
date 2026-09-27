@@ -220,30 +220,36 @@ da conta — inclusive um já apagado (o crédito gasto por ele no ciclo não vo
 juntar várias mudanças num só `npm run publicar` estica o orçamento de deploys entre os
 projetos que dividem a conta. Documentado também em `scripts/publicar.mjs`.
 
-### E11 · Publicado no endereço definitivo (27/set) — e um segundo problema de conta achado no caminho 🆕
+### E11 · Publicado no endereço definitivo (27/set) — e a causa real do "Git preso na conta errada" 🆕
 **Publicado:** `contadoria-luan.netlify.app`, build v35, com tudo que faltava (identidade
 dourada, 5 correções de bugs, Roteiro, Memória). Confirmado ao vivo, não só pelo log do
 deploy: bundle certo carregado (`contadoria.js?v=35`), sem erro no console, e as variáveis
 de CSS `--accent`/`--gold` batendo com `#D4AF37` direto na página em produção.
-**Repositório `contadoria-site` (GitHub Pages, temporário) ainda não foi apagado** — ver
-abaixo, mesma causa do bloqueio de Git.
 
-**Achado no caminho:** o mesmo problema de "conta errada" que trava o Netlify (token) também
-trava o **Git**. O Gerenciador de Credenciais do Windows guardava a senha do GitHub com a
-conta de **trabalho** (`nba99926`), não a pessoal (`grluans09-source`, dona do repositório
-privado `contadoria`). Resultado: `git push`/`git fetch` falhavam com "Repository not
-found" — não porque o repo sumiu, mas porque a autenticação era da conta errada.
-**Correção:** `cmdkey /delete:LegacyGeneric:target=git:https://github.com` limpa a credencial
-errada; o próximo `git push` **precisa ser rodado pelo dono, na própria tela dele** — a
-ferramenta do assistente não tem janela interativa para completar o login OAuth que abre no
-navegador. Enquanto isso não roda, os commits ficam válidos e salvos **só localmente**, sem
-chegar no GitHub — regra derivada de E10: **duas contas Google/GitHub no mesmo Windows exige
-conferir qual delas está autenticada antes de assumir que "está no Git" significa "está no
-GitHub"**.
+**O Git também estava preso na conta errada — mas a causa não era a óbvia.** A primeira
+suspeita (Gerenciador de Credenciais do Windows guardando a senha da conta de trabalho,
+`nba99926`) foi limpa com `cmdkey /delete` e **não resolveu** — o `git push` continuou
+falhando com "Repository not found", sem nem abrir tela de login. **Causa real:** o
+`~/.gitconfig` global tinha uma regra específica —
+`credential.https://github.com.helper = !gh auth git-credential` — dizendo pro Git usar o
+login do **GitHub CLI** (`gh`) para `github.com`, em vez do fluxo normal. E o `gh` só tinha a
+conta de trabalho logada, usada **silenciosamente**, sem nunca perguntar nada. Corrigido
+removendo essa linha (`git config --global --unset-all credential.https://github.com.helper`);
+o próximo `git push`, rodado pelo dono na própria tela, abriu o login de verdade.
+**Regra derivada de E10:** duas contas Google/GitHub no mesmo Windows não é só uma questão de
+"qual senha está salva" — pode haver uma segunda camada (um credential helper customizado)
+decidindo por conta própria qual conta usar, sem avisar. Confira `git config --list
+--show-origin | grep helper` antes de assumir que apagar uma credencial resolve.
+
+**`contadoria-site` (GitHub Pages, temporário) apagado** — confirmado via `gh repo view`
+(não resolve mais o nome). Apagar um repositório exige, à parte do login normal, o escopo
+`delete_repo` (`gh auth refresh -h github.com -s delete_repo`) — o GitHub separa essa
+permissão do resto por segurança, mesmo com o usuário certo já logado.
+
 **Token colado no chat (27/set):** o token novo do Netlify foi colado direto na conversa em
 vez de só no arquivo, quebrando a regra de D3/E10. Foi usado para não travar a publicação do
 dia, mas fica marcado como **exposto** — revogar em `app.netlify.com/user/applications` e
-gerar outro só pelo arquivo assim que a publicação de hoje estiver fechada.
+gerar outro só pelo arquivo.
 
 ---
 

@@ -1008,17 +1008,23 @@ bugs corrigidos, Roteiro, Memória. Verificado ao vivo — bundle certo, console
 `--accent`/`--gold` = `#D4AF37` confirmado direto na página publicada, não só no código.
 Atalho do desktop (`Contadoria - Sistema.url`) trocado para este endereço definitivo.
 
-**Achado no caminho:** o Git deste computador também estava preso na conta errada (a de
-trabalho, `nba99926`, salva no Gerenciador de Credenciais do Windows, em vez da pessoal
-`grluans09-source`). Ver E11 em `DECISOES.md`. Consequência: os commits desta sessão
-(incluindo este arquivo) estão **salvos localmente, mas ainda não chegaram no GitHub** —
-falta o Luan rodar `git push origin main` na própria tela dele para completar o login.
+**Achado no caminho, e RESOLVIDO:** o Git deste computador também estava preso na conta
+errada. A causa real não era o Gerenciador de Credenciais do Windows (isso foi limpo e não
+resolveu sozinho) — era uma linha no `~/.gitconfig` global dizendo "para `github.com`, use
+o login do `gh` (GitHub CLI)" em vez do fluxo normal do Git, e o `gh` só tinha a conta de
+**trabalho** (`nba99926`) logada, usada silenciosamente sem nunca perguntar nada. Ver E11
+em `DECISOES.md`. Corrigido: removida a linha `credential.https://github.com.helper` do
+gitconfig; o Luan logou a conta pessoal tanto no Git (via navegador) quanto no `gh`
+(`gh auth login` + `gh auth refresh -s delete_repo`, este último exigido à parte pelo
+GitHub para qualquer ação de apagar repositório).
 
-**Também pendente por causa disso:** apagar o repositório temporário `contadoria-site` —
-precisa da mesma conta pessoal autenticada, então só depois que o Git for destravado.
+**Push confirmado:** `origin/main` bate exatamente com o commit local (`4c3ef1c`).
+**Repositório temporário `contadoria-site` apagado** do GitHub — confirmado
+(`gh repo view` não resolve mais o nome).
 
-⚠️ O token do Netlify usado hoje foi colado no chat em vez de só no arquivo — funcionou, mas
-está marcado como exposto. Revogar e gerar outro (só pelo arquivo) depois de fechar o dia.
+⚠️ **Ainda em aberto:** o token do Netlify usado hoje foi colado no chat em vez de só no
+arquivo — funcionou, mas está marcado como exposto. Revogar em
+`app.netlify.com/user/applications` e gerar outro só pelo arquivo.
 
 ---
 
@@ -1030,10 +1036,6 @@ definitivo.** Todo o plano original (Fases 1-11) e as propostas que faziam senti
 dados de teste.
 
 Pendências que não são construção:
-- **Rodar `git push origin main` na tela do Luan** (login da conta pessoal) — sem isso os
-  commits de hoje não chegam no GitHub, mesmo já publicados no Netlify
-- **Apagar o repo `contadoria-site`** assim que o Git acima for destravado (é temporário;
-  links de formulário público gerados nele deixam de funcionar quando for apagado)
 - **Revogar o token do Netlify exposto no chat e gerar outro** só pelo arquivo
 - **Alguém olhar as telas** — a auditoria visual de 17/ago foi medida, não vista
 - **Rodar a simulação da Léia de verdade** — o Luan ainda não executou o roteiro
