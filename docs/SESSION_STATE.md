@@ -1036,7 +1036,9 @@ definitivo.** Todo o plano original (Fases 1-11) e as propostas que faziam senti
 dados de teste.
 
 Pendências que não são construção:
-- **Revogar o token do Netlify exposto no chat e gerar outro** só pelo arquivo
+- **Revogar o token do Netlify exposto no chat e gerar outro** só pelo arquivo — **adiado a
+  pedido do Luan (27/set)**, não é urgente: o token continua funcionando normal, o risco é só
+  ele ter ficado registrado nesta conversa
 - **Alguém olhar as telas** — a auditoria visual de 17/ago foi medida, não vista
 - **Rodar a simulação da Léia de verdade** — o Luan ainda não executou o roteiro
 - **F5 (recomendação como hipótese testável)** — deliberadamente adiada: "efeito medido" só
