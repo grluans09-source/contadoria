@@ -1028,6 +1028,32 @@ arquivo — funcionou, mas está marcado como exposto. Revogar em
 
 ---
 
+## 📝 Melhorias PONTUADAS, ainda NÃO implementadas (decididas em 27/set e 7/out)
+
+**Regra do dono:** vamos pontuando melhorias e só implementamos no final, **numa publicação
+só** (E6 — os créditos do Netlify são da conta toda). Commits locais não custam nada; o que
+custa é `npm run publicar`. Nada abaixo foi construído ainda.
+
+1. **Exemplos dentro dos campos do Formulário Público** — placeholder com exemplo concreto nos
+   campos de texto livre (`src/telas/FormularioPublico.jsx`, `CampoResposta`; o texto do
+   exemplo deve vir do banco, por `roteiro_perguntas`, para continuar editável — C8). Motivo:
+   o cliente responde vago e o Luan teria de perguntar de novo, o que ele teme que soe como
+   incompetência.
+2. **Checklist de conferência das respostas do cliente** (tela nova, perto da aba Roteiro).
+   O Luan vê cada resposta e marca **certa** ou **errada**. **Regra decidida:** "Concluir
+   cadastro" só libera depois que TODAS estiverem marcadas como certas; as marcadas como
+   erradas ficam **"pendentes de análise"** até ele resolver. Exige tabela/coluna nova para
+   guardar a marca por resposta (migração) — e `destino` continua sendo o contrato (E7).
+3. **Painel inicial em abas** (hoje `src/telas/Negocios.jsx` é só uma grade de cards).
+   Proposta, aguardando o OK do Luan sobre as abas: **Visão Geral** (clientes ativos x cadastro
+   pendente; negócios com pendência do item 2; formulários enviados e não concluídos —
+   tabela `formularios.concluido_em`; meses em aberto; achados abertos somados; total
+   evitado F7 do mês), **Clientes** (a grade atual) e **Fiscal** (quem está perto do teto do
+   MEI; lembrete da reconferência anual de `parametros_fiscais`). O Luan pediu para eu
+   pensar em mais coisas nessa linha.
+
+---
+
 ## ➡️ Próxima tarefa
 
 **O sistema está pronto para receber cliente real e já está publicado no endereço
