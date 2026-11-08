@@ -1260,9 +1260,11 @@ Não são erros — são escolhas que, num projeto do zero, merecem ser **decidi
 
 Não presuma nenhuma resposta:
 
-1. **Nome e identidade.** O projeto continua se chamando Contadoria? A "cara nova e mais
-   refinada" mantém o ouro do ContLife (E8) ou é uma identidade própria? (Marca é território
-   do Fable.)
+1. ~~O projeto continua se chamando Contadoria?~~ **Respondida pelo dono (08/nov/2026): o app
+   continua se chamando Contadoria.** O repositório do projeto novo é
+   `grluans09-source/contadoria-oficial` (privado, na nuvem). **Ainda em aberto:** a "cara
+   nova e mais refinada" mantém o ouro do ContLife (E8) ou é uma identidade própria? (Marca é
+   território do Fable.)
 2. ~~O que aconteceu com o banco antigo?~~ **Respondida pelo dono (08/nov/2026): o que havia
    no banco não importa** — eram só dados de teste. Não há nada a recuperar; o projeto novo
    nasce com banco novo e vazio.

@@ -4,6 +4,17 @@ subtitulo: Como abrir o projeto do zero e o texto exato para colar na IA que vai
 versao: 1.0 — 08/nov/2026
 ---
 
+> ## ⚠️ Atualização de 08/nov/2026 — o projeto novo foi para a NUVEM
+>
+> Por decisão do dono, o projeto novo **não tem pasta neste computador**. Ele vive no
+> repositório privado **`grluans09-source/contadoria-oficial`**, que já nasceu com tudo: o
+> legado (`docs/00_LEGADO.md`), o comando da fase 0 adaptado para a nuvem
+> (`docs/01_COMANDO_FASE_0.md`), um `CLAUDE.md` que leva a IA direto até ele, e uma cópia só de
+> consulta do código antigo (`legado/contadoria/`).
+>
+> **Para começar:** abra uma sessão do Claude Code **na nuvem** com esse repositório, escolha o
+> **Opus** e escreva *"começa"*. Os passos abaixo (pasta local) ficaram só como registro.
+
 # 1 · Antes de colar o comando — 4 passos
 
 **Passo 1 — Crie a pasta do projeto novo FORA do OneDrive.**

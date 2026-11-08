@@ -265,6 +265,9 @@ em PDF.
 **Achado ao conferir:** a vigia do limite do MEI, a hora do dono e os `parametros_fiscais`
 existiam só no motor — nenhuma tela os usava, ao contrário do que docs anteriores davam a
 entender. Registrado no legado (§9.3, §15.3).
+**Decidido no mesmo dia pelo dono:** o app continua se chamando **Contadoria**; o conteúdo do
+banco antigo não importa (só dados de teste); e o projeto novo **vive só na nuvem**, no
+repositório privado `grluans09-source/contadoria-oficial`, sem pasta neste computador.
 
 ---
 

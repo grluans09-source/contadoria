@@ -1118,3 +1118,15 @@ real da "muita folha em branco" de agosto, que a correção daquela época não 
 - Lista numerada com 10+ itens quebrava o "10." em duas linhas; tabela deixava palavra longa
   atravessar a coluna vizinha; linha de código longa sobrepunha a de baixo. Corrigidos.
 - Todos os PDFs regenerados e **conferidos visualmente página por página**.
+
+**Mesmo dia, depois:**
+- O dono decidiu que **o conteúdo do banco antigo não importa** (só dados de teste) — não há
+  nada a recuperar do Supabase antigo.
+- **Nome decidido:** o app continua se chamando **Contadoria**.
+- **O projeto novo vive só na nuvem**, sem pasta neste computador: repositório privado
+  **`grluans09-source/contadoria-oficial`** (commit inicial `024a7a4`, 119 arquivos). Nasceu com
+  `CLAUDE.md` (leva a IA direto à fase 0), `docs/00_LEGADO.md`, `docs/01_COMANDO_FASE_0.md`
+  (o comando adaptado para a nuvem), `.gitignore` bloqueando segredos e backups, e
+  `legado/contadoria/` — cópia só de consulta do código antigo, exportada com `git archive`
+  (só arquivos rastreados; varredura de segredos limpa), porque a sessão na nuvem não enxerga
+  este computador. A pasta temporária usada para montar o repositório foi apagada.
