@@ -31,7 +31,13 @@ const DOCS = path.join(RAIZ, "docs");
 const SAIDA = path.join(RAIZ, "pdf");
 
 /* Documentos que viram PDF. Acrescentar aqui quando houver outro. */
-const DOCUMENTOS = ["09_PRINCIPIOS_DE_VALOR.md", "10_MANUAL_DE_OPERACAO.md", "11_GO_TO_MARKET.md"];
+const DOCUMENTOS = [
+  "09_PRINCIPIOS_DE_VALOR.md", "10_MANUAL_DE_OPERACAO.md", "11_GO_TO_MARKET.md",
+  /* 08/nov/2026: o legado completo e o comando de abertura do projeto
+     novo (refundação) — também saem em PDF, pela regra de os PDFs
+     estarem sempre atualizados. */
+  "LEGADO_CONTADORIA.md", "COMANDO_NOVO_PROJETO.md",
+];
 
 /* ── Paleta ──────────────────────────────────────────────────
    Capa escura (o momento de marca), miolo claro. Relatório que se lê
@@ -353,7 +359,11 @@ class Render {
     const runsFinais = italico
       ? runs.map((r) => ({ ...r, estilo: r.estilo === "bold" ? "bolditalic" : r.estilo === "normal" ? "italic" : r.estilo }))
       : runs;
-    const altura = this.alturaDeRuns(runsFinais, largura, 9.5, 14) + pad * 2;
+    /* A medida TEM de usar o mesmo tamanho do desenho (12/18, abaixo).
+       Medindo com 9,5/14 — sobra da tipografia antiga, de antes de
+       ago/2026 — a caixa saía mais curta que o texto e a última linha
+       escapava do fundo. */
+    const altura = this.alturaDeRuns(runsFinais, largura, 12, 18) + pad * 2;
 
     this.espaco(altura + 10);
     d.rect(MARGEM.esq, this.y, LARGURA_UTIL, altura).fill(fundo);
@@ -377,7 +387,9 @@ class Render {
 
   lista(itens, ordenada) {
     const d = this.doc;
-    const recuo = 15;
+    /* Lista numerada com 10+ itens precisa de recuo para dois dígitos —
+       com 15pt o "10." quebrava em "10" e "." em linhas separadas. */
+    const recuo = ordenada && itens.length >= 10 ? 21 : 15;
     itens.forEach((item, idx) => {
       const limpo = sanitizar(item);
       const caixa = limpo.match(/^\[([ x])\]\s*(.*)$/i);
@@ -385,7 +397,11 @@ class Render {
       const runs = partirInline(texto);
       if (!runs.length) return;
 
-      const altura = this.alturaDeRuns(runs, LARGURA_UTIL - recuo, 9.5, 13.5);
+      /* Mede com o MESMO tamanho do desenho (12/17,5). Com a medida
+         antiga (9,5/13,5) o item parecia caber, o marcador era desenhado
+         no pé da página e o texto pulava para a seguinte — bolinha órfã.
+         Reserva ao menos a primeira linha junto com o marcador. */
+      const altura = Math.min(this.alturaDeRuns(runs, LARGURA_UTIL - recuo, 12, 17.5), 17.5 * 2);
       this.espaco(altura);
 
       const yMarca = this.y;
@@ -393,7 +409,7 @@ class Render {
         d.rect(MARGEM.esq + 2, yMarca + 1.5, 7.5, 7.5).lineWidth(0.8).stroke(COR.ouro);
       } else if (ordenada) {
         d.font(FONTE.bold).fontSize(9.5).fillColor(COR.ouro);
-        d.text(`${idx + 1}.`, MARGEM.esq, yMarca, { width: recuo - 4, lineBreak: false });
+        d.text(`${idx + 1}.`, MARGEM.esq, yMarca, { width: recuo - 2, lineBreak: false });
       } else {
         d.circle(MARGEM.esq + 4, yMarca + 5, 1.7).fill(COR.ouro);
       }
@@ -418,6 +434,28 @@ class Render {
     });
     const soma = pesos.reduce((s, p) => s + p, 0);
     const larguras = pesos.map((p) => (p / soma) * LARGURA_UTIL);
+
+    /* Piso por coluna: a MAIOR PALAVRA dela tem de caber inteira (medida
+       em negrito, o caso mais largo). Só o peso por número de letras
+       deixava "Beneficiamento" e "Apresentação" atravessarem a coluna
+       vizinha. O que a coluna estreita ganha sai, proporcionalmente,
+       das colunas que têm folga. */
+    const pisos = cabecalho.map((_, c) => {
+      const palavras = [cabecalho[c], ...linhas.map((l) => l[c] || "")]
+        .flatMap((t) => sanitizar(t).replace(/[*`]/g, "").split(/\s+/));
+      d.font(FONTE.bold).fontSize(10);
+      return Math.max(...palavras.map((p) => d.widthOfString(p)), 0) + padCel * 2 + 2;
+    });
+    const falta = larguras.reduce((s, l, c) => s + Math.max(0, pisos[c] - l), 0);
+    if (falta > 0) {
+      const folgas = larguras.map((l, c) => Math.max(0, l - pisos[c]));
+      const somaFolga = folgas.reduce((s, f) => s + f, 0);
+      if (somaFolga > 0) {
+        larguras.forEach((l, c) => {
+          larguras[c] = l < pisos[c] ? pisos[c] : l - (folgas[c] / somaFolga) * falta;
+        });
+      }
+    }
 
     const alturaLinhaTabela = 15;
 
@@ -457,19 +495,48 @@ class Render {
     this.y += 10;
   }
 
-  codigo(linhas) {
+  /* Bloco de código que pode ser MAIOR QUE UMA PÁGINA (08/nov/2026).
+     A versão anterior desenhava o bloco inteiro de uma vez: quando ele
+     passava do fim da folha, cada linha excedente virava uma página
+     nova com UMA linha só (o comando do projeto novo saiu com ~40
+     folhas assim). Agora o bloco é fatiado no que cabe em cada página,
+     cada fatia com o próprio fundo. */
+  codigo(linhasBrutas) {
     const d = this.doc;
     const pad = 9;
-    const altura = linhas.length * 11 + pad * 2;
-    this.espaco(altura + 8);
-    d.rect(MARGEM.esq, this.y, LARGURA_UTIL, altura).fill("#F4F1EA");
-    this.y += pad;
-    d.font(FONTE.code).fontSize(8).fillColor(COR.tinta);
-    for (const l of linhas) {
-      d.text(sanitizar(l) || " ", MARGEM.esq + pad, this.y, { width: LARGURA_UTIL - pad * 2, lineBreak: false });
-      this.y += 11;
+    const alturaLinha = 11;
+    /* Linha mais larga que a caixa é quebrada em pedaços (a fonte é
+       monoespaçada, então basta contar caracteres). Sem isso, o texto
+       desenhado com lineBreak:false transbordava por cima da linha de
+       baixo. */
+    d.font(FONTE.code).fontSize(8);
+    const cabeNaLinha = Math.max(20, Math.floor((LARGURA_UTIL - pad * 2) / d.widthOfString("M")));
+    const linhas = linhasBrutas.flatMap((l) => {
+      const s = sanitizar(l);
+      if (s.length <= cabeNaLinha) return [l];
+      const pedacos = [];
+      for (let k = 0; k < s.length; k += cabeNaLinha) pedacos.push(s.slice(k, k + cabeNaLinha));
+      return pedacos;
+    });
+    let i = 0;
+    while (i < linhas.length) {
+      /* Garante espaço para pelo menos ~3 linhas antes de começar uma fatia. */
+      this.espaco(pad * 2 + alturaLinha * Math.min(3, linhas.length - i) + 8);
+      const cabem = Math.max(1, Math.floor((this.base - this.y - pad * 2 - 8) / alturaLinha));
+      const fatia = linhas.slice(i, i + cabem);
+      const altura = fatia.length * alturaLinha + pad * 2;
+      d.rect(MARGEM.esq, this.y, LARGURA_UTIL, altura).fill("#F4F1EA");
+      this.y += pad;
+      d.font(FONTE.code).fontSize(8).fillColor(COR.tinta);
+      for (const l of fatia) {
+        d.text(sanitizar(l) || " ", MARGEM.esq + pad, this.y, { width: LARGURA_UTIL - pad * 2, lineBreak: false });
+        this.y += alturaLinha;
+      }
+      this.y += pad;
+      i += fatia.length;
+      if (i < linhas.length) this.novaPagina();
     }
-    this.y += pad + 6;
+    this.y += 6;
   }
 
   regra() {
@@ -546,9 +613,18 @@ function gerar(arquivo) {
   const nomeSaida = arquivo.replace(/\.md$/, ".pdf");
   const alvo = path.join(SAIDA, nomeSaida);
 
+  /* MARGENS ZERO NO PDFKIT, DE PROPÓSITO (08/nov/2026)
+     Este gerador posiciona tudo com x/y explícitos e decide sozinho onde
+     quebrar a página (`Render.espaco`). Com margens no pdfkit, qualquer
+     texto desenhado abaixo da margem de baixo — o RODAPÉ, por exemplo —
+     fazia o pdfkit criar uma página nova por conta própria. Resultado,
+     descoberto só agora: cada página vinha com DUAS folhas fantasmas
+     (o Manual anunciava 25 páginas e tinha 73). Era a "muita folha em
+     branco" de agosto, cuja causa não tinha sido achada. As margens de
+     verdade continuam em MARGEM, aplicadas pelo próprio renderizador. */
   const doc = new PDFDocument({
     size: "A4",
-    margins: { top: MARGEM.topo, bottom: MARGEM.base, left: MARGEM.esq, right: MARGEM.dir },
+    margins: { top: 0, bottom: 0, left: 0, right: 0 },
     info: {
       Title: sanitizar(meta.titulo || arquivo),
       Author: "Contadoria",
@@ -559,6 +635,12 @@ function gerar(arquivo) {
 
   const fluxo = fs.createWriteStream(alvo);
   doc.pipe(fluxo);
+
+  /* Conta as páginas que o PDF REALMENTE tem, não as que o renderizador
+     acha que criou — foi essa diferença que escondeu as folhas
+     fantasmas por três meses. */
+  let paginasReais = 0;
+  doc.on("pageAdded", () => { paginasReais++; });
 
   doc.addPage();
   capa(doc, meta);
@@ -580,8 +662,16 @@ function gerar(arquivo) {
 
   doc.end();
 
+  /* Trava: capa + páginas do renderizador TEM de ser o total real. Se o
+     pdfkit criou página sozinho, algo foi desenhado fora da área útil —
+     falha alto em vez de sair um PDF com folha em branco. */
+  const esperadas = render.pagina + 1;
+  if (paginasReais !== esperadas) {
+    throw new Error(`${arquivo}: o PDF tem ${paginasReais} páginas, mas o renderizador criou ${esperadas} — há página criada fora do controle (texto abaixo da margem?).`);
+  }
+
   return new Promise((resolve, reject) => {
-    fluxo.on("finish", () => resolve({ alvo, paginas: render.pagina + 1 }));
+    fluxo.on("finish", () => resolve({ alvo, paginas: paginasReais }));
     fluxo.on("error", reject);
   });
 }

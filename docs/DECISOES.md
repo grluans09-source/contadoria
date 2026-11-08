@@ -251,6 +251,21 @@ vez de só no arquivo, quebrando a regra de D3/E10. Foi usado para não travar a
 dia, mas fica marcado como **exposto** — revogar em `app.netlify.com/user/applications` e
 gerar outro só pelo arquivo.
 
+### E12 · Refundação: o produto recomeça num projeto novo — **DECIDIDO** (08/nov/2026) 🆕
+**Decisão do dono:** criar um projeto novo, do zero, para o mesmo propósito, "com uma cara
+nova, mais refinado", que reaproveite, descarte, melhore e inove em cima deste. Este
+repositório vira **legado de leitura** — não recebe mais construção.
+**Contexto que pesou:** o banco Supabase deste projeto saiu do ar (endereço inexistente no DNS
+público em 08/nov; causa não confirmada) sem backup útil, e havia três melhorias decididas e
+não construídas (§16.2 do legado).
+**Entregue para a transição:** `docs/LEGADO_CONTADORIA.md` — o retrato completo, com o estado
+de cada peça **conferido contra o código** ([NO AR] / [SÓ NO MOTOR] / [SÓ NO PAPEL]) — e
+`docs/COMANDO_NOVO_PROJETO.md`, o texto para abrir a sessão do projeto novo. Os dois também
+em PDF.
+**Achado ao conferir:** a vigia do limite do MEI, a hora do dono e os `parametros_fiscais`
+existiam só no motor — nenhuma tela os usava, ao contrário do que docs anteriores davam a
+entender. Registrado no legado (§9.3, §15.3).
+
 ---
 
 # F · Decisões tomadas sob a lente (14/ago)

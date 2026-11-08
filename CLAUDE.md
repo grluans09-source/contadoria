@@ -1,5 +1,19 @@
 # Sistema para Pequenos Negócios — instruções permanentes
 
+> ## ⚠️ PROJETO CONGELADO COMO LEGADO — 08/nov/2026
+>
+> O dono decidiu **refundar** o produto num projeto novo, do zero (ver `docs/DECISOES.md`,
+> E12). Este repositório virou **fonte de leitura**: não construa nada novo aqui.
+>
+> - **O retrato completo e conferido contra o código** está em `docs/LEGADO_CONTADORIA.md`
+>   (e em `pdf/LEGADO_CONTADORIA.pdf`). Comece por ele.
+> - **O comando para abrir o projeto novo** está em `docs/COMANDO_NOVO_PROJETO.md`.
+> - O banco Supabase deste projeto está **fora do ar** desde, no máximo, 08/nov/2026.
+>
+> **O texto abaixo deste aviso é de 10-11/ago/2026 e está desatualizado** — ele ainda diz
+> "nada construído", e o sistema foi construído inteiro depois disso. As regras de trabalho
+> continuam boas; o retrato do projeto, não. Ver `LEGADO_CONTADORIA.md` §15.10.
+
 > **Este arquivo é carregado automaticamente em toda sessão.** É o único documento que você
 > lê sem ninguém pedir — por isso contém o mínimo indispensável e roteia para o resto.
 > Siga-o sem precisar de autorização.

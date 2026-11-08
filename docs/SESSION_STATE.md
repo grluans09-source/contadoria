@@ -1080,3 +1080,41 @@ Rotina, não tarefa:
 - Depois de qualquer mudança que valha em produção: `build && bump && publicar` — nenhum
   desses passos acontece sozinho, e cada `publicar` gasta ~15 dos 300 créditos do mês
   **compartilhados com o ContLife** (E6): junte mudanças, publique uma vez.
+
+---
+
+## 🔚 08/nov/2026 — Refundação decidida; o projeto vira legado
+
+**O que se descobriu antes:** o banco Supabase (`gmiiuklkhwjpcowvjbwz`) **não existe mais no
+DNS público** — testado no DNS da máquina, no 8.8.8.8 e no 1.1.1.1; outros endereços do
+Supabase resolviam normalmente. O site no Netlify continua respondendo, mas ninguém consegue
+entrar. O token de gerenciamento está inválido, então não deu para consultar o projeto: a causa
+(apagado ou pausado pelo plano gratuito) só o painel do Luan mostra. Não havia backup útil.
+
+**Decisão do Luan (E12):** começar um projeto novo, do zero, para o mesmo propósito, com cara
+nova e mais refinado. Este repositório passa a ser só leitura.
+
+**Entregue:**
+- `docs/LEGADO_CONTADORIA.md` (+ PDF, 49 páginas) — o retrato completo: produto, mercado,
+  preço, ofício, os 8 arquétipos, as regras de cálculo exatas, modelo de dados, segurança,
+  arquitetura, identidade, infraestrutura, 14 lições de erro e o mapa
+  manter/melhorar/refazer/descartar/inovar. **Cada peça teve o estado conferido contra o
+  código**, não copiado dos docs — e isso revelou que a vigia do limite do MEI, a hora do dono
+  e os `parametros_fiscais` nunca chegaram a nenhuma tela.
+- `docs/COMANDO_NOVO_PROJETO.md` (+ PDF) — passo a passo para abrir o projeto novo e o texto
+  exato para colar na IA (fase 0: entender, criticar, mapear, perguntar, propor; sem código).
+- `CLAUDE.md` ganhou um aviso no topo: projeto congelado, e o texto antigo está desatualizado.
+
+**Bug antigo achado e corrigido no gerador de PDF** (`scripts/gerar-pdf.mjs`) — era a causa
+real da "muita folha em branco" de agosto, que a correção daquela época não tinha pegado:
+- O rodapé era desenhado abaixo da margem do pdfkit, que criava **duas folhas fantasmas por
+  página**. O Manual anunciava 25 páginas e tinha 73; os Princípios, 8 e 22. O contador do
+  script só contava as páginas dele, por isso nunca acusou. Corrigido com margens zero no
+  pdfkit (o renderizador já controla tudo) e uma **trava** que compara as páginas reais com as
+  esperadas e falha alto se divergirem — sabotada de propósito para provar que sabe falhar.
+- Bloco de código maior que uma página saía com uma linha por folha — agora é fatiado.
+- Caixas de citação e listas mediam com a fonte antiga (9,5) e desenhavam com a nova (12):
+  texto escapando da caixa e marcador órfão no pé da página. Medida e desenho unificados.
+- Lista numerada com 10+ itens quebrava o "10." em duas linhas; tabela deixava palavra longa
+  atravessar a coluna vizinha; linha de código longa sobrepunha a de baixo. Corrigidos.
+- Todos os PDFs regenerados e **conferidos visualmente página por página**.
