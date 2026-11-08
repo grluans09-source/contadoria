@@ -1059,7 +1059,8 @@ em três servidores; outros endereços do Supabase funcionavam). O site continua
 mostrando a tela de login — sem ninguém conseguir entrar. **Não havia backup útil:** a rotina
 era "a partir do primeiro cliente". O token de gerenciamento também estava inválido, então
 nem dava para consultar o projeto. **A causa exata não foi confirmada** (projeto apagado ou
-pausado pelo plano gratuito — só o painel do dono mostra). **Lições:** plano gratuito tem
+pausado pelo plano gratuito) — e não precisa: o dono decidiu que **o conteúdo não importava**,
+eram só dados de teste. **Lições** (que valem em dobro quando houver cliente de verdade): plano gratuito tem
 regra de inatividade — prever monitoramento, manter o projeto ativo ou pagar; **backup
 automático desde o dia 1**, guardado em lugar que o dono controle; um "estado do sistema"
 que avise quando algo morre.
@@ -1262,7 +1263,9 @@ Não presuma nenhuma resposta:
 1. **Nome e identidade.** O projeto continua se chamando Contadoria? A "cara nova e mais
    refinada" mantém o ouro do ContLife (E8) ou é uma identidade própria? (Marca é território
    do Fable.)
-2. **O que aconteceu com o banco antigo** — apagado ou pausado? Há algo a recuperar?
+2. ~~O que aconteceu com o banco antigo?~~ **Respondida pelo dono (08/nov/2026): o que havia
+   no banco não importa** — eram só dados de teste. Não há nada a recuperar; o projeto novo
+   nasce com banco novo e vazio.
 3. **Já existe algum cliente ou prospecto real** para guiar a primeira versão?
 4. **Qual é a primeira versão mínima** que permite atender o primeiro cliente — e o que pode
    esperar?
